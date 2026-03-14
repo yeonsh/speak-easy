@@ -110,20 +110,8 @@ pub fn start_llm_server(
     let port = find_available_port()?;
     let n_gpu = gpu_layers.unwrap_or(-1);
 
-    // Resolve sidecar binary path
-    let sidecar_path = app
-        .path()
-        .resource_dir()
-        .map_err(|e| e.to_string())?
-        .join("binaries")
-        .join(llama_server_binary_name());
-
-    // Fall back to PATH if sidecar not bundled
-    let program = if sidecar_path.exists() {
-        sidecar_path.to_string_lossy().to_string()
-    } else {
-        "llama-server".to_string()
-    };
+    // Resolve llama-server: ~/.speakeasy/bin/ → bundled sidecar → PATH
+    let program = resolve_llama_server(&app)?;
 
     let mut child = Command::new(&program)
         .args([
@@ -186,6 +174,38 @@ fn llama_server_binary_name() -> &'static str {
     } else {
         "llama-server"
     }
+}
+
+fn resolve_llama_server(app: &AppHandle) -> Result<String, String> {
+    // 1. Check ~/.speakeasy/bin/
+    if let Some(home) = dirs::home_dir() {
+        let bin = home
+            .join(".speakeasy")
+            .join("bin")
+            .join(llama_server_binary_name());
+        if bin.exists() {
+            return Ok(bin.to_string_lossy().to_string());
+        }
+    }
+
+    // 2. Check bundled sidecar
+    if let Ok(res_dir) = app.path().resource_dir() {
+        let sidecar = res_dir.join("binaries").join(llama_server_binary_name());
+        if sidecar.exists() {
+            return Ok(sidecar.to_string_lossy().to_string());
+        }
+    }
+
+    // 3. Fall back to PATH
+    let output = std::process::Command::new("which")
+        .arg("llama-server")
+        .output()
+        .map_err(|e| e.to_string())?;
+    if output.status.success() {
+        return Ok(String::from_utf8_lossy(&output.stdout).trim().to_string());
+    }
+
+    Err("llama-server not found. Download it from the setup wizard or install llama.cpp.".to_string())
 }
 
 fn num_cpus() -> usize {

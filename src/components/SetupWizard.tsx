@@ -154,6 +154,8 @@ export function SetupWizard({ onComplete }: SetupWizardProps) {
       component: (
         <LlmStep
           status={status}
+          downloads={downloads}
+          onDownload={startDownload}
           onOpenFolder={openFolder}
           onRefresh={checkStatus}
           onNext={() => setStep(3)}
@@ -336,37 +338,118 @@ function WhisperStep({
 
 function LlmStep({
   status,
+  downloads,
+  onDownload,
   onOpenFolder,
   onRefresh,
   onNext,
   onBack,
 }: {
   status: SetupStatus;
+  downloads: Record<string, DownloadState>;
+  onDownload: (m: ModelInfo) => void;
   onOpenFolder: () => void;
   onRefresh: () => void;
   onNext: () => void;
   onBack: () => void;
 }) {
+  const [serverInfo, setServerInfo] = useState<ModelInfo | null>(null);
+  const [extracting, setExtracting] = useState(false);
+  const [extractError, setExtractError] = useState<string | null>(null);
+
+  const serverDl = downloads["llama-server"];
+
+  useEffect(() => {
+    if (!status.has_llama_server) {
+      invoke<ModelInfo>("get_llama_server_info")
+        .then(setServerInfo)
+        .catch(() => {});
+    }
+  }, [status.has_llama_server]);
+
+  // Auto-extract after download completes
+  useEffect(() => {
+    if (serverDl?.complete && !extracting) {
+      setExtracting(true);
+      setExtractError(null);
+      invoke("extract_llama_server")
+        .then(() => {
+          setExtracting(false);
+          onRefresh();
+        })
+        .catch((e) => {
+          setExtracting(false);
+          setExtractError(String(e));
+        });
+    }
+  }, [serverDl?.complete, extracting, onRefresh]);
+
   return (
     <div className="max-w-lg mx-auto space-y-6">
       <div>
         <h2 className="text-xl font-bold mb-1">Language Model</h2>
         <p className="text-sm text-[var(--text-secondary)]">
-          The LLM powers conversations. Place a GGUF model file in the models
-          folder and ensure <code className="bg-[var(--bg-elevated)] px-1.5 py-0.5 rounded text-xs">llama-server</code> is on your PATH.
+          The LLM engine and a model file are needed for conversations.
         </p>
       </div>
 
       <div className="space-y-3">
-        <StatusItem
-          label="llama-server"
-          ok={status.has_llama_server}
-          hint={
-            status.has_llama_server
-              ? "Found on PATH"
-              : "Install llama.cpp: brew install llama.cpp"
-          }
-        />
+        {/* llama-server status / download */}
+        <div className="p-4 rounded-lg bg-[var(--bg-elevated)] border border-[var(--border)]">
+          <div className="flex items-center gap-3 mb-1">
+            <span className={`w-3 h-3 rounded-full flex-shrink-0 ${status.has_llama_server ? "bg-green-400" : "bg-yellow-400"}`} />
+            <span className="font-medium text-sm">llama-server</span>
+          </div>
+
+          {status.has_llama_server ? (
+            <p className="text-xs text-green-400 ml-6">Installed</p>
+          ) : (
+            <>
+              <p className="text-xs text-[var(--text-secondary)] ml-6 mb-2">
+                LLM inference engine — required for chat
+              </p>
+
+              {serverDl?.downloading && (
+                <div className="ml-6 mt-2">
+                  <div className="w-full h-2 bg-[var(--bg-main)] rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-[var(--primary)] transition-all duration-300"
+                      style={{
+                        width: `${serverDl.total ? (serverDl.progress / serverDl.total) * 100 : 0}%`,
+                      }}
+                    />
+                  </div>
+                  <span className="text-xs text-[var(--text-secondary)] mt-1">
+                    {formatBytes(serverDl.progress)} / {formatBytes(serverDl.total ?? 0)}
+                  </span>
+                </div>
+              )}
+
+              {extracting && (
+                <p className="text-xs text-yellow-400 ml-6 mt-1">Extracting...</p>
+              )}
+
+              {extractError && (
+                <p className="text-xs text-red-400 ml-6 mt-1">{extractError}</p>
+              )}
+
+              {serverDl?.error && (
+                <p className="text-xs text-red-400 ml-6 mt-1">{serverDl.error}</p>
+              )}
+
+              {!serverDl?.downloading && !serverDl?.complete && !extracting && serverInfo && (
+                <button
+                  onClick={() => onDownload(serverInfo)}
+                  className="ml-6 mt-2 px-4 py-1.5 text-xs bg-[var(--primary)] text-white rounded hover:bg-[var(--primary-hover)] transition-colors"
+                >
+                  Download ({formatBytes(serverInfo.size_bytes)})
+                </button>
+              )}
+            </>
+          )}
+        </div>
+
+        {/* GGUF model status */}
         <StatusItem
           label="GGUF model"
           ok={status.has_llm}

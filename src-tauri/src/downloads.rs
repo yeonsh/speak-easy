@@ -230,12 +230,169 @@ pub struct SetupStatus {
     pub voices_dir: String,
 }
 
+fn bin_dir() -> Result<PathBuf, String> {
+    let dir = dirs::home_dir()
+        .ok_or("Could not find home directory")?
+        .join(".speakeasy")
+        .join("bin");
+    fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    Ok(dir)
+}
+
 fn which_llama_server() -> bool {
+    // Check ~/.speakeasy/bin/ first
+    if let Ok(dir) = bin_dir() {
+        let bin = dir.join(llama_binary_name());
+        if bin.exists() {
+            return true;
+        }
+    }
+    // Fall back to PATH
     std::process::Command::new("which")
         .arg("llama-server")
         .output()
         .map(|o| o.status.success())
         .unwrap_or(false)
+}
+
+fn llama_binary_name() -> &'static str {
+    if cfg!(target_os = "windows") {
+        "llama-server.exe"
+    } else {
+        "llama-server"
+    }
+}
+
+/// Returns the URL for the llama-server binary matching the current platform.
+/// Uses the official llama.cpp GitHub releases.
+#[tauri::command]
+pub fn get_llama_server_info() -> Result<ModelInfo, String> {
+    let (os, arch) = (std::env::consts::OS, std::env::consts::ARCH);
+
+    // llama.cpp release artifact naming: llama-<tag>-bin-<platform>-<arch>.zip
+    // We point to a known stable release
+    let release_tag = "b5050";
+    let base = format!(
+        "https://github.com/ggml-org/llama.cpp/releases/download/{}",
+        release_tag
+    );
+
+    let (artifact, size_est) = match (os, arch) {
+        ("macos", "aarch64") => (
+            format!("llama-{}-bin-macos-arm64.zip", release_tag),
+            45_000_000u64,
+        ),
+        ("macos", "x86_64") => (
+            format!("llama-{}-bin-macos-x64.zip", release_tag),
+            42_000_000,
+        ),
+        ("linux", "x86_64") => (
+            format!("llama-{}-bin-ubuntu-x64.zip", release_tag),
+            50_000_000,
+        ),
+        ("windows", "x86_64") => (
+            format!("llama-{}-bin-win-avx2-x64.zip", release_tag),
+            55_000_000,
+        ),
+        _ => return Err(format!("Unsupported platform: {}-{}", os, arch)),
+    };
+
+    Ok(ModelInfo {
+        id: "llama-server".to_string(),
+        name: format!("llama-server ({}-{})", os, arch),
+        size_bytes: size_est,
+        url: format!("{}/{}", base, artifact),
+        dest_dir: "bin".to_string(),
+        filename: artifact,
+    })
+}
+
+/// After downloading the zip, extract llama-server binary from it
+#[tauri::command]
+pub fn extract_llama_server() -> Result<(), String> {
+    let dir = bin_dir()?;
+
+    // Find the zip file
+    let zip_path = fs::read_dir(&dir)
+        .map_err(|e| e.to_string())?
+        .flatten()
+        .find(|e| {
+            e.path()
+                .extension()
+                .is_some_and(|ext| ext == "zip")
+        })
+        .map(|e| e.path())
+        .ok_or("No zip file found in bin directory")?;
+
+    // Extract using system unzip
+    let output = std::process::Command::new("unzip")
+        .args(["-o", "-j"])
+        .arg(&zip_path)
+        .arg(format!("*/{}", llama_binary_name()))
+        .arg("-d")
+        .arg(dir.to_str().unwrap())
+        .output()
+        .map_err(|e| format!("Failed to run unzip: {}", e))?;
+
+    if !output.status.success() {
+        // Try extracting without wildcard prefix (flat zip)
+        let output2 = std::process::Command::new("unzip")
+            .args(["-o", "-j"])
+            .arg(&zip_path)
+            .arg(llama_binary_name())
+            .arg("-d")
+            .arg(dir.to_str().unwrap())
+            .output()
+            .map_err(|e| format!("Failed to run unzip: {}", e))?;
+
+        if !output2.status.success() {
+            return Err(format!(
+                "Failed to extract llama-server from zip: {}",
+                String::from_utf8_lossy(&output2.stderr)
+            ));
+        }
+    }
+
+    // Make executable on Unix
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let bin_path = dir.join(llama_binary_name());
+        if bin_path.exists() {
+            let mut perms = fs::metadata(&bin_path)
+                .map_err(|e| e.to_string())?
+                .permissions();
+            perms.set_mode(0o755);
+            fs::set_permissions(&bin_path, perms).map_err(|e| e.to_string())?;
+        }
+    }
+
+    // Clean up zip
+    let _ = fs::remove_file(&zip_path);
+
+    Ok(())
+}
+
+/// Get the resolved path to llama-server (bin dir or PATH)
+#[tauri::command]
+pub fn get_llama_server_path() -> Result<String, String> {
+    // Check ~/.speakeasy/bin/ first
+    if let Ok(dir) = bin_dir() {
+        let bin = dir.join(llama_binary_name());
+        if bin.exists() {
+            return Ok(bin.to_string_lossy().to_string());
+        }
+    }
+    // Fall back to PATH
+    let output = std::process::Command::new("which")
+        .arg("llama-server")
+        .output()
+        .map_err(|e| e.to_string())?;
+    if output.status.success() {
+        Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+    } else {
+        Err("llama-server not found".to_string())
+    }
 }
 
 #[tauri::command]

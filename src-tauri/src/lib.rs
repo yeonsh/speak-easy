@@ -73,6 +73,9 @@ pub fn run() {
             downloads::download_file,
             downloads::delete_model,
             downloads::open_models_folder,
+            downloads::get_llama_server_info,
+            downloads::extract_llama_server,
+            downloads::get_llama_server_path,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
