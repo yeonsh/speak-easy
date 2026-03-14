@@ -60,8 +60,8 @@ impl SentenceBuffer {
             return Some(sentence);
         }
 
-        // Force flush if buffer exceeds max length
-        if self.buffer.len() >= self.max_len {
+        // Force flush if buffer exceeds max length (char count for CJK correctness)
+        if self.buffer.chars().count() >= self.max_len {
             return Some(self.flush());
         }
 
@@ -196,6 +196,7 @@ pub fn send_chat_message(
                     None => break,
                 };
 
+                // Check cancel flag (before and after empty-check to minimize wasted synthesis)
                 if tts_cancel.load(Ordering::Relaxed) {
                     // Drain remaining messages without synthesizing
                     // Must break on None sentinel to avoid deadlock (SSE thread holds sender)
@@ -211,18 +212,6 @@ pub fn send_chat_message(
 
                 if sentence.trim().is_empty() {
                     continue;
-                }
-
-                // Check cancel before synthesis (avoid synthesizing after cancel)
-                if tts_cancel.load(Ordering::Relaxed) {
-                    loop {
-                        match sentence_rx.recv() {
-                            Ok(Some(_)) => {}
-                            _ => break,
-                        }
-                    }
-                    let _ = tts_app.emit(&tts_stop, true);
-                    return;
                 }
 
                 // Synthesize this sentence
@@ -366,6 +355,7 @@ pub fn send_chat_message(
                                             done: true,
                                         },
                                     );
+                                    break;
                                 }
                             }
                         }

@@ -17,7 +17,6 @@ interface UseLlmReturn {
   ) => Promise<string>;  // returns requestId
   streamingText: string;
   isGenerating: boolean;
-  currentRequestId: string | null;
   onComplete: React.MutableRefObject<((fullText: string) => void) | null>;
 }
 
@@ -142,7 +141,6 @@ export function useLlm(): UseLlmReturn {
     sendMessage,
     streamingText,
     isGenerating,
-    currentRequestId: currentRequestIdRef.current,
     onComplete,
   };
 }
