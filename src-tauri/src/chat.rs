@@ -477,6 +477,7 @@ pub async fn explain_message(
     state: tauri::State<'_, LlmState>,
     text: String,
     language: String,
+    native_language: Option<String>,
 ) -> Result<String, String> {
     let port = *state.port.lock().unwrap();
     if port == 0 {
@@ -485,11 +486,16 @@ pub async fn explain_message(
 
     let url = format!("http://127.0.0.1:{}/v1/chat/completions", port);
 
+    let native_lang = match native_language.as_deref() {
+        Some("en") => "English",
+        _ => "Korean (한국어)",
+    };
+
     let system_prompt = format!(
-        "Translate the following {} sentence into Korean (한국어). \
-         Return ONLY the Korean translation, nothing else. \
+        "Translate the following {} sentence into {}. \
+         Return ONLY the {} translation, nothing else. \
          No explanations, no original text, no formatting.",
-        language
+        language, native_lang, native_lang
     );
 
     let body = serde_json::json!({
@@ -543,6 +549,7 @@ pub async fn suggest_responses(
     state: tauri::State<'_, LlmState>,
     text: String,
     language: String,
+    native_language: Option<String>,
 ) -> Result<String, String> {
     let port = *state.port.lock().unwrap();
     if port == 0 {
@@ -551,15 +558,22 @@ pub async fn suggest_responses(
 
     let url = format!("http://127.0.0.1:{}/v1/chat/completions", port);
 
+    let (native_lang, native_label) = match native_language.as_deref() {
+        Some("en") => ("English", "English"),
+        _ => ("Korean", "한국어"),
+    };
+
     let system_prompt = format!(
         "The user is practicing {}. Given the following sentence from a conversation partner, \
          suggest 2 natural sample responses that the learner could say back. \
-         For each response, show the {} text first, then the Korean (한국어) translation on the next line. \
+         For each response, show the {} text first, then the {} translation on the next line. \
          Use this exact format:\n\
-         1. [response in {}]\n(한국어: [Korean translation])\n\n\
-         2. [response in {}]\n(한국어: [Korean translation])\n\n\
+         1. [response in {}]\n({}: [{} translation])\n\n\
+         2. [response in {}]\n({}: [{} translation])\n\n\
          Keep responses concise and natural for an intermediate learner. Do NOT add any other explanation.",
-        language, language, language, language
+        language, language, native_lang,
+        language, native_label, native_lang,
+        language, native_label, native_lang
     );
 
     let body = serde_json::json!({

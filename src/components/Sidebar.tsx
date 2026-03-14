@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import type { AppSettings, Language } from "../lib/types";
+import type { AppSettings, Language, NativeLanguage } from "../lib/types";
 
 // Voice name prefix → language mapping
 const VOICE_LANG_PREFIX: Record<string, { lang: Language; label: string }> = {
@@ -81,6 +81,22 @@ export function Sidebar({
         </div>
 
         <div className="space-y-6">
+          <SettingGroup label="Native Language">
+            <select
+              value={settings.nativeLanguage}
+              onChange={(e) =>
+                onSettingsChange({
+                  ...settings,
+                  nativeLanguage: e.target.value as NativeLanguage,
+                })
+              }
+              className="w-full bg-[var(--bg-elevated)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm"
+            >
+              <option value="ko">한국어 (Korean)</option>
+              <option value="en">English</option>
+            </select>
+          </SettingGroup>
+
           <SettingGroup label="LLM Temperature">
             <input
               type="range"

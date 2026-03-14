@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import Markdown from "react-markdown";
 import type { Language, Message } from "../lib/types";
 import { LANGUAGE_CONFIG } from "../lib/types";
+import type { ScenarioStarter } from "../lib/prompts";
 
 const EMPTY_HINTS: Record<Language, string> = {
   en: "Say \"Hello\" to start a conversation",
@@ -17,6 +18,8 @@ interface ChatViewProps {
   revealedText?: string;
   isStreamingTts?: boolean;
   language?: Language;
+  scenarios?: ScenarioStarter[];
+  onScenarioSelect?: (scenario: ScenarioStarter) => void;
   onReplay?: (text: string) => void;
   onExplain?: (msgId: string, text: string) => Promise<string>;
   onSuggest?: (msgId: string, text: string) => Promise<string>;
@@ -30,6 +33,8 @@ export function ChatView({
   revealedText,
   isStreamingTts,
   language,
+  scenarios,
+  onScenarioSelect,
   onReplay,
   onExplain,
   onSuggest,
@@ -50,7 +55,23 @@ export function ChatView({
       ref={scrollRef}
       className="flex-1 overflow-y-auto px-4 py-6 space-y-4"
     >
-      {messages.length === 0 && !streamingText && (
+      {messages.length === 0 && !streamingText && scenarios && scenarios.length > 0 && onScenarioSelect ? (
+        <div className="flex flex-col h-full">
+          <p className="text-sm text-[var(--text-secondary)] mb-3 text-center">Choose a scenario to practice</p>
+          <div className="flex-1 overflow-y-auto space-y-2">
+            {scenarios.map((s, i) => (
+              <button
+                key={i}
+                onClick={() => onScenarioSelect(s)}
+                className="w-full text-left px-4 py-3 rounded-xl bg-[var(--bg-surface)] border border-[var(--border)] hover:border-[var(--primary)] hover:bg-[var(--bg-elevated)] transition-colors"
+              >
+                <p className="text-sm text-[var(--text-primary)]">{s.description}</p>
+                <p className="text-xs text-[var(--text-secondary)] mt-1 truncate">{s.opening}</p>
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : messages.length === 0 && !streamingText ? (
         <div className="flex flex-col items-center justify-center h-full text-[var(--text-secondary)]">
           <svg
             width="64"
@@ -72,7 +93,7 @@ export function ChatView({
             </p>
           )}
         </div>
-      )}
+      ) : null}
 
       {messages.map((msg) => msg.role === "system" ? (
         <div key={msg.id} className="flex justify-center">

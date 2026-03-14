@@ -7,11 +7,12 @@ Supports **English, Spanish, French, Chinese, and Japanese** with two practice m
 ## Features
 
 - **Free Talk** — open conversation practice in the target language
-- **Scenario Mode** — 20 real-world situations per language (cafe, hotel, dentist, etc.) with Korean descriptions
-- **Corrections Toggle** — enable in either mode to get grammar/meaning feedback in Korean
+- **Scenario Mode** — 20 real-world situations per language (cafe, hotel, dentist, etc.) with scenario picker
+- **Native Language** — choose Korean or English as your native language; all UI hints, corrections, translations, and scenario descriptions adapt accordingly
+- **Corrections Toggle** — enable in either mode to get grammar/meaning feedback in your native language
 - **Replay** — re-listen to any message (yours or the assistant's) via TTS
-- **Translate** — one-tap Korean translation of assistant messages
-- **Sample Responses** — get 2 suggested replies with Korean translations
+- **Translate** — one-tap translation of assistant messages into your native language
+- **Sample Responses** — get 2 suggested replies with native language translations
 - **Streaming TTS** — sentence-by-sentence audio with natural pauses between sentences
 - **Per-language chat history** — conversations saved separately per language and mode
 - **Japanese/Chinese support** — MeCab-based kanji-to-kana conversion, CJK punctuation handling

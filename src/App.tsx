@@ -130,13 +130,6 @@ function App() {
       const saved = messagesByLangRef.current[newKey];
       if (saved && saved.length > 0) {
         setMessages(saved);
-      } else if (s.mode === "scenario" && llm.isServerRunning) {
-        const starters = getScenarioStarters(lang);
-        const starter = starters[Math.floor(Math.random() * starters.length)];
-        setMessages([
-          { id: crypto.randomUUID(), role: "system", content: starter.description, timestamp: Date.now() },
-          { id: crypto.randomUUID(), role: "assistant", content: starter.opening, timestamp: Date.now() },
-        ]);
       } else {
         setMessages([]);
       }
@@ -144,7 +137,7 @@ function App() {
       return { ...s, language: lang };
     });
     tts.stop();
-  }, [tts, messages, llm.isServerRunning]);
+  }, [tts, messages]);
 
   const handleModeChange = useCallback((mode: ConversationMode) => {
     setSettings((s) => {
@@ -157,24 +150,27 @@ function App() {
       const saved = messagesByLangRef.current[newKey];
       if (saved && saved.length > 0) {
         setMessages(saved);
-      } else if (mode === "scenario" && llm.isServerRunning) {
-        const starters = getScenarioStarters(s.language);
-        const starter = starters[Math.floor(Math.random() * starters.length)];
-        setMessages([
-          { id: crypto.randomUUID(), role: "system", content: starter.description, timestamp: Date.now() },
-          { id: crypto.randomUUID(), role: "assistant", content: starter.opening, timestamp: Date.now() },
-        ]);
       } else {
         setMessages([]);
       }
 
       return { ...s, mode };
     });
-  }, [llm.isServerRunning, messages]);
+  }, [messages]);
 
   const handleClearChat = useCallback(() => {
     setMessages([]);
   }, []);
+
+  const handleScenarioSelect = useCallback((scenario: { description: string; opening: string }) => {
+    setMessages([
+      { id: crypto.randomUUID(), role: "system", content: scenario.description, timestamp: Date.now() },
+      { id: crypto.randomUUID(), role: "assistant", content: scenario.opening, timestamp: Date.now() },
+    ]);
+    if (tts.isLoaded) {
+      tts.speak(scenario.opening, settings.ttsSpeed, settings.language);
+    }
+  }, [tts, settings.ttsSpeed, settings.language]);
 
   const sendToLlm = useCallback(
     async (userText: string) => {
@@ -212,7 +208,7 @@ function App() {
       isStreamingTtsRef.current = false;
       pendingFullTextRef.current = null;
 
-      const systemPrompt = getSystemPrompt(settings.language, settings.mode, settings.correctionsEnabled);
+      const systemPrompt = getSystemPrompt(settings.language, settings.mode, settings.correctionsEnabled, settings.nativeLanguage);
       const allMessages = [
         { role: "system", content: systemPrompt },
         ...messages.filter((m) => m.role !== "system").map((m) => ({ role: m.role, content: m.content })),
@@ -329,6 +325,8 @@ function App() {
           revealedText={revealedSentences.join(" ")}
           isStreamingTts={isStreamingTts}
           language={settings.language}
+          scenarios={settings.mode === "scenario" ? getScenarioStarters(settings.language, settings.nativeLanguage) : undefined}
+          onScenarioSelect={handleScenarioSelect}
           onReplay={(text) => {
             if (tts.isLoaded) {
               tts.speak(text, settings.ttsSpeed, settings.language);
@@ -338,6 +336,7 @@ function App() {
             const result = await invoke<string>("explain_message", {
               text,
               language: settings.language,
+              nativeLanguage: settings.nativeLanguage,
             });
             setExplanations((prev) => ({ ...prev, [msgId]: result }));
             return result;
@@ -346,6 +345,7 @@ function App() {
             const result = await invoke<string>("suggest_responses", {
               text,
               language: settings.language,
+              nativeLanguage: settings.nativeLanguage,
             });
             setSuggestions((prev) => ({ ...prev, [msgId]: result }));
             return result;

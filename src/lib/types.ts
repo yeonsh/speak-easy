@@ -1,5 +1,7 @@
 export type Language = "en" | "es" | "fr" | "zh" | "ja";
 
+export type NativeLanguage = "en" | "ko";
+
 export type ConversationMode = "free-talk" | "scenario";
 
 export interface Message {
@@ -18,6 +20,7 @@ export interface Correction {
 
 export interface AppSettings {
   language: Language;
+  nativeLanguage: NativeLanguage;
   mode: ConversationMode;
   correctionsEnabled: boolean;
   llmTemperature: number;
@@ -40,6 +43,7 @@ export const LANGUAGE_CONFIG: Record<
 
 export const DEFAULT_SETTINGS: AppSettings = {
   language: "en",
+  nativeLanguage: "ko",
   mode: "free-talk",
   correctionsEnabled: false,
   llmTemperature: 0.7,
