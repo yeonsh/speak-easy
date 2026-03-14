@@ -239,12 +239,8 @@ pub fn list_voices() -> Result<Vec<String>, String> {
     Ok(names)
 }
 
-#[tauri::command]
-pub fn synthesize_speech(
-    state: tauri::State<'_, TtsState>,
-    text: String,
-    speed: Option<f32>,
-) -> Result<TtsResult, String> {
+/// Core synthesis function callable from any thread with access to TtsState.
+pub fn synthesize_text(state: &TtsState, text: &str, speed: f32) -> Result<TtsResult, String> {
     let mut session_guard = state.session.lock().unwrap();
     let session = session_guard
         .as_mut()
@@ -255,14 +251,11 @@ pub fn synthesize_speech(
         .as_ref()
         .ok_or("No voice selected.")?;
 
-    let speed = speed.unwrap_or(1.0);
     let vocab = kokoro_vocab();
 
-    // Phonemize text using espeak-ng
-    let phonemes = espeak_phonemize(&text);
+    let phonemes = espeak_phonemize(text);
     eprintln!("[tts] Phonemes: {}", phonemes);
 
-    // Convert phonemes to token IDs
     let mut tokens: Vec<i64> = Vec::new();
     for ch in phonemes.chars() {
         let key = ch.to_string();
@@ -278,12 +271,10 @@ pub fn synthesize_speech(
         });
     }
 
-    // Truncate to max length
     if tokens.len() > MAX_PHONEME_LENGTH {
         tokens.truncate(MAX_PHONEME_LENGTH);
     }
 
-    // Get style embedding for this token length
     let token_len = tokens.len();
     let style: Vec<f32> = if token_len < voice_matrix.len() {
         voice_matrix[token_len].clone()
@@ -291,7 +282,6 @@ pub fn synthesize_speech(
         voice_matrix[voice_matrix.len() - 1].clone()
     };
 
-    // Add padding tokens: [0, ...tokens, 0]
     let mut padded: Vec<i64> = Vec::with_capacity(tokens.len() + 2);
     padded.push(0);
     padded.extend(&tokens);
@@ -299,7 +289,6 @@ pub fn synthesize_speech(
 
     let padded_len = padded.len();
 
-    // Create tensors
     let input_tensor = Tensor::from_array(([1, padded_len], padded))
         .map_err(|e| format!("Failed to create input tensor: {}", e))?;
 
@@ -310,12 +299,10 @@ pub fn synthesize_speech(
     let speed_tensor = Tensor::from_array(([1_usize], vec![speed]))
         .map_err(|e| format!("Failed to create speed tensor: {}", e))?;
 
-    // Run inference
     let outputs = session
         .run(ort::inputs!["tokens" => input_tensor, "style" => style_tensor, "speed" => speed_tensor])
         .map_err(|e| format!("TTS inference failed: {}", e))?;
 
-    // Extract audio from output
     let output = &outputs[0];
     let audio_tensor = output
         .try_extract_tensor::<f32>()
@@ -327,6 +314,15 @@ pub fn synthesize_speech(
         sample_rate: KOKORO_SAMPLE_RATE,
         samples,
     })
+}
+
+#[tauri::command]
+pub fn synthesize_speech(
+    state: tauri::State<'_, TtsState>,
+    text: String,
+    speed: Option<f32>,
+) -> Result<TtsResult, String> {
+    synthesize_text(&state, &text, speed.unwrap_or(1.0))
 }
 
 /// Convert WAV samples to WAV bytes for playback in frontend
