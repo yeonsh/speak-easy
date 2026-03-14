@@ -416,6 +416,7 @@ pub fn get_llama_server_path() -> Result<String, String> {
 
 #[tauri::command]
 pub fn download_file(app: AppHandle, url: String, dest_dir: String, filename: String, download_id: String) -> Result<(), String> {
+    eprintln!("[download_file] Called: id={}, url={}, dest_dir={}, filename={}", download_id, url, dest_dir, filename);
     let base_dir = dirs::home_dir()
         .ok_or("Could not find home directory")?
         .join(".speakeasy")
