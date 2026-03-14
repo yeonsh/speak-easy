@@ -5,8 +5,8 @@ import { LANGUAGE_CONFIG } from "../lib/types";
 const EMPTY_HINTS: Record<Language, string> = {
   en: "Say \"Hello\" to start a conversation",
   es: "Di \"Hola\" para empezar",
+  fr: "Dites \"Bonjour\" pour commencer",
   zh: '说"你好"开始对话',
-  de: "Sag \"Hallo\" um loszulegen",
   ja: "「こんにちは」と言って始めましょう",
 };
 
@@ -71,7 +71,7 @@ export function ChatView({
       {isStreamingTts && revealedText && (
         <div className="flex justify-start">
           <div className="max-w-[80%] px-4 py-3 rounded-2xl rounded-bl-md bg-[var(--bg-elevated)] text-[var(--text-primary)]">
-            <p className="whitespace-pre-wrap">
+            <p className="whitespace-pre-wrap select-text">
               {revealedText}
               <span className="inline-block w-1.5 h-4 ml-1 bg-[var(--primary)] animate-pulse rounded-sm" />
             </p>
@@ -104,7 +104,7 @@ function MessageBubble({ message }: { message: Message }) {
             : "bg-[var(--bg-elevated)] text-[var(--text-primary)] rounded-bl-md"
         }`}
       >
-        <p className="whitespace-pre-wrap">{message.content}</p>
+        <p className="whitespace-pre-wrap select-text">{message.content}</p>
         {message.corrections && message.corrections.length > 0 && (
           <div className="mt-2 pt-2 border-t border-white/20 space-y-1">
             {message.corrections.map((c, i) => (

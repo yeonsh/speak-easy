@@ -1,4 +1,4 @@
-export type Language = "en" | "es" | "zh" | "de" | "ja";
+export type Language = "en" | "es" | "fr" | "zh" | "ja";
 
 export type ConversationMode = "free-talk" | "scenario" | "correction";
 
@@ -32,8 +32,8 @@ export const LANGUAGE_CONFIG: Record<
 > = {
   en: { name: "English", flag: "🇺🇸", nativeName: "English" },
   es: { name: "Spanish", flag: "🇪🇸", nativeName: "Español" },
+  fr: { name: "French", flag: "🇫🇷", nativeName: "Français" },
   zh: { name: "Chinese", flag: "🇨🇳", nativeName: "中文" },
-  de: { name: "German", flag: "🇩🇪", nativeName: "Deutsch" },
   ja: { name: "Japanese", flag: "🇯🇵", nativeName: "日本語" },
 };
 

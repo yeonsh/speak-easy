@@ -356,14 +356,14 @@ fn espeak_lang_code(lang: &str) -> &str {
 }
 
 /// Use mecab to convert Japanese text (with kanji) to katakana readings.
-/// eSpeak can handle katakana but not kanji.
+/// Parses default MeCab output to extract per-word readings with spaces,
+/// preserving word boundaries for better eSpeak prosody.
 fn mecab_to_kana(text: &str) -> Option<String> {
     // Try multiple paths — GUI apps on macOS don't inherit shell PATH
     let programs = ["mecab", "/opt/homebrew/bin/mecab", "/usr/local/bin/mecab"];
 
     for prog in &programs {
         let result = std::process::Command::new(prog)
-            .arg("-Oyomi")
             .stdin(std::process::Stdio::piped())
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::null())
@@ -378,8 +378,29 @@ fn mecab_to_kana(text: &str) -> Option<String> {
 
         match result {
             Ok(output) if output.status.success() => {
-                let kana = String::from_utf8_lossy(&output.stdout).trim().to_string();
-                if !kana.is_empty() {
+                let raw = String::from_utf8_lossy(&output.stdout);
+                let mut words = Vec::new();
+                for line in raw.lines() {
+                    if line == "EOS" || line.is_empty() {
+                        continue;
+                    }
+                    // Format: surface\tPOS,POS2,...,reading,pronunciation
+                    let parts: Vec<&str> = line.splitn(2, '\t').collect();
+                    if parts.len() == 2 {
+                        let fields: Vec<&str> = parts[1].split(',').collect();
+                        // Reading is typically the 8th field (index 7)
+                        if fields.len() >= 8 && !fields[7].is_empty() {
+                            words.push(fields[7].to_string());
+                        } else {
+                            // No reading available — use surface form
+                            words.push(parts[0].to_string());
+                        }
+                    } else {
+                        words.push(parts[0].to_string());
+                    }
+                }
+                if !words.is_empty() {
+                    let kana = words.join(" ");
                     eprintln!("[tts] mecab kana: {}", kana);
                     return Some(kana);
                 }

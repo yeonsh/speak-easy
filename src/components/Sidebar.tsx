@@ -7,7 +7,7 @@ const VOICE_LANG_PREFIX: Record<string, { lang: Language; label: string }> = {
   a: { lang: "en", label: "English (US)" },
   b: { lang: "en", label: "English (UK)" },
   e: { lang: "es", label: "Spanish" },
-  f: { lang: "de", label: "French" },
+  f: { lang: "fr", label: "French" },
   h: { lang: "en", label: "Hindi" },
   i: { lang: "en", label: "Italian" },
   j: { lang: "ja", label: "Japanese" },

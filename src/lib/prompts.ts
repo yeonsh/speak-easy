@@ -3,8 +3,8 @@ import type { ConversationMode, Language } from "./types";
 const LANGUAGE_NAMES: Record<Language, string> = {
   en: "English",
   es: "Spanish",
+  fr: "French",
   zh: "Chinese (Mandarin)",
-  de: "German",
   ja: "Japanese",
 };
 
@@ -25,6 +25,14 @@ const CORRECTION_FOCUS: Record<Language, string> = {
 - Reflexive verb usage (levantarse, sentirse)
 - Por vs. para`,
 
+  fr: `Common areas to watch for:
+- Gender agreement (le/la, un/une) and adjective placement
+- Subjunctive mood (que je sois, qu'il fasse) vs. indicative
+- Passé composé vs. imparfait (completed action vs. ongoing/habitual)
+- Preposition usage (à/de/en/dans/chez)
+- Pronoun placement with compound tenses (je l'ai vu, il m'a dit)
+- Liaisons and elisions in spoken French (l'homme, j'ai, c'est)`,
+
   zh: `Common areas to watch for:
 - Measure word (量词) selection: 个/只/条/张/本 etc.
 - Aspect markers: 了/过/着 usage and placement
@@ -32,14 +40,6 @@ const CORRECTION_FOCUS: Record<Language, string> = {
 - Complement structures (结果补语, 程度补语)
 - 把 construction usage
 - Tone-related word confusion (e.g., 买/卖, 是/十)`,
-
-  de: `Common areas to watch for:
-- Grammatical case usage (Nominativ, Akkusativ, Dativ, Genitiv)
-- Gender of nouns (der/die/das) and adjective declension
-- Word order: verb placement in main vs. subordinate clauses (V2 rule, verb-final)
-- Separable prefix verbs (anfangen, aufstehen)
-- Preposition + case combinations (mit + Dativ, für + Akkusativ)
-- Modal verb constructions`,
 
   ja: `Common areas to watch for:
 - Particle usage: は vs. が, に vs. で vs. へ, を
@@ -66,19 +66,19 @@ const SCENARIOS: Record<Language, string> = {
 - Banco: You are a bank teller, help the user open an account or exchange currency
 - Fiesta: You are hosting a house party, welcome the user and introduce them to other guests`,
 
+  fr: `Scenarios to rotate through:
+- Boulangerie: You are a baker, help the user choose bread, pastries, and explain ingredients
+- Marché: You are a vendor at a French open-air market, sell cheese, charcuterie, and seasonal produce
+- Gare: You are a ticket agent at a train station, help with schedules, connections, and seat reservations
+- Cabinet médical: You are a doctor, ask about symptoms and give advice
+- Soirée: You are hosting a dinner party, welcome the user, offer drinks, and make introductions`,
+
   zh: `Scenarios to rotate through:
 - 餐厅点菜: You are a waiter at a Chinese restaurant, help with menu, recommend specialties, handle spice preferences
 - 出租车: You are a taxi driver in Beijing, discuss the route, landmarks, and make small talk
 - 看病: You are a doctor at a Chinese hospital, ask about symptoms, give advice
 - 租房: You are a landlord showing an apartment, discuss rent, deposit, and neighborhood
 - 茶馆: You are a tea house owner, introduce different teas, discuss tea culture`,
-
-  de: `Scenarios to rotate through:
-- Bäckerei: You are a baker, help the user choose bread and pastries, explain regional specialties
-- Wohnungssuche: You are showing a WG (shared flat) room, discuss Nebenkosten, Kaution, house rules
-- Arztpraxis: You are a doctor at a Hausarztpraxis, conduct a routine checkup
-- Bahnhof: You work at the Deutsche Bahn counter, help plan a trip with connections
-- Stammtisch: You are a regular at a Kneipe, welcome the user to the weekly Stammtisch gathering`,
 
   ja: `Scenarios to rotate through:
 - コンビニ: You are a convenience store clerk, help with purchases, explain point cards, heated food options
@@ -94,9 +94,9 @@ const FREE_TALK_STYLE: Record<Language, string> = {
 
   es: "Be warm and expressive. Use common filler words naturally (bueno, pues, a ver). Ask about family, food, travel plans, or weekend activities. Adjust between tú and usted based on the user's level — start with tú unless they use usted.",
 
-  zh: "Be friendly but natural. Use common conversational particles (嗯, 哦, 啊, 是吗). Ask about food, daily routines, travel, or hobbies. Keep sentences short and use common vocabulary. Occasionally introduce a 成语 (idiom) when relevant and briefly explain it.",
+  fr: "Be warm and conversational. Use natural fillers (euh, bon, alors, enfin, du coup). Ask about food, culture, travel, daily life, or weekend plans. Use tu unless the user uses vous. Occasionally use common expressions (c'est chouette, ça marche, n'est-ce pas).",
 
-  de: "Be direct but friendly, as is natural in German culture. Use common filler words (also, na ja, eigentlich). Ask about Freizeit, travel, work, or food. Use du unless the user signals formal context. Occasionally use compound words and briefly explain them.",
+  zh: "Be friendly but natural. Use common conversational particles (嗯, 哦, 啊, 是吗). Ask about food, daily routines, travel, or hobbies. Keep sentences short and use common vocabulary. Occasionally introduce a 成语 (idiom) when relevant and briefly explain it.",
 
   ja: "Be polite and warm. Use です/ます form as default. Include natural conversation fillers (えーと, そうですね, なるほど). Ask about food, seasons, hobbies, work, or travel. Adjust keigo level to match the user. When appropriate, mention cultural context (季節の話題, 食文化).",
 };
@@ -154,15 +154,15 @@ export function getScenarioStarters(language: Language): string[] {
       "¡Hola! Bienvenido al bar. ¿Qué les apetece? Hoy tenemos unas gambas al ajillo buenísimas.",
       "Buenas tardes. ¿En qué puedo ayudarle? ¿Necesita algo para el dolor de cabeza?",
     ],
+    fr: [
+      "Bonjour ! Bienvenue à la boulangerie. Qu'est-ce qui vous ferait plaisir aujourd'hui ? Les croissants sont tout frais.",
+      "Bonjour et bienvenue ! C'est la première fois que vous venez au marché ? Goûtez ce fromage, il est excellent.",
+      "Bonjour, bienvenue à bord. Votre billet, s'il vous plaît. Vous allez jusqu'à Lyon ?",
+    ],
     zh: [
       "欢迎光临！请问几位？我带您到座位。今天有几道特价菜，要不要看看？",
       "您好，请问去哪里？哦，那个地方我知道，大概二十分钟到。",
       "请坐。今天哪里不舒服？什么时候开始的？",
-    ],
-    de: [
-      "Guten Morgen! Was darf es sein? Wir haben heute frisches Sauerteigbrot und Brezeln.",
-      "Hi! Komm rein. Also, das Zimmer ist hier links. Die Küche teilen wir uns zu dritt.",
-      "Guten Tag! Nehmen Sie bitte Platz. Was führt Sie heute zu mir?",
     ],
     ja: [
       "いらっしゃいませ！温かいお弁当はいかがですか？今日は新しいからあげ弁当がありますよ。",

@@ -699,7 +699,7 @@ function TtsStep({
     if (kokoroVoices && !voicesInstalled) onDownload(kokoroVoices);
   };
 
-  const supportedLangs = ["English", "Spanish", "Chinese", "German", "Japanese", "French"];
+  const supportedLangs = ["English", "Spanish", "Chinese", "Japanese", "French"];
 
   return (
     <div className="max-w-lg mx-auto space-y-6">

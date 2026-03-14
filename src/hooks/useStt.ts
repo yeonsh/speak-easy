@@ -6,8 +6,8 @@ import type { Language } from "../lib/types";
 const LANGUAGE_WHISPER_CODES: Record<Language, string> = {
   en: "en",
   es: "es",
+  fr: "fr",
   zh: "zh",
-  de: "de",
   ja: "ja",
 };
 

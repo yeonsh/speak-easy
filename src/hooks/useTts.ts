@@ -6,8 +6,8 @@ import type { Language } from "../lib/types";
 const DEFAULT_VOICES: Record<Language, string> = {
   en: "af_heart",
   es: "ef_dora",
+  fr: "ff_siwis",
   zh: "zf_xiaobei",
-  de: "df_anna",
   ja: "jf_alpha",
 };
 

@@ -37,23 +37,37 @@ struct SseResponse {
     choices: Option<Vec<SseChoice>>,
 }
 
-/// Strip emoji characters so TTS engines don't try to pronounce them.
-fn strip_emojis(text: &str) -> String {
+/// Clean text for TTS: strip emojis, replace fullwidth CJK punctuation with
+/// ASCII equivalents so eSpeak can use them for prosody/intonation.
+fn clean_for_tts(text: &str) -> String {
     text.chars()
-        .filter(|&c| {
+        .filter_map(|c| {
             let cp = c as u32;
-            !matches!(
+            // Strip emojis
+            if matches!(
                 cp,
-                0x200D              // Zero Width Joiner
-                | 0x20E3            // Combining Enclosing Keycap
-                | 0xFE00..=0xFE0F  // Variation Selectors
-                | 0x1F1E0..=0x1F1FF // Regional Indicators (flags)
-                | 0x1F300..=0x1F9FF // Misc Symbols, Emoticons, Transport, Supplemental
-                | 0x1FA00..=0x1FAFF // Symbols Extended-A
-                | 0x2600..=0x26FF   // Misc Symbols
-                | 0x2700..=0x27BF   // Dingbats
-                | 0xE0020..=0xE007F // Tags
-            )
+                0x200D
+                | 0x20E3
+                | 0xFE00..=0xFE0F
+                | 0x1F1E0..=0x1F1FF
+                | 0x1F300..=0x1F9FF
+                | 0x1FA00..=0x1FAFF
+                | 0x2600..=0x26FF
+                | 0x2700..=0x27BF
+                | 0xE0020..=0xE007F
+            ) {
+                return None;
+            }
+            // Replace CJK punctuation with ASCII equivalents (preserves prosody)
+            match cp {
+                0x3002 => Some('.'),  // 。→ .
+                0xFF01 => Some('!'),  // ！→ !
+                0xFF1F => Some('?'),  // ？→ ?
+                0xFF0C => Some(','),  // ，→ ,
+                0x300C | 0x300D | 0x300E | 0x300F => None, // 「」『』 strip
+                0xFF08 | 0xFF09 => None, // （） strip
+                _ => Some(c),
+            }
         })
         .collect()
 }
@@ -238,7 +252,7 @@ pub fn send_chat_message(
                 }
 
                 // Strip emojis before synthesis — keep original for display
-                let tts_input = strip_emojis(&sentence);
+                let tts_input = clean_for_tts(&sentence);
                 if tts_input.trim().is_empty() {
                     // Sentence was only emojis — reveal text without audio
                     let _ = tts_app.emit(
