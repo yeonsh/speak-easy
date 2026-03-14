@@ -1,13 +1,16 @@
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::io::{BufRead, BufReader};
 use std::net::TcpListener;
 use std::process::{Child, Command};
-use std::sync::Mutex;
+use std::sync::atomic::AtomicBool;
+use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Emitter, Manager};
 
 pub struct LlmState {
     process: Mutex<Option<Child>>,
     pub(crate) port: Mutex<u16>,
+    pub(crate) cancel_flags: Mutex<HashMap<String, Arc<AtomicBool>>>,
 }
 
 impl LlmState {
@@ -15,6 +18,7 @@ impl LlmState {
         Self {
             process: Mutex::new(None),
             port: Mutex::new(0),
+            cancel_flags: Mutex::new(HashMap::new()),
         }
     }
 }
