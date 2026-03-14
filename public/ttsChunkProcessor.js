@@ -7,7 +7,7 @@ class TtsChunkProcessor extends AudioWorkletProcessor {
     this.currentChunk = null;
     this.silenceRemaining = 0; // silence samples to insert between chunks
     this.silenceGap = 6000; // ~250ms at 24kHz
-    this.fadeSamples = 480; // ~20ms fade-out/fade-in at 24kHz
+    this.fadeSamples = 48; // ~2ms fade-out/fade-in at 24kHz (prevent clicks)
     this.needsFadeIn = false; // apply fade-in to next chunk after silence
 
     this.port.onmessage = (event) => {

@@ -413,8 +413,8 @@ fn split_into_sentences(text: &str) -> Vec<String> {
 
 /// Silence gap between sentences: ~250ms at 24kHz
 const SENTENCE_SILENCE_SAMPLES: usize = 6000;
-/// Fade duration: ~20ms at 24kHz
-const FADE_SAMPLES: usize = 480;
+/// Fade duration: ~2ms at 24kHz (just enough to prevent clicks)
+const FADE_SAMPLES: usize = 48;
 
 /// Apply linear fade-out to the last `fade_len` samples
 fn fade_out(samples: &mut [f32], fade_len: usize) {
