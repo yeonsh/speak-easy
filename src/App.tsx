@@ -301,6 +301,11 @@ function App() {
           revealedText={revealedSentences.join(" ")}
           isStreamingTts={isStreamingTts}
           language={settings.language}
+          onReplay={(text) => {
+            if (tts.isLoaded) {
+              tts.speak(text, settings.ttsSpeed, settings.language);
+            }
+          }}
         />
 
         <footer className="flex items-center justify-center gap-4 p-6 border-t border-[var(--border)]">

@@ -1,5 +1,5 @@
 use crate::llm::{ChatMessage, LlmState};
-use crate::tts::TtsState;
+use crate::tts::{TtsState, clean_for_tts};
 use serde::{Deserialize, Serialize};
 use std::io::{BufRead, BufReader};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -35,41 +35,6 @@ struct SseDelta {
 #[derive(Debug, Deserialize)]
 struct SseResponse {
     choices: Option<Vec<SseChoice>>,
-}
-
-/// Clean text for TTS: strip emojis, replace fullwidth CJK punctuation with
-/// ASCII equivalents so eSpeak can use them for prosody/intonation.
-fn clean_for_tts(text: &str) -> String {
-    text.chars()
-        .filter_map(|c| {
-            let cp = c as u32;
-            // Strip emojis
-            if matches!(
-                cp,
-                0x200D
-                | 0x20E3
-                | 0xFE00..=0xFE0F
-                | 0x1F1E0..=0x1F1FF
-                | 0x1F300..=0x1F9FF
-                | 0x1FA00..=0x1FAFF
-                | 0x2600..=0x26FF
-                | 0x2700..=0x27BF
-                | 0xE0020..=0xE007F
-            ) {
-                return None;
-            }
-            // Replace CJK punctuation with ASCII equivalents (preserves prosody)
-            match cp {
-                0x3002 => Some('.'),  // 。→ .
-                0xFF01 => Some('!'),  // ！→ !
-                0xFF1F => Some('?'),  // ？→ ?
-                0xFF0C => Some(','),  // ，→ ,
-                0x300C | 0x300D | 0x300E | 0x300F => None, // 「」『』 strip
-                0xFF08 | 0xFF09 => None, // （） strip
-                _ => Some(c),
-            }
-        })
-        .collect()
 }
 
 /// Accumulates LLM tokens and detects sentence boundaries.

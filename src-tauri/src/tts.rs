@@ -239,6 +239,41 @@ pub fn list_voices() -> Result<Vec<String>, String> {
     Ok(names)
 }
 
+/// Clean text for TTS: strip emojis, replace fullwidth CJK punctuation with
+/// ASCII equivalents so eSpeak can use them for prosody/intonation.
+pub(crate) fn clean_for_tts(text: &str) -> String {
+    text.chars()
+        .filter_map(|c| {
+            let cp = c as u32;
+            // Strip emojis
+            if matches!(
+                cp,
+                0x200D
+                | 0x20E3
+                | 0xFE00..=0xFE0F
+                | 0x1F1E0..=0x1F1FF
+                | 0x1F300..=0x1F9FF
+                | 0x1FA00..=0x1FAFF
+                | 0x2600..=0x26FF
+                | 0x2700..=0x27BF
+                | 0xE0020..=0xE007F
+            ) {
+                return None;
+            }
+            // Replace CJK punctuation with ASCII equivalents (preserves prosody)
+            match cp {
+                0x3002 => Some('.'),  // 。→ .
+                0xFF01 => Some('!'),  // ！→ !
+                0xFF1F => Some('?'),  // ？→ ?
+                0xFF0C => Some(','),  // ，→ ,
+                0x300C | 0x300D | 0x300E | 0x300F => None, // 「」『』 strip
+                0xFF08 | 0xFF09 => None, // （） strip
+                _ => Some(c),
+            }
+        })
+        .collect()
+}
+
 /// Core synthesis function callable from any thread with access to TtsState.
 pub fn synthesize_text(state: &TtsState, text: &str, speed: f32, lang: &str) -> Result<TtsResult, String> {
     let mut session_guard = state.session.lock().unwrap();
@@ -253,8 +288,12 @@ pub fn synthesize_text(state: &TtsState, text: &str, speed: f32, lang: &str) -> 
 
     let vocab = kokoro_vocab();
 
-    eprintln!("[tts] Synthesizing lang={} text={}", lang, &text[..text.len().min(80)]);
-    let phonemes = espeak_phonemize(text, lang);
+    // Clean text for TTS: replace CJK punctuation with ASCII equivalents,
+    // strip emojis and brackets that eSpeak reads literally
+    let cleaned = clean_for_tts(text);
+    let preview: String = cleaned.chars().take(40).collect();
+    eprintln!("[tts] Synthesizing lang={} text={}", lang, preview);
+    let phonemes = espeak_phonemize(&cleaned, lang);
     eprintln!("[tts] Phonemes: {}", phonemes);
 
     let mut tokens: Vec<i64> = Vec::new();

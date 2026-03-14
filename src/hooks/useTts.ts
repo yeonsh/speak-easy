@@ -24,6 +24,7 @@ interface UseTtsReturn {
   isSpeaking: boolean;
   error: string | null;
   loadVoice: (language: Language, voiceName?: string) => Promise<void>;
+  speak: (text: string, speed?: number, language?: string) => Promise<void>;
   startStreaming: (requestId: string) => Promise<void>;
   stopStreaming: () => void;
   stop: () => void;
@@ -41,6 +42,7 @@ export function useTts(): UseTtsReturn {
   const [availableVoices, setAvailableVoices] = useState<string[]>([]);
 
   const audioContextRef = useRef<AudioContext | null>(null);
+  const sourceRef = useRef<AudioBufferSourceNode | null>(null);
   const workletNodeRef = useRef<AudioWorkletNode | null>(null);
   const workletReadyRef = useRef(false);
   const unlistenChunkRef = useRef<UnlistenFn | null>(null);
@@ -195,6 +197,52 @@ export function useTts(): UseTtsReturn {
     [ensureWorklet],
   );
 
+  const speak = useCallback(async (text: string, speed?: number, language?: string) => {
+    setError(null);
+    setIsSpeaking(true);
+
+    try {
+      const result = await invoke<{ sample_rate: number; samples: number[] }>(
+        "synthesize_speech",
+        { text, speed: speed ?? null, language: language ?? null },
+      );
+
+      if (result.samples.length === 0) {
+        setIsSpeaking(false);
+        return;
+      }
+
+      if (!audioContextRef.current) {
+        audioContextRef.current = new AudioContext({ sampleRate: result.sample_rate });
+      }
+      const ctx = audioContextRef.current;
+      if (ctx.state === "suspended") await ctx.resume();
+
+      const audioBuffer = ctx.createBuffer(1, result.samples.length, result.sample_rate);
+      const channelData = audioBuffer.getChannelData(0);
+      for (let i = 0; i < result.samples.length; i++) {
+        channelData[i] = result.samples[i];
+      }
+
+      if (sourceRef.current) {
+        try { sourceRef.current.stop(); } catch { /* ignore */ }
+      }
+
+      const source = ctx.createBufferSource();
+      source.buffer = audioBuffer;
+      source.connect(ctx.destination);
+      source.onended = () => {
+        setIsSpeaking(false);
+        sourceRef.current = null;
+      };
+      sourceRef.current = source;
+      source.start();
+    } catch (e) {
+      setError(`TTS replay failed: ${e}`);
+      setIsSpeaking(false);
+    }
+  }, []);
+
   const stopStreaming = useCallback(() => {
     // Clear worklet audio queue
     workletNodeRef.current?.port.postMessage({ type: "clear" });
@@ -214,6 +262,11 @@ export function useTts(): UseTtsReturn {
 
   const stop = useCallback(() => {
     stopStreaming();
+    if (sourceRef.current) {
+      try { sourceRef.current.stop(); } catch { /* ignore */ }
+      sourceRef.current = null;
+    }
+    setIsSpeaking(false);
   }, [stopStreaming]);
 
   return {
@@ -221,6 +274,7 @@ export function useTts(): UseTtsReturn {
     isSpeaking,
     error,
     loadVoice,
+    speak,
     startStreaming,
     stopStreaming,
     stop,

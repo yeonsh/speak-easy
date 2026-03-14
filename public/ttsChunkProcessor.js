@@ -5,6 +5,8 @@ class TtsChunkProcessor extends AudioWorkletProcessor {
     this.bufferQueue = []; // Array of { samples: Float32Array, index: number }
     this.readOffset = 0;
     this.currentChunk = null;
+    this.silenceRemaining = 0; // silence samples to insert between chunks
+    this.silenceGap = 6000; // ~250ms at 24kHz
 
     this.port.onmessage = (event) => {
       if (event.data.type === "chunk") {
@@ -16,6 +18,7 @@ class TtsChunkProcessor extends AudioWorkletProcessor {
         this.bufferQueue = [];
         this.currentChunk = null;
         this.readOffset = 0;
+        this.silenceRemaining = 0;
       }
     };
   }
@@ -27,6 +30,16 @@ class TtsChunkProcessor extends AudioWorkletProcessor {
     let outIdx = 0;
 
     while (outIdx < output.length) {
+      // Insert silence gap between chunks
+      if (this.silenceRemaining > 0) {
+        const silenceToCopy = Math.min(this.silenceRemaining, output.length - outIdx);
+        for (let i = 0; i < silenceToCopy; i++) {
+          output[outIdx++] = 0;
+        }
+        this.silenceRemaining -= silenceToCopy;
+        continue;
+      }
+
       // Load next chunk if needed
       if (!this.currentChunk && this.bufferQueue.length > 0) {
         this.currentChunk = this.bufferQueue.shift();
@@ -57,6 +70,8 @@ class TtsChunkProcessor extends AudioWorkletProcessor {
         });
         this.currentChunk = null;
         this.readOffset = 0;
+        // Insert silence before next chunk
+        this.silenceRemaining = this.silenceGap;
       }
     }
 

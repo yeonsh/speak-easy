@@ -16,6 +16,7 @@ interface ChatViewProps {
   revealedText?: string;
   isStreamingTts?: boolean;
   language?: Language;
+  onReplay?: (text: string) => void;
 }
 
 export function ChatView({
@@ -24,6 +25,7 @@ export function ChatView({
   revealedText,
   isStreamingTts,
   language,
+  onReplay,
 }: ChatViewProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -64,7 +66,7 @@ export function ChatView({
       )}
 
       {messages.map((msg) => (
-        <MessageBubble key={msg.id} message={msg} />
+        <MessageBubble key={msg.id} message={msg} onReplay={onReplay} />
       ))}
 
       {/* Streaming TTS: show revealed text */}
@@ -92,7 +94,13 @@ export function ChatView({
   );
 }
 
-function MessageBubble({ message }: { message: Message }) {
+function MessageBubble({
+  message,
+  onReplay,
+}: {
+  message: Message;
+  onReplay?: (text: string) => void;
+}) {
   const isUser = message.role === "user";
 
   return (
@@ -105,6 +113,17 @@ function MessageBubble({ message }: { message: Message }) {
         }`}
       >
         <p className="whitespace-pre-wrap select-text">{message.content}</p>
+        {!isUser && onReplay && (
+          <button
+            onClick={() => onReplay(message.content)}
+            className="mt-1.5 p-1 rounded hover:bg-black/10 transition-colors opacity-40 hover:opacity-80"
+            title="Replay"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <polygon points="5 3 19 12 5 21 5 3" />
+            </svg>
+          </button>
+        )}
         {message.corrections && message.corrections.length > 0 && (
           <div className="mt-2 pt-2 border-t border-white/20 space-y-1">
             {message.corrections.map((c, i) => (
