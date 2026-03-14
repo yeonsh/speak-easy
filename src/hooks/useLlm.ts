@@ -13,6 +13,7 @@ interface UseLlmReturn {
     temperature?: number,
     ttsEnabled?: boolean,
     ttsSpeed?: number,
+    requestId?: string,
   ) => Promise<string>;  // returns requestId
   streamingText: string;
   isGenerating: boolean;
@@ -77,6 +78,7 @@ export function useLlm(): UseLlmReturn {
       temperature?: number,
       ttsEnabled?: boolean,
       ttsSpeed?: number,
+      externalRequestId?: string,
     ) => {
       // Clean up previous listener
       if (unlistenRef.current) {
@@ -84,7 +86,7 @@ export function useLlm(): UseLlmReturn {
         unlistenRef.current = null;
       }
 
-      const requestId = crypto.randomUUID();
+      const requestId = externalRequestId ?? crypto.randomUUID();
       currentRequestIdRef.current = requestId;
       setStreamingText("");
       setIsGenerating(true);

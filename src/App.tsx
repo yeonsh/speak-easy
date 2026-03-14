@@ -25,6 +25,7 @@ function App() {
   const [showWizard, setShowWizard] = useState<boolean | null>(null);
   const [revealedSentences, setRevealedSentences] = useState<string[]>([]);
   const [isStreamingTts, setIsStreamingTts] = useState(false);
+  const isStreamingTtsRef = useRef(false);
   const [_pendingFullText, setPendingFullText] = useState<string | null>(null);
   const currentRequestIdRef = useRef<string | null>(null);
 
@@ -77,6 +78,7 @@ function App() {
       if (done) {
         // All audio finished — finalize message
         setIsStreamingTts(false);
+        isStreamingTtsRef.current = false;
         setPendingFullText((fullText) => {
           if (fullText) {
             const msg: Message = {
@@ -97,7 +99,7 @@ function App() {
   // Wire up LLM completion
   useEffect(() => {
     llm.onComplete.current = (fullText: string) => {
-      if (tts.isLoaded && isStreamingTts) {
+      if (tts.isLoaded && isStreamingTtsRef.current) {
         // TTS is streaming — wait for audio to finish before adding message
         setPendingFullText(fullText);
       } else {
@@ -111,7 +113,7 @@ function App() {
         setMessages((msgs) => [...msgs, msg]);
       }
     };
-  }, [llm.onComplete, tts.isLoaded, isStreamingTts]);
+  }, [llm.onComplete, tts.isLoaded]);
 
   // Auto-load TTS voice when language changes
   const handleLanguageChange = useCallback((lang: Language) => {
@@ -151,13 +153,28 @@ function App() {
 
   const sendToLlm = useCallback(
     async (userText: string) => {
-      // Cancel any previous generation
+      // Cancel any previous generation and preserve revealed text
       if (currentRequestIdRef.current) {
         tts.stopStreaming();
         await invoke("cancel_generation", {
           requestId: currentRequestIdRef.current,
         }).catch(() => {});
+        currentRequestIdRef.current = null;
       }
+
+      // Commit any in-progress revealed text as a truncated message
+      setRevealedSentences((prev) => {
+        if (prev.length > 0) {
+          const msg: Message = {
+            id: crypto.randomUUID(),
+            role: "assistant",
+            content: prev.join(" "),
+            timestamp: Date.now(),
+          };
+          setMessages((msgs) => [...msgs, msg]);
+        }
+        return [];
+      });
 
       const userMsg: Message = {
         id: crypto.randomUUID(),
@@ -166,8 +183,8 @@ function App() {
         timestamp: Date.now(),
       };
       setMessages((msgs) => [...msgs, userMsg]);
-      setRevealedSentences([]);
       setIsStreamingTts(false);
+      isStreamingTtsRef.current = false;
       setPendingFullText(null);
 
       const systemPrompt = getSystemPrompt(settings.language, settings.mode);
@@ -178,19 +195,26 @@ function App() {
       ];
 
       try {
-        const requestId = await llm.sendMessage(
+        // Generate requestId upfront so we can register TTS listener before
+        // sending the message (avoids race where backend emits chunks before
+        // the frontend listener is ready)
+        const requestId = crypto.randomUUID();
+        currentRequestIdRef.current = requestId;
+
+        // Register TTS listener first if TTS is loaded
+        if (tts.isLoaded) {
+          setIsStreamingTts(true);
+          isStreamingTtsRef.current = true;
+          await tts.startStreaming(requestId);
+        }
+
+        await llm.sendMessage(
           allMessages,
           settings.llmTemperature,
           tts.isLoaded,
           settings.ttsSpeed,
+          requestId,
         );
-        currentRequestIdRef.current = requestId;
-
-        // Start listening for TTS chunks if TTS is loaded
-        if (tts.isLoaded) {
-          setIsStreamingTts(true);
-          await tts.startStreaming(requestId);
-        }
       } catch (e) {
         const errorMsg: Message = {
           id: crypto.randomUUID(),
