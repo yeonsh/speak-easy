@@ -7,19 +7,25 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 
 pub struct TtsState {
+    engine: Mutex<String>, // "kokoro" or "edge"
+    // Kokoro state
     session: Mutex<Option<Session>>,
     voices: Mutex<Option<VoicesData>>,
     loaded_voice_name: Mutex<Option<String>>,
     voice_embedding: Mutex<Option<Vec<Vec<f32>>>>,
+    // Edge TTS state
+    edge_voice: Mutex<Option<String>>,
 }
 
 impl TtsState {
     pub fn new() -> Self {
         Self {
+            engine: Mutex::new("edge".to_string()),
             session: Mutex::new(None),
             voices: Mutex::new(None),
             loaded_voice_name: Mutex::new(None),
             voice_embedding: Mutex::new(None),
+            edge_voice: Mutex::new(None),
         }
     }
 }
@@ -165,7 +171,17 @@ fn parse_npy_f32(data: &[u8]) -> Option<Vec<f32>> {
 pub fn load_tts_voice(
     state: tauri::State<'_, TtsState>,
     voice_name: String,
+    engine: Option<String>,
 ) -> Result<(), String> {
+    let eng = engine.unwrap_or_else(|| state.engine.lock().unwrap().clone());
+    *state.engine.lock().unwrap() = eng.clone();
+
+    if eng == "edge" {
+        *state.edge_voice.lock().unwrap() = Some(voice_name);
+        return Ok(());
+    }
+
+    // Kokoro engine
     let dir = voices_dir()?;
 
     // Load ONNX model if not already loaded
@@ -201,7 +217,6 @@ pub fn load_tts_voice(
     let voices_data = voices_guard.as_ref().unwrap();
 
     if !voices_data.voices.contains_key(&voice_name) {
-        // Try to find a matching voice
         let available: Vec<&String> = voices_data.voices.keys().collect();
         return Err(format!(
             "Voice '{}' not found. Available voices: {:?}",
@@ -221,11 +236,23 @@ pub fn load_tts_voice(
 pub fn is_tts_loaded(
     state: tauri::State<'_, TtsState>,
 ) -> bool {
-    state.session.lock().unwrap().is_some() && state.voice_embedding.lock().unwrap().is_some()
+    let eng = state.engine.lock().unwrap().clone();
+    if eng == "edge" {
+        state.edge_voice.lock().unwrap().is_some()
+    } else {
+        state.session.lock().unwrap().is_some() && state.voice_embedding.lock().unwrap().is_some()
+    }
 }
 
 #[tauri::command]
-pub fn list_voices() -> Result<Vec<String>, String> {
+pub fn list_voices(
+    state: tauri::State<'_, TtsState>,
+) -> Result<Vec<String>, String> {
+    let eng = state.engine.lock().unwrap().clone();
+    if eng == "edge" {
+        return crate::edge_tts::get_voices();
+    }
+
     let dir = voices_dir()?;
     let voices_path = dir.join("voices-v1.0.bin");
 
@@ -276,6 +303,13 @@ pub(crate) fn clean_for_tts(text: &str) -> String {
 
 /// Core synthesis function callable from any thread with access to TtsState.
 pub fn synthesize_text(state: &TtsState, text: &str, speed: f32, lang: &str) -> Result<TtsResult, String> {
+    let eng = state.engine.lock().unwrap().clone();
+    if eng == "edge" {
+        let voice = state.edge_voice.lock().unwrap().clone()
+            .unwrap_or_else(|| crate::edge_tts::default_voice(lang).to_string());
+        return crate::edge_tts::synthesize(text, &voice, speed);
+    }
+
     let mut session_guard = state.session.lock().unwrap();
     let session = session_guard
         .as_mut()
@@ -411,8 +445,6 @@ fn split_into_sentences(text: &str) -> Vec<String> {
     sentences
 }
 
-/// Silence gap between sentences: ~250ms at 24kHz
-const SENTENCE_SILENCE_SAMPLES: usize = 6000;
 /// Fade duration: ~2ms at 24kHz (just enough to prevent clicks)
 const FADE_SAMPLES: usize = 48;
 
@@ -450,8 +482,10 @@ pub fn synthesize_speech(
     }
 
     let mut all_samples: Vec<f32> = Vec::new();
+    let mut out_sample_rate = KOKORO_SAMPLE_RATE;
     for (i, sentence) in sentences.iter().enumerate() {
         let mut result = synthesize_text(&state, sentence, spd, &lang)?;
+        out_sample_rate = result.sample_rate;
         // Apply fade-out/fade-in at sentence boundaries to avoid clicks
         if i < sentences.len() - 1 {
             fade_out(&mut result.samples, FADE_SAMPLES);
@@ -462,12 +496,13 @@ pub fn synthesize_speech(
         all_samples.extend_from_slice(&result.samples);
         // Add silence gap between sentences (not after the last one)
         if i < sentences.len() - 1 {
-            all_samples.extend(std::iter::repeat(0.0f32).take(SENTENCE_SILENCE_SAMPLES));
+            let silence_samples = (out_sample_rate as f64 * 0.25) as usize; // 250ms
+            all_samples.extend(std::iter::repeat(0.0f32).take(silence_samples));
         }
     }
 
     Ok(TtsResult {
-        sample_rate: KOKORO_SAMPLE_RATE,
+        sample_rate: out_sample_rate,
         samples: all_samples,
     })
 }

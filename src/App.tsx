@@ -58,19 +58,22 @@ function App() {
       stt.loadModel(settings.whisperModel);
     }
     if (!tts.isLoaded) {
-      tts.loadVoice(settings.language, settings.ttsVoice !== "default" ? settings.ttsVoice : undefined);
+      tts.loadVoice(settings.language, settings.ttsVoice !== "default" ? settings.ttsVoice : undefined, settings.ttsEngine);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showWizard]);
 
-  // When TTS voice changes, reload the voice
+  // When TTS voice or engine changes, reload the voice
   useEffect(() => {
     if (showWizard !== false) return;
-    if (settings.ttsVoice === "default") return;
 
-    tts.loadVoice(settings.language, settings.ttsVoice);
+    tts.loadVoice(
+      settings.language,
+      settings.ttsVoice !== "default" ? settings.ttsVoice : undefined,
+      settings.ttsEngine,
+    );
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [settings.ttsVoice]);
+  }, [settings.ttsVoice, settings.ttsEngine]);
 
   // Wire up TTS chunk completion to reveal sentences
   useEffect(() => {
@@ -123,7 +126,7 @@ function App() {
       const key = `${s.language}:${s.mode}`;
       messagesByLangRef.current[key] = messages;
       if (tts.isLoaded) {
-        tts.loadVoice(lang);
+        tts.loadVoice(lang, undefined, s.ttsEngine);
       }
 
       const newKey = `${lang}:${s.mode}`;
@@ -162,7 +165,12 @@ function App() {
     setMessages([]);
   }, []);
 
-  const handleScenarioSelect = useCallback((scenario: { description: string; opening: string }) => {
+  const handleScenarioSelect = useCallback((scenario: { description: string; opening: string } | null) => {
+    if (!scenario) {
+      tts.stop();
+      setMessages([]);
+      return;
+    }
     setMessages([
       { id: crypto.randomUUID(), role: "system", content: scenario.description, timestamp: Date.now() },
       { id: crypto.randomUUID(), role: "assistant", content: scenario.opening, timestamp: Date.now() },
@@ -271,6 +279,7 @@ function App() {
         settings={settings}
         onSettingsChange={setSettings}
         onClearChat={handleClearChat}
+        onOpenSetup={() => { setIsSidebarOpen(false); setShowWizard(true); }}
       />
 
       <div className="flex flex-col flex-1 h-full">
@@ -316,7 +325,7 @@ function App() {
           onStartLlm={() => llm.startServer(undefined, settings.gpuLayers)}
           onStopLlm={llm.stopServer}
           onLoadWhisper={() => stt.loadModel(settings.whisperModel)}
-          onLoadTts={() => tts.loadVoice(settings.language)}
+          onLoadTts={() => tts.loadVoice(settings.language, undefined, settings.ttsEngine)}
         />
 
         <ChatView

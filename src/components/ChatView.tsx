@@ -19,7 +19,7 @@ interface ChatViewProps {
   isStreamingTts?: boolean;
   language?: Language;
   scenarios?: ScenarioStarter[];
-  onScenarioSelect?: (scenario: ScenarioStarter) => void;
+  onScenarioSelect?: (scenario: ScenarioStarter | null) => void;
   onReplay?: (text: string) => void;
   onExplain?: (msgId: string, text: string) => Promise<string>;
   onSuggest?: (msgId: string, text: string) => Promise<string>;
@@ -94,6 +94,17 @@ export function ChatView({
           )}
         </div>
       ) : null}
+
+      {messages.length > 0 && scenarios && onScenarioSelect && (
+        <div className="flex justify-center">
+          <button
+            onClick={() => onScenarioSelect(null)}
+            className="px-3 py-1.5 rounded-lg text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-elevated)] border border-[var(--border)] transition-colors"
+          >
+            Change Scenario
+          </button>
+        </div>
+      )}
 
       {messages.map((msg) => msg.role === "system" ? (
         <div key={msg.id} className="flex justify-center">

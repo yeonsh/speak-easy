@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import type { AppSettings, Language, NativeLanguage } from "../lib/types";
+import type { AppSettings, Language, NativeLanguage, TtsEngine } from "../lib/types";
 
 // Voice name prefix → language mapping
 const VOICE_LANG_PREFIX: Record<string, { lang: Language; label: string }> = {
@@ -15,7 +15,17 @@ const VOICE_LANG_PREFIX: Record<string, { lang: Language; label: string }> = {
   z: { lang: "zh", label: "Chinese" },
 };
 
-function voiceDisplayName(name: string): string {
+function voiceDisplayName(name: string, engine: TtsEngine): string {
+  if (engine === "edge") {
+    // Edge voice names like "en-US-JennyNeural"
+    const parts = name.split("-");
+    if (parts.length >= 3) {
+      const voiceName = parts.slice(2).join("-").replace("Neural", "");
+      const locale = `${parts[0]}-${parts[1]}`;
+      return `${voiceName} (${locale})`;
+    }
+    return name;
+  }
   const gender = name[1] === "f" ? "Female" : "Male";
   const voiceName = name.slice(3); // e.g. "heart", "adam"
   const prefix = VOICE_LANG_PREFIX[name[0]];
@@ -29,6 +39,7 @@ interface SidebarProps {
   settings: AppSettings;
   onSettingsChange: (settings: AppSettings) => void;
   onClearChat: () => void;
+  onOpenSetup?: () => void;
 }
 
 export function Sidebar({
@@ -37,6 +48,7 @@ export function Sidebar({
   settings,
   onSettingsChange,
   onClearChat,
+  onOpenSetup,
 }: SidebarProps) {
   const [voices, setVoices] = useState<string[]>([]);
 
@@ -47,10 +59,24 @@ export function Sidebar({
   }, [isOpen]);
 
   // Filter voices for the current language
-  const langPrefixes = Object.entries(VOICE_LANG_PREFIX)
-    .filter(([, v]) => v.lang === settings.language)
-    .map(([k]) => k);
-  const filteredVoices = voices.filter((v) => langPrefixes.includes(v[0]));
+  const filteredVoices = settings.ttsEngine === "edge"
+    ? voices.filter((v) => {
+        const langMap: Record<Language, string[]> = {
+          en: ["en-"],
+          es: ["es-"],
+          fr: ["fr-"],
+          zh: ["zh-"],
+          ja: ["ja-"],
+        };
+        const prefixes = langMap[settings.language] ?? [];
+        return prefixes.some((p) => v.startsWith(p));
+      })
+    : (() => {
+        const langPrefixes = Object.entries(VOICE_LANG_PREFIX)
+          .filter(([, v]) => v.lang === settings.language)
+          .map(([k]) => k);
+        return voices.filter((v) => langPrefixes.includes(v[0]));
+      })();
 
   if (!isOpen) return null;
 
@@ -117,6 +143,23 @@ export function Sidebar({
             </span>
           </SettingGroup>
 
+          <SettingGroup label="TTS Engine">
+            <select
+              value={settings.ttsEngine}
+              onChange={(e) =>
+                onSettingsChange({
+                  ...settings,
+                  ttsEngine: e.target.value as TtsEngine,
+                  ttsVoice: "default",
+                })
+              }
+              className="w-full bg-[var(--bg-elevated)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm"
+            >
+              <option value="edge">Edge TTS (Online)</option>
+              <option value="kokoro">Kokoro (Offline)</option>
+            </select>
+          </SettingGroup>
+
           <SettingGroup label="TTS Speed">
             <input
               type="range"
@@ -151,7 +194,7 @@ export function Sidebar({
               >
                 {filteredVoices.map((v) => (
                   <option key={v} value={v}>
-                    {voiceDisplayName(v)}
+                    {voiceDisplayName(v, settings.ttsEngine)}
                   </option>
                 ))}
               </select>
@@ -174,13 +217,21 @@ export function Sidebar({
             </select>
           </SettingGroup>
 
-          <div className="pt-4 border-t border-[var(--border)]">
+          <div className="pt-4 border-t border-[var(--border)] space-y-2">
             <button
               onClick={onClearChat}
               className="w-full px-4 py-2 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors text-sm"
             >
               Clear Conversation
             </button>
+            {onOpenSetup && (
+              <button
+                onClick={onOpenSetup}
+                className="w-full px-4 py-2 rounded-lg bg-[var(--bg-elevated)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--border)] transition-colors text-sm"
+              >
+                Setup Wizard
+              </button>
+            )}
           </div>
 
           <div className="pt-4 border-t border-[var(--border)]">

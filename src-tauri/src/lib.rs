@@ -3,6 +3,7 @@ use std::path::PathBuf;
 
 mod chat;
 mod downloads;
+mod edge_tts;
 mod llm;
 mod settings;
 mod stt;

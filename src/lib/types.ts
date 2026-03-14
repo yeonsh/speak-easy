@@ -2,6 +2,8 @@ export type Language = "en" | "es" | "fr" | "zh" | "ja";
 
 export type NativeLanguage = "en" | "ko";
 
+export type TtsEngine = "kokoro" | "edge";
+
 export type ConversationMode = "free-talk" | "scenario";
 
 export interface Message {
@@ -24,6 +26,7 @@ export interface AppSettings {
   mode: ConversationMode;
   correctionsEnabled: boolean;
   llmTemperature: number;
+  ttsEngine: TtsEngine;
   ttsSpeed: number;
   ttsVoice: string;
   gpuLayers: number;
@@ -47,6 +50,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   mode: "free-talk",
   correctionsEnabled: false,
   llmTemperature: 0.7,
+  ttsEngine: "edge",
   ttsSpeed: 1.0,
   ttsVoice: "default",
   gpuLayers: -1,

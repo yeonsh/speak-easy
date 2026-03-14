@@ -1,6 +1,6 @@
 # SpeakEasy
 
-A fully offline desktop app for practicing foreign languages with AI. Speak, listen, and get corrections — all on-device, no cloud services needed.
+A desktop app for practicing foreign languages with AI. Speak, listen, and get corrections — with offline-first design and optional cloud TTS for higher quality voices.
 
 Supports **English, Spanish, French, Chinese, and Japanese** with two practice modes (Free Talk and Scenario Role-Play) and an optional Corrections toggle.
 
@@ -13,6 +13,7 @@ Supports **English, Spanish, French, Chinese, and Japanese** with two practice m
 - **Replay** — re-listen to any message (yours or the assistant's) via TTS
 - **Translate** — one-tap translation of assistant messages into your native language
 - **Sample Responses** — get 2 suggested replies with native language translations
+- **Dual TTS Engine** — Edge TTS (online, high quality) or Kokoro (offline, fully private); switchable in settings
 - **Streaming TTS** — sentence-by-sentence audio with natural pauses between sentences
 - **Per-language chat history** — conversations saved separately per language and mode
 - **Japanese/Chinese support** — MeCab-based kanji-to-kana conversion, CJK punctuation handling
@@ -25,7 +26,7 @@ Built with [Tauri 2](https://v2.tauri.app/) (Rust backend + React frontend) and 
 |--------|---------|------------|
 | **STT** | Speech-to-text | [whisper.cpp](https://github.com/ggerganov/whisper.cpp) via `whisper-rs` |
 | **LLM** | Conversation | [llama.cpp](https://github.com/ggml-org/llama.cpp) (`llama-server` sidecar) |
-| **TTS** | Text-to-speech | [Kokoro](https://github.com/thewh1teagle/kokoro-onnx) via ONNX runtime |
+| **TTS** | Text-to-speech | [Edge TTS](https://github.com/BreakingOnTheEdge/msedge-tts) (online) or [Kokoro](https://github.com/thewh1teagle/kokoro-onnx) (offline) |
 
 ## Prerequisites
 
@@ -88,7 +89,8 @@ src-tauri/src/                # Rust backend
   llm.rs                      # llama-server lifecycle management
   chat.rs                     # Streaming chat + TTS pipeline, explain/suggest commands
   stt.rs                      # Whisper transcription
-  tts.rs                      # Kokoro TTS via ONNX runtime, text cleaning, sentence splitting
+  tts.rs                      # TTS engine dispatch (Kokoro/Edge), text cleaning, sentence splitting
+  edge_tts.rs                 # Edge TTS via msedge-tts (online)
   downloads.rs                # Model download with progress events
   settings.rs                 # Settings persistence
 ```

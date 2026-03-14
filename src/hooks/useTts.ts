@@ -1,14 +1,22 @@
 import { useState, useCallback, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-import type { Language } from "../lib/types";
+import type { Language, TtsEngine } from "../lib/types";
 
-const DEFAULT_VOICES: Record<Language, string> = {
+const KOKORO_VOICES: Record<Language, string> = {
   en: "af_heart",
   es: "ef_dora",
   fr: "ff_siwis",
   zh: "zf_xiaobei",
   ja: "jf_alpha",
+};
+
+const EDGE_VOICES: Record<Language, string> = {
+  en: "en-US-JennyNeural",
+  es: "es-ES-ElviraNeural",
+  fr: "fr-FR-DeniseNeural",
+  zh: "zh-CN-XiaoxiaoNeural",
+  ja: "ja-JP-NanamiNeural",
 };
 
 interface TtsChunkPayload {
@@ -23,7 +31,7 @@ interface UseTtsReturn {
   isLoaded: boolean;
   isSpeaking: boolean;
   error: string | null;
-  loadVoice: (language: Language, voiceName?: string) => Promise<void>;
+  loadVoice: (language: Language, voiceName?: string, engine?: TtsEngine) => Promise<void>;
   speak: (text: string, speed?: number, language?: string) => Promise<void>;
   startStreaming: (requestId: string) => Promise<void>;
   stopStreaming: () => void;
@@ -97,9 +105,11 @@ export function useTts(): UseTtsReturn {
   }, []);
 
   const loadVoice = useCallback(
-    async (language: Language, voiceName?: string) => {
+    async (language: Language, voiceName?: string, engine?: TtsEngine) => {
       setError(null);
-      const resolvedVoice = voiceName || DEFAULT_VOICES[language];
+      const eng = engine ?? "edge";
+      const defaults = eng === "edge" ? EDGE_VOICES : KOKORO_VOICES;
+      const resolvedVoice = voiceName || defaults[language];
 
       if (!resolvedVoice) {
         setError(`No TTS voice available for ${language}`);
@@ -108,7 +118,7 @@ export function useTts(): UseTtsReturn {
       }
 
       try {
-        await invoke("load_tts_voice", { voiceName: resolvedVoice });
+        await invoke("load_tts_voice", { voiceName: resolvedVoice, engine: eng });
         setIsLoaded(true);
         await refreshVoices();
       } catch (e) {
