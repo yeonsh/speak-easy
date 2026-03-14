@@ -154,6 +154,7 @@ export function SetupWizard({ onComplete }: SetupWizardProps) {
       component: (
         <LlmStep
           status={status}
+          models={models.filter((m) => m.id.startsWith("llm-"))}
           downloads={downloads}
           onDownload={startDownload}
           onOpenFolder={openFolder}
@@ -338,6 +339,7 @@ function WhisperStep({
 
 function LlmStep({
   status,
+  models,
   downloads,
   onDownload,
   onOpenFolder,
@@ -346,6 +348,7 @@ function LlmStep({
   onBack,
 }: {
   status: SetupStatus;
+  models: ModelInfo[];
   downloads: Record<string, DownloadState>;
   onDownload: (m: ModelInfo) => void;
   onOpenFolder: () => void;
@@ -449,16 +452,60 @@ function LlmStep({
           )}
         </div>
 
-        {/* GGUF model status */}
-        <StatusItem
-          label="GGUF model"
-          ok={status.has_llm}
-          hint={
-            status.has_llm
-              ? "Model found"
-              : "Download a .gguf model and place it in the models folder"
-          }
-        />
+        {/* GGUF model download */}
+        <div className="p-4 rounded-lg bg-[var(--bg-elevated)] border border-[var(--border)]">
+          <div className="flex items-center gap-3 mb-2">
+            <span className={`w-3 h-3 rounded-full flex-shrink-0 ${status.has_llm ? "bg-green-400" : "bg-yellow-400"}`} />
+            <span className="font-medium text-sm">GGUF Model</span>
+          </div>
+
+          {status.has_llm ? (
+            <p className="text-xs text-green-400 ml-6">Model found</p>
+          ) : (
+            <p className="text-xs text-[var(--text-secondary)] ml-6 mb-3">
+              Pick a model — 4B is fast, 30B is smarter but needs more RAM/VRAM
+            </p>
+          )}
+
+          {!status.has_llm && (
+            <div className="ml-6 space-y-2">
+              {models.map((model) => {
+                const dl = downloads[model.id];
+                return (
+                  <div key={model.id} className="p-3 rounded bg-[var(--bg-main)]">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-sm">{model.name}</span>
+                      <span className="text-xs text-[var(--text-secondary)]">{formatBytes(model.size_bytes)}</span>
+                    </div>
+                    {dl?.downloading && (
+                      <div className="mt-2">
+                        <div className="w-full h-2 bg-[var(--bg-elevated)] rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-[var(--primary)] transition-all duration-300"
+                            style={{ width: `${dl.total ? (dl.progress / dl.total) * 100 : 0}%` }}
+                          />
+                        </div>
+                        <span className="text-xs text-[var(--text-secondary)] mt-1">
+                          {formatBytes(dl.progress)} / {formatBytes(dl.total ?? model.size_bytes)}
+                        </span>
+                      </div>
+                    )}
+                    {dl?.error && <p className="text-xs text-red-400 mt-1">{dl.error}</p>}
+                    {dl?.complete && <span className="text-xs text-green-400 mt-1 inline-block">Downloaded</span>}
+                    {!dl?.downloading && !dl?.complete && (
+                      <button
+                        onClick={() => { onDownload(model); }}
+                        className="mt-2 px-4 py-1.5 text-xs bg-[var(--primary)] text-white rounded hover:bg-[var(--primary-hover)] transition-colors"
+                      >
+                        Download
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="flex gap-3">
@@ -474,15 +521,6 @@ function LlmStep({
         >
           Refresh
         </button>
-      </div>
-
-      <div className="p-3 bg-[var(--bg-elevated)] rounded-lg text-xs text-[var(--text-secondary)] space-y-1">
-        <p className="font-medium text-[var(--text-primary)]">Recommended models:</p>
-        <p>Quick start: Qwen3-4B-Q4_K_M.gguf (~2.5 GB)</p>
-        <p>Full quality: Qwen3-30B-A3B-Q4_K_M.gguf (~17 GB)</p>
-        <p className="mt-2">
-          Models dir: <code className="text-[var(--primary)]">{status.models_dir}</code>
-        </p>
       </div>
 
       <NavButtons onBack={onBack} onNext={onNext} nextLabel={status.has_llm && status.has_llama_server ? "Next" : "Skip"} />

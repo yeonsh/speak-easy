@@ -62,6 +62,25 @@ pub fn get_available_models() -> Vec<ModelInfo> {
             dest_dir: "models".to_string(),
             filename: "ggml-small.bin".to_string(),
         },
+        // LLM GGUF models
+        ModelInfo {
+            id: "llm-qwen3-4b".to_string(),
+            name: "Qwen3 4B (quick start)".to_string(),
+            size_bytes: 2_700_000_000,
+            url: "https://huggingface.co/Qwen/Qwen3-4B-GGUF/resolve/main/qwen3-4b-q4_k_m.gguf"
+                .to_string(),
+            dest_dir: "models".to_string(),
+            filename: "qwen3-4b-q4_k_m.gguf".to_string(),
+        },
+        ModelInfo {
+            id: "llm-qwen3-30b".to_string(),
+            name: "Qwen3 30B-A3B MoE (full quality)".to_string(),
+            size_bytes: 17_300_000_000,
+            url: "https://huggingface.co/Qwen/Qwen3-30B-A3B-GGUF/resolve/main/qwen3-30b-a3b-q4_k_m.gguf"
+                .to_string(),
+            dest_dir: "models".to_string(),
+            filename: "qwen3-30b-a3b-q4_k_m.gguf".to_string(),
+        },
         // Piper TTS voices — each voice has an .onnx model and .onnx.json config
         // English
         ModelInfo {
