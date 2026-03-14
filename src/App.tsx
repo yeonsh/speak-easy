@@ -21,12 +21,13 @@ import { DEFAULT_SETTINGS } from "./lib/types";
 function App() {
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
   const [messages, setMessages] = useState<Message[]>([]);
+  const messagesByLangRef = useRef<Record<string, Message[]>>({});
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [showWizard, setShowWizard] = useState<boolean | null>(null);
   const [revealedSentences, setRevealedSentences] = useState<string[]>([]);
   const [isStreamingTts, setIsStreamingTts] = useState(false);
   const isStreamingTtsRef = useRef(false);
-  const [_pendingFullText, setPendingFullText] = useState<string | null>(null);
+  const pendingFullTextRef = useRef<string | null>(null);
   const currentRequestIdRef = useRef<string | null>(null);
 
   // Check if first launch
@@ -79,18 +80,17 @@ function App() {
         // All audio finished — finalize message
         setIsStreamingTts(false);
         isStreamingTtsRef.current = false;
-        setPendingFullText((fullText) => {
-          if (fullText) {
-            const msg: Message = {
-              id: crypto.randomUUID(),
-              role: "assistant",
-              content: fullText,
-              timestamp: Date.now(),
-            };
-            setMessages((msgs) => [...msgs, msg]);
-          }
-          return null;
-        });
+        const fullText = pendingFullTextRef.current;
+        if (fullText) {
+          const msg: Message = {
+            id: crypto.randomUUID(),
+            role: "assistant",
+            content: fullText,
+            timestamp: Date.now(),
+          };
+          setMessages((msgs) => [...msgs, msg]);
+          pendingFullTextRef.current = null;
+        }
         setRevealedSentences([]);
       }
     };
@@ -101,7 +101,7 @@ function App() {
     llm.onComplete.current = (fullText: string) => {
       if (tts.isLoaded && isStreamingTtsRef.current) {
         // TTS is streaming — wait for audio to finish before adding message
-        setPendingFullText(fullText);
+        pendingFullTextRef.current = fullText;
       } else {
         // No TTS — add message immediately (current behavior)
         const msg: Message = {
@@ -118,14 +118,17 @@ function App() {
   // Auto-load TTS voice when language changes
   const handleLanguageChange = useCallback((lang: Language) => {
     setSettings((s) => {
+      // Save current messages under old language
+      messagesByLangRef.current[s.language] = messages;
       if (tts.isLoaded) {
         tts.loadVoice(lang);
       }
       return { ...s, language: lang };
     });
-    setMessages([]);
+    // Restore saved messages for new language (or empty)
+    setMessages(messagesByLangRef.current[lang] ?? []);
     tts.stop();
-  }, [tts]);
+  }, [tts, messages]);
 
   const handleModeChange = useCallback((mode: ConversationMode) => {
     setSettings((s) => {
@@ -185,7 +188,7 @@ function App() {
       setMessages((msgs) => [...msgs, userMsg]);
       setIsStreamingTts(false);
       isStreamingTtsRef.current = false;
-      setPendingFullText(null);
+      pendingFullTextRef.current = null;
 
       const systemPrompt = getSystemPrompt(settings.language, settings.mode);
       const allMessages = [
@@ -213,6 +216,7 @@ function App() {
           settings.llmTemperature,
           tts.isLoaded,
           settings.ttsSpeed,
+          settings.language,
           requestId,
         );
       } catch (e) {
@@ -322,7 +326,7 @@ function App() {
                   setMessages((msgs) => [...msgs, msg]);
                   setRevealedSentences([]);
                   setIsStreamingTts(false);
-                  setPendingFullText(null);
+                  pendingFullTextRef.current = null;
                 }
                 currentRequestIdRef.current = null;
               }

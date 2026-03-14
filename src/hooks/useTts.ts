@@ -70,12 +70,12 @@ export function useTts(): UseTtsReturn {
     node.port.onmessage = (event) => {
       if (event.data.type === "chunkDone") {
         const idx = event.data.index as number;
-        const text = chunkMetaRef.current.get(idx) ?? "";
-        const isDone = doneReceivedRef.current && idx === lastDoneIndexRef.current;
-        onChunkDone.current?.(idx, text, isDone);
         chunkMetaRef.current.delete(idx);
+        const isDone = doneReceivedRef.current && idx === lastDoneIndexRef.current;
 
         if (isDone) {
+          // All audio finished — signal completion with no new text
+          onChunkDone.current?.(idx, "", true);
           setIsSpeaking(false);
         }
       }
@@ -162,6 +162,9 @@ export function useTts(): UseTtsReturn {
           chunkMetaRef.current.set(index, text);
           lastDoneIndexRef.current = index;
 
+          // Reveal text immediately
+          onChunkDone.current?.(index, text, false);
+
           if (samples.length > 0) {
             // Convert to Float32Array and send to worklet
             const float32 = new Float32Array(samples);
@@ -169,9 +172,6 @@ export function useTts(): UseTtsReturn {
               { type: "chunk", samples: float32, index },
               [float32.buffer],
             );
-          } else {
-            // Empty samples (synthesis failed) — reveal text immediately
-            onChunkDone.current?.(index, text, doneReceivedRef.current && index === lastDoneIndexRef.current);
           }
         },
       );

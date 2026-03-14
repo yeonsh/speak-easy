@@ -37,6 +37,27 @@ struct SseResponse {
     choices: Option<Vec<SseChoice>>,
 }
 
+/// Strip emoji characters so TTS engines don't try to pronounce them.
+fn strip_emojis(text: &str) -> String {
+    text.chars()
+        .filter(|&c| {
+            let cp = c as u32;
+            !matches!(
+                cp,
+                0x200D              // Zero Width Joiner
+                | 0x20E3            // Combining Enclosing Keycap
+                | 0xFE00..=0xFE0F  // Variation Selectors
+                | 0x1F1E0..=0x1F1FF // Regional Indicators (flags)
+                | 0x1F300..=0x1F9FF // Misc Symbols, Emoticons, Transport, Supplemental
+                | 0x1FA00..=0x1FAFF // Symbols Extended-A
+                | 0x2600..=0x26FF   // Misc Symbols
+                | 0x2700..=0x27BF   // Dingbats
+                | 0xE0020..=0xE007F // Tags
+            )
+        })
+        .collect()
+}
+
 /// Accumulates LLM tokens and detects sentence boundaries.
 struct SentenceBuffer {
     buffer: String,
@@ -139,6 +160,7 @@ pub fn send_chat_message(
     request_id: String,
     tts_enabled: Option<bool>,
     tts_speed: Option<f32>,
+    language: Option<String>,
 ) -> Result<(), String> {
     let port = *state.port.lock().unwrap();
     if port == 0 {
@@ -169,6 +191,7 @@ pub fn send_chat_message(
     // Set up TTS channel if TTS is enabled
     let tts_enabled = tts_enabled.unwrap_or(false);
     let speed = tts_speed.unwrap_or(1.0);
+    let lang = language.unwrap_or_else(|| "en".to_string());
     let (sentence_tx, sentence_rx) = mpsc::channel::<Option<String>>();
 
     // Spawn TTS worker thread
@@ -214,8 +237,24 @@ pub fn send_chat_message(
                     continue;
                 }
 
-                // Synthesize this sentence
-                let result = crate::tts::synthesize_text(&tts_state, &sentence, speed);
+                // Strip emojis before synthesis — keep original for display
+                let tts_input = strip_emojis(&sentence);
+                if tts_input.trim().is_empty() {
+                    // Sentence was only emojis — reveal text without audio
+                    let _ = tts_app.emit(
+                        &tts_event,
+                        TtsChunk {
+                            samples: vec![],
+                            sample_rate: 24000,
+                            index,
+                            text: sentence,
+                            done: false,
+                        },
+                    );
+                    index += 1;
+                    continue;
+                }
+                let result = crate::tts::synthesize_text(&tts_state, &tts_input, speed, &lang);
 
                 let (samples, sample_rate) = match result {
                     Ok(tts_result) => (tts_result.samples, tts_result.sample_rate),

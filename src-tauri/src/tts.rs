@@ -240,7 +240,7 @@ pub fn list_voices() -> Result<Vec<String>, String> {
 }
 
 /// Core synthesis function callable from any thread with access to TtsState.
-pub fn synthesize_text(state: &TtsState, text: &str, speed: f32) -> Result<TtsResult, String> {
+pub fn synthesize_text(state: &TtsState, text: &str, speed: f32, lang: &str) -> Result<TtsResult, String> {
     let mut session_guard = state.session.lock().unwrap();
     let session = session_guard
         .as_mut()
@@ -253,7 +253,8 @@ pub fn synthesize_text(state: &TtsState, text: &str, speed: f32) -> Result<TtsRe
 
     let vocab = kokoro_vocab();
 
-    let phonemes = espeak_phonemize(text);
+    eprintln!("[tts] Synthesizing lang={} text={}", lang, &text[..text.len().min(80)]);
+    let phonemes = espeak_phonemize(text, lang);
     eprintln!("[tts] Phonemes: {}", phonemes);
 
     let mut tokens: Vec<i64> = Vec::new();
@@ -321,8 +322,9 @@ pub fn synthesize_speech(
     state: tauri::State<'_, TtsState>,
     text: String,
     speed: Option<f32>,
+    language: Option<String>,
 ) -> Result<TtsResult, String> {
-    synthesize_text(&state, &text, speed.unwrap_or(1.0))
+    synthesize_text(&state, &text, speed.unwrap_or(1.0), &language.unwrap_or_else(|| "en".to_string()))
 }
 
 /// Convert WAV samples to WAV bytes for playback in frontend
@@ -346,13 +348,22 @@ pub fn samples_to_wav_bytes(samples: Vec<f32>, sample_rate: u32) -> Result<Vec<u
     Ok(buf)
 }
 
-/// Use espeak-ng to convert text to IPA phonemes
-fn espeak_phonemize(text: &str) -> String {
-    let programs = ["espeak-ng", "espeak"];
+fn espeak_lang_code(lang: &str) -> &str {
+    match lang {
+        "zh" => "cmn",
+        other => other, // en, es, de, ja work as-is
+    }
+}
+
+/// Use mecab to convert Japanese text (with kanji) to katakana readings.
+/// eSpeak can handle katakana but not kanji.
+fn mecab_to_kana(text: &str) -> Option<String> {
+    // Try multiple paths — GUI apps on macOS don't inherit shell PATH
+    let programs = ["mecab", "/opt/homebrew/bin/mecab", "/usr/local/bin/mecab"];
 
     for prog in &programs {
-        if let Ok(output) = std::process::Command::new(prog)
-            .args(["--ipa=2", "-q", "--stdin"])
+        let result = std::process::Command::new(prog)
+            .arg("-Oyomi")
             .stdin(std::process::Stdio::piped())
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::null())
@@ -361,6 +372,58 @@ fn espeak_phonemize(text: &str) -> String {
                 use std::io::Write;
                 if let Some(ref mut stdin) = child.stdin {
                     let _ = stdin.write_all(text.as_bytes());
+                }
+                child.wait_with_output()
+            });
+
+        match result {
+            Ok(output) if output.status.success() => {
+                let kana = String::from_utf8_lossy(&output.stdout).trim().to_string();
+                if !kana.is_empty() {
+                    eprintln!("[tts] mecab kana: {}", kana);
+                    return Some(kana);
+                }
+            }
+            _ => continue,
+        }
+    }
+
+    eprintln!("[tts] WARNING: mecab not found, kanji will not be read correctly");
+    None
+}
+
+/// Use espeak-ng to convert text to IPA phonemes
+fn espeak_phonemize(text: &str, lang: &str) -> String {
+    // For Japanese, convert kanji to katakana via mecab first
+    let preprocessed;
+    let input = if lang == "ja" {
+        if let Some(kana) = mecab_to_kana(text) {
+            preprocessed = kana;
+            &preprocessed
+        } else {
+            text
+        }
+    } else {
+        text
+    };
+    let programs = [
+        "espeak-ng", "espeak",
+        "/opt/homebrew/bin/espeak-ng", "/opt/homebrew/bin/espeak",
+        "/usr/local/bin/espeak-ng", "/usr/local/bin/espeak",
+    ];
+    let voice = espeak_lang_code(lang);
+
+    for prog in &programs {
+        if let Ok(output) = std::process::Command::new(prog)
+            .args(["--ipa=2", "-q", "-v", voice, "--stdin"])
+            .stdin(std::process::Stdio::piped())
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::null())
+            .spawn()
+            .and_then(|mut child| {
+                use std::io::Write;
+                if let Some(ref mut stdin) = child.stdin {
+                    let _ = stdin.write_all(input.as_bytes());
                 }
                 child.wait_with_output()
             })

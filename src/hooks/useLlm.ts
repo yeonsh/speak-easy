@@ -13,6 +13,7 @@ interface UseLlmReturn {
     temperature?: number,
     ttsEnabled?: boolean,
     ttsSpeed?: number,
+    language?: string,
     requestId?: string,
   ) => Promise<string>;  // returns requestId
   streamingText: string;
@@ -77,6 +78,7 @@ export function useLlm(): UseLlmReturn {
       temperature?: number,
       ttsEnabled?: boolean,
       ttsSpeed?: number,
+      language?: string,
       externalRequestId?: string,
     ) => {
       // Clean up previous listener
@@ -118,6 +120,7 @@ export function useLlm(): UseLlmReturn {
           requestId,
           ttsEnabled: ttsEnabled ?? false,
           ttsSpeed: ttsSpeed ?? null,
+          language: language ?? null,
         });
       } catch (e) {
         currentRequestIdRef.current = null;
