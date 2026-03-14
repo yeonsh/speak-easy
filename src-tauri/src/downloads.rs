@@ -465,13 +465,21 @@ fn download_with_progress(
     resume_from: u64,
     download_id: &str,
 ) -> Result<(), String> {
-    let mut builder = ureq::get(url);
+    use std::time::Duration;
+
+    let agent = ureq::Agent::config_builder()
+        .timeout_global(None)
+        .timeout_connect(Some(Duration::from_secs(30)))
+        .build()
+        .new_agent();
+
+    let mut request = agent.get(url);
 
     if resume_from > 0 {
-        builder = builder.header("Range", &format!("bytes={}-", resume_from));
+        request = request.header("Range", &format!("bytes={}-", resume_from));
     }
 
-    let response = builder.call().map_err(|e| format!("Download failed: {}", e))?;
+    let response = request.call().map_err(|e| format!("Download failed: {}", e))?;
 
     let total = response
         .headers()
