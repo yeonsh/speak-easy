@@ -473,13 +473,25 @@ fn download_with_progress(
         .build()
         .new_agent();
 
-    let mut request = agent.get(url);
+    let mut request = agent.get(url)
+        .header("User-Agent", "SpeakEasy/0.1.0");
 
     if resume_from > 0 {
         request = request.header("Range", &format!("bytes={}-", resume_from));
     }
 
-    let response = request.call().map_err(|e| format!("Download failed: {}", e))?;
+    eprintln!("[download] Starting: {} -> {}", url, temp_path.display());
+
+    let response = match request.call() {
+        Ok(r) => {
+            eprintln!("[download] Connected, status: {}", r.status());
+            r
+        }
+        Err(e) => {
+            eprintln!("[download] Connection failed: {}", e);
+            return Err(format!("Download failed: {}", e));
+        }
+    };
 
     let total = response
         .headers()
