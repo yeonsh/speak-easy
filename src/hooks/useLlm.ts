@@ -11,9 +11,12 @@ interface UseLlmReturn {
   sendMessage: (
     messages: { role: string; content: string }[],
     temperature?: number,
-  ) => Promise<void>;
+    ttsEnabled?: boolean,
+    ttsSpeed?: number,
+  ) => Promise<string>;  // returns requestId
   streamingText: string;
   isGenerating: boolean;
+  currentRequestId: string | null;
   onComplete: React.MutableRefObject<((fullText: string) => void) | null>;
 }
 
@@ -25,6 +28,7 @@ export function useLlm(): UseLlmReturn {
   const [isGenerating, setIsGenerating] = useState(false);
   const onComplete = useRef<((fullText: string) => void) | null>(null);
   const unlistenRef = useRef<UnlistenFn | null>(null);
+  const currentRequestIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     // Listen for server ready event
@@ -71,6 +75,8 @@ export function useLlm(): UseLlmReturn {
     async (
       messages: { role: string; content: string }[],
       temperature?: number,
+      ttsEnabled?: boolean,
+      ttsSpeed?: number,
     ) => {
       // Clean up previous listener
       if (unlistenRef.current) {
@@ -79,6 +85,7 @@ export function useLlm(): UseLlmReturn {
       }
 
       const requestId = crypto.randomUUID();
+      currentRequestIdRef.current = requestId;
       setStreamingText("");
       setIsGenerating(true);
 
@@ -91,6 +98,7 @@ export function useLlm(): UseLlmReturn {
           if (event.payload.done) {
             setIsGenerating(false);
             setStreamingText("");
+            currentRequestIdRef.current = null;
             onComplete.current?.(accumulated);
             unlistenRef.current?.();
             unlistenRef.current = null;
@@ -107,13 +115,18 @@ export function useLlm(): UseLlmReturn {
           messages,
           temperature: temperature ?? null,
           requestId,
+          ttsEnabled: ttsEnabled ?? false,
+          ttsSpeed: ttsSpeed ?? null,
         });
       } catch (e) {
+        currentRequestIdRef.current = null;
         setIsGenerating(false);
         setStreamingText("");
         unlisten();
         throw e;
       }
+
+      return requestId;
     },
     [],
   );
@@ -127,6 +140,7 @@ export function useLlm(): UseLlmReturn {
     sendMessage,
     streamingText,
     isGenerating,
+    currentRequestId: currentRequestIdRef.current,
     onComplete,
   };
 }
