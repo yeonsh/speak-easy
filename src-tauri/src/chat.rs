@@ -198,13 +198,31 @@ pub fn send_chat_message(
 
                 if tts_cancel.load(Ordering::Relaxed) {
                     // Drain remaining messages without synthesizing
-                    while sentence_rx.recv().is_ok() {}
+                    // Must break on None sentinel to avoid deadlock (SSE thread holds sender)
+                    loop {
+                        match sentence_rx.recv() {
+                            Ok(Some(_)) => {} // discard
+                            _ => break,       // None sentinel or channel closed
+                        }
+                    }
                     let _ = tts_app.emit(&tts_stop, true);
                     return;
                 }
 
                 if sentence.trim().is_empty() {
                     continue;
+                }
+
+                // Check cancel before synthesis (avoid synthesizing after cancel)
+                if tts_cancel.load(Ordering::Relaxed) {
+                    loop {
+                        match sentence_rx.recv() {
+                            Ok(Some(_)) => {}
+                            _ => break,
+                        }
+                    }
+                    let _ = tts_app.emit(&tts_stop, true);
+                    return;
                 }
 
                 // Synthesize this sentence
