@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { AppSettings, Language, NativeLanguage, TtsEngine } from "../lib/types";
+import { LANGUAGE_CONFIG } from "../lib/types";
 import { t } from "../lib/i18n";
 
 // Voice name prefix → language mapping
@@ -132,8 +133,11 @@ export function Sidebar({
               }
               className="w-full bg-[var(--bg-elevated)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm"
             >
-              <option value="ko">한국어 (Korean)</option>
-              <option value="en">English</option>
+              {(Object.entries(LANGUAGE_CONFIG) as [NativeLanguage, { name: string; nativeName: string }][]).map(([code, cfg]) => (
+                <option key={code} value={code}>
+                  {cfg.nativeName} ({cfg.name})
+                </option>
+              ))}
             </select>
           </SettingGroup>
 

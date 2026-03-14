@@ -572,6 +572,20 @@ const FREE_TALK_STYLE: Record<Language, string> = {
 const NATIVE_LANG_NAMES: Record<NativeLanguage, string> = {
   ko: "Korean (한국어)",
   en: "English",
+  es: "Spanish (Español)",
+  fr: "French (Français)",
+  zh: "Chinese (中文)",
+  ja: "Japanese (日本語)",
+  de: "German (Deutsch)",
+  pt: "Portuguese (Português)",
+  it: "Italian (Italiano)",
+  ru: "Russian (Русский)",
+  ar: "Arabic (العربية)",
+  hi: "Hindi (हिन्दी)",
+  tr: "Turkish (Türkçe)",
+  id: "Indonesian (Indonesia)",
+  vi: "Vietnamese (Tiếng Việt)",
+  pl: "Polish (Polski)",
 };
 
 const CORRECTION_EXAMPLES: Record<NativeLanguage, string> = {
@@ -587,6 +601,90 @@ Response:
 ¡Vamos a buscar algo de comer entonces!
 ---
 "yo soy tener hambre" -> "yo tengo hambre" -- To express "I am hungry" in Spanish, you use "tener" (to have) not "ser" (to be). "Tengo hambre" literally means "I have hunger."`,
+  es: `Example (Spanish):
+User: "yo soy tener hambre"
+Response:
+¡Vamos a buscar algo de comer entonces!
+---
+"yo soy tener hambre" -> "yo tengo hambre" -- Para expresar "tener hambre" en español se usa el verbo "tener", no "ser". "Tengo hambre" significa literalmente "tengo hambre", no "soy hambre".`,
+  fr: `Example (Spanish):
+User: "yo soy tener hambre"
+Response:
+¡Vamos a buscar algo de comer entonces!
+---
+"yo soy tener hambre" -> "yo tengo hambre" -- En espagnol, pour exprimer la faim, on utilise "tener" (avoir) et non "ser" (être). "Tengo hambre" signifie littéralement "j'ai faim".`,
+  zh: `Example (Spanish):
+User: "yo soy tener hambre"
+Response:
+¡Vamos a buscar algo de comer entonces!
+---
+"yo soy tener hambre" -> "yo tengo hambre" -- 在西班牙语中，表达"饿了"要用动词"tener"（拥有），而不是"ser"（是）。"tengo hambre"直译是"我拥有饥饿"。`,
+  ja: `Example (Spanish):
+User: "yo soy tener hambre"
+Response:
+¡Vamos a buscar algo de comer entonces!
+---
+"yo soy tener hambre" -> "yo tengo hambre" -- スペイン語で「お腹が空いた」と言うときは、ser（〜である）ではなくtener（〜を持つ）を使います。"tengo hambre"は直訳すると「私は空腹を持っている」という意味です。`,
+  de: `Example (Spanish):
+User: "yo soy tener hambre"
+Response:
+¡Vamos a buscar algo de comer entonces!
+---
+"yo soy tener hambre" -> "yo tengo hambre" -- Im Spanischen verwendet man "tener" (haben), nicht "ser" (sein), um Hunger auszudrücken. "Tengo hambre" bedeutet wörtlich "Ich habe Hunger."`,
+  pt: `Example (Spanish):
+User: "yo soy tener hambre"
+Response:
+¡Vamos a buscar algo de comer entonces!
+---
+"yo soy tener hambre" -> "yo tengo hambre" -- Em espanhol, para expressar fome, usa-se "tener" (ter) e não "ser". "Tengo hambre" significa literalmente "eu tenho fome".`,
+  it: `Example (Spanish):
+User: "yo soy tener hambre"
+Response:
+¡Vamos a buscar algo de comer entonces!
+---
+"yo soy tener hambre" -> "yo tengo hambre" -- In spagnolo, per esprimere la fame si usa "tener" (avere) e non "ser" (essere). "Tengo hambre" significa letteralmente "ho fame".`,
+  ru: `Example (Spanish):
+User: "yo soy tener hambre"
+Response:
+¡Vamos a buscar algo de comer entonces!
+---
+"yo soy tener hambre" -> "yo tengo hambre" -- В испанском языке для выражения голода используется глагол "tener" (иметь), а не "ser" (быть). "Tengo hambre" дословно означает "я имею голод".`,
+  ar: `Example (Spanish):
+User: "yo soy tener hambre"
+Response:
+¡Vamos a buscar algo de comer entonces!
+---
+"yo soy tener hambre" -> "yo tengo hambre" -- في الإسبانية، للتعبير عن الجوع نستخدم الفعل "tener" (يملك) وليس "ser" (يكون). "Tengo hambre" تعني حرفيًا "أملك جوعًا".`,
+  hi: `Example (Spanish):
+User: "yo soy tener hambre"
+Response:
+¡Vamos a buscar algo de comer entonces!
+---
+"yo soy tener hambre" -> "yo tengo hambre" -- स्पेनिश में "भूख लगना" कहने के लिए "ser" (होना) नहीं बल्कि "tener" (रखना/पास होना) का इस्तेमाल होता है। "Tengo hambre" का शाब्दिक अर्थ है "मेरे पास भूख है"।`,
+  tr: `Example (Spanish):
+User: "yo soy tener hambre"
+Response:
+¡Vamos a buscar algo de comer entonces!
+---
+"yo soy tener hambre" -> "yo tengo hambre" -- İspanyolcada açlığı ifade etmek için "ser" (olmak) değil, "tener" (sahip olmak) fiili kullanılır. "Tengo hambre" kelimesi kelimesine "açlığa sahibim" demektir.`,
+  id: `Example (Spanish):
+User: "yo soy tener hambre"
+Response:
+¡Vamos a buscar algo de comer entonces!
+---
+"yo soy tener hambre" -> "yo tengo hambre" -- Dalam bahasa Spanyol, untuk mengungkapkan rasa lapar digunakan kata kerja "tener" (memiliki), bukan "ser" (adalah). "Tengo hambre" secara harfiah berarti "saya memiliki rasa lapar".`,
+  vi: `Example (Spanish):
+User: "yo soy tener hambre"
+Response:
+¡Vamos a buscar algo de comer entonces!
+---
+"yo soy tener hambre" -> "yo tengo hambre" -- Trong tiếng Tây Ban Nha, để diễn tả sự đói, người ta dùng động từ "tener" (có) chứ không phải "ser" (là). "Tengo hambre" nghĩa đen là "tôi có sự đói".`,
+  pl: `Example (Spanish):
+User: "yo soy tener hambre"
+Response:
+¡Vamos a buscar algo de comer entonces!
+---
+"yo soy tener hambre" -> "yo tengo hambre" -- W hiszpańskim, żeby wyrazić głód, używa się czasownika "tener" (mieć), a nie "ser" (być). "Tengo hambre" dosłownie oznacza "mam głód".`,
 };
 
 export function getSystemPrompt(

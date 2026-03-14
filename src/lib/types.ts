@@ -1,6 +1,6 @@
 export type Language = "en" | "es" | "fr" | "zh" | "ja" | "de" | "ko" | "pt" | "it" | "ru" | "ar" | "hi" | "tr" | "id" | "vi" | "pl";
 
-export type NativeLanguage = "en" | "ko";
+export type NativeLanguage = Language;
 
 export type TtsEngine = "kokoro" | "edge";
 
