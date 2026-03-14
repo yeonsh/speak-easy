@@ -1,0 +1,564 @@
+import { useState, useEffect, useCallback } from "react";
+import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
+
+interface SetupStatus {
+  has_whisper: boolean;
+  has_llm: boolean;
+  has_tts: boolean;
+  has_llama_server: boolean;
+  models_dir: string;
+  voices_dir: string;
+}
+
+interface ModelInfo {
+  id: string;
+  name: string;
+  size_bytes: number;
+  url: string;
+  dest_dir: string;
+  filename: string;
+}
+
+interface DownloadState {
+  downloading: boolean;
+  progress: number;
+  total: number | null;
+  error: string | null;
+  complete: boolean;
+}
+
+interface SetupWizardProps {
+  onComplete: () => void;
+}
+
+export function SetupWizard({ onComplete }: SetupWizardProps) {
+  const [step, setStep] = useState(0);
+  const [status, setStatus] = useState<SetupStatus | null>(null);
+  const [models, setModels] = useState<ModelInfo[]>([]);
+  const [downloads, setDownloads] = useState<Record<string, DownloadState>>({});
+
+  useEffect(() => {
+    checkStatus();
+    invoke<ModelInfo[]>("get_available_models").then(setModels);
+  }, []);
+
+  const checkStatus = async () => {
+    const s = await invoke<SetupStatus>("check_setup_complete");
+    setStatus(s);
+  };
+
+  const startDownload = useCallback(
+    async (model: ModelInfo) => {
+      const downloadId = model.id;
+
+      setDownloads((d) => ({
+        ...d,
+        [downloadId]: {
+          downloading: true,
+          progress: 0,
+          total: model.size_bytes,
+          error: null,
+          complete: false,
+        },
+      }));
+
+      // Listen for progress
+      const unProgress = await listen<{
+        id: string;
+        downloaded: number;
+        total: number | null;
+      }>(`download-progress-${downloadId}`, (event) => {
+        setDownloads((d) => ({
+          ...d,
+          [downloadId]: {
+            ...d[downloadId],
+            progress: event.payload.downloaded,
+            total: event.payload.total ?? model.size_bytes,
+          },
+        }));
+      });
+
+      const unComplete = await listen<boolean>(
+        `download-complete-${downloadId}`,
+        () => {
+          setDownloads((d) => ({
+            ...d,
+            [downloadId]: {
+              ...d[downloadId],
+              downloading: false,
+              complete: true,
+            },
+          }));
+          unProgress();
+          unComplete();
+          checkStatus();
+        },
+      );
+
+      const unError = await listen<string>(
+        `download-error-${downloadId}`,
+        (event) => {
+          setDownloads((d) => ({
+            ...d,
+            [downloadId]: {
+              ...d[downloadId],
+              downloading: false,
+              error: event.payload,
+            },
+          }));
+          unProgress();
+          unError();
+        },
+      );
+
+      await invoke("download_file", {
+        url: model.url,
+        destDir: model.dest_dir,
+        filename: model.filename,
+        downloadId,
+      });
+    },
+    [],
+  );
+
+  const openFolder = async () => {
+    await invoke("open_models_folder");
+  };
+
+  if (!status) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="animate-spin w-8 h-8 border-2 border-[var(--primary)] border-t-transparent rounded-full" />
+      </div>
+    );
+  }
+
+  const steps = [
+    { title: "Welcome", component: <WelcomeStep onNext={() => setStep(1)} /> },
+    {
+      title: "Speech Recognition",
+      component: (
+        <WhisperStep
+          status={status}
+          models={models.filter((m) => m.id.startsWith("whisper"))}
+          downloads={downloads}
+          onDownload={startDownload}
+          onNext={() => setStep(2)}
+          onBack={() => setStep(0)}
+        />
+      ),
+    },
+    {
+      title: "Language Model",
+      component: (
+        <LlmStep
+          status={status}
+          onOpenFolder={openFolder}
+          onRefresh={checkStatus}
+          onNext={() => setStep(3)}
+          onBack={() => setStep(1)}
+        />
+      ),
+    },
+    {
+      title: "Text to Speech",
+      component: (
+        <TtsStep
+          status={status}
+          onOpenFolder={openFolder}
+          onRefresh={checkStatus}
+          onNext={() => setStep(4)}
+          onBack={() => setStep(2)}
+        />
+      ),
+    },
+    {
+      title: "Ready",
+      component: (
+        <ReadyStep status={status} onComplete={onComplete} onBack={() => setStep(3)} />
+      ),
+    },
+  ];
+
+  return (
+    <div className="flex flex-col h-full">
+      {/* Progress bar */}
+      <div className="flex items-center gap-2 px-6 pt-6">
+        {steps.map((_s, i) => (
+          <div key={i} className="flex items-center gap-2 flex-1">
+            <div
+              className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${
+                i <= step
+                  ? "bg-[var(--primary)] text-white"
+                  : "bg-[var(--bg-elevated)] text-[var(--text-secondary)]"
+              }`}
+            >
+              {i < step ? (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                  <path d="M20 6L9 17l-5-5" />
+                </svg>
+              ) : (
+                i + 1
+              )}
+            </div>
+            {i < steps.length - 1 && (
+              <div
+                className={`flex-1 h-0.5 transition-colors ${
+                  i < step ? "bg-[var(--primary)]" : "bg-[var(--bg-elevated)]"
+                }`}
+              />
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* Step content */}
+      <div className="flex-1 overflow-y-auto px-6 py-8">{steps[step].component}</div>
+    </div>
+  );
+}
+
+function WelcomeStep({ onNext }: { onNext: () => void }) {
+  return (
+    <div className="flex flex-col items-center justify-center h-full text-center gap-6">
+      <div className="w-20 h-20 rounded-2xl bg-[var(--primary)] flex items-center justify-center">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z" />
+          <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z" />
+        </svg>
+      </div>
+      <div>
+        <h1 className="text-2xl font-bold mb-2">Welcome to SpeakEasy</h1>
+        <p className="text-[var(--text-secondary)] max-w-sm">
+          Practice speaking foreign languages with AI — completely offline and
+          private. Let's set up the models you'll need.
+        </p>
+      </div>
+      <button
+        onClick={onNext}
+        className="px-8 py-3 bg-[var(--primary)] text-white rounded-lg hover:bg-[var(--primary-hover)] transition-colors font-medium"
+      >
+        Get Started
+      </button>
+    </div>
+  );
+}
+
+function WhisperStep({
+  status,
+  models,
+  downloads,
+  onDownload,
+  onNext,
+  onBack,
+}: {
+  status: SetupStatus;
+  models: ModelInfo[];
+  downloads: Record<string, DownloadState>;
+  onDownload: (m: ModelInfo) => void;
+  onNext: () => void;
+  onBack: () => void;
+}) {
+  return (
+    <div className="max-w-lg mx-auto space-y-6">
+      <div>
+        <h2 className="text-xl font-bold mb-1">Speech Recognition</h2>
+        <p className="text-sm text-[var(--text-secondary)]">
+          Whisper converts your speech to text. The Base model works well for
+          most languages.
+        </p>
+      </div>
+
+      {status.has_whisper && (
+        <div className="flex items-center gap-2 p-3 bg-green-500/10 rounded-lg text-green-400 text-sm">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M20 6L9 17l-5-5" />
+          </svg>
+          Whisper model already installed
+        </div>
+      )}
+
+      <div className="space-y-3">
+        {models.map((model) => {
+          const dl = downloads[model.id];
+          const isComplete = dl?.complete || status.has_whisper;
+          return (
+            <div
+              key={model.id}
+              className="p-4 rounded-lg bg-[var(--bg-elevated)] border border-[var(--border)]"
+            >
+              <div className="flex items-center justify-between mb-1">
+                <span className="font-medium text-sm">{model.name}</span>
+                <span className="text-xs text-[var(--text-secondary)]">
+                  {formatBytes(model.size_bytes)}
+                </span>
+              </div>
+              {dl?.downloading && (
+                <div className="mt-2">
+                  <div className="w-full h-2 bg-[var(--bg-main)] rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-[var(--primary)] transition-all duration-300"
+                      style={{
+                        width: `${dl.total ? (dl.progress / dl.total) * 100 : 0}%`,
+                      }}
+                    />
+                  </div>
+                  <span className="text-xs text-[var(--text-secondary)] mt-1">
+                    {formatBytes(dl.progress)} / {formatBytes(dl.total ?? model.size_bytes)}
+                  </span>
+                </div>
+              )}
+              {dl?.error && (
+                <p className="text-xs text-red-400 mt-1">{dl.error}</p>
+              )}
+              {!dl?.downloading && !isComplete && (
+                <button
+                  onClick={() => onDownload(model)}
+                  className="mt-2 px-4 py-1.5 text-xs bg-[var(--primary)] text-white rounded hover:bg-[var(--primary-hover)] transition-colors"
+                >
+                  Download
+                </button>
+              )}
+              {isComplete && (
+                <span className="text-xs text-green-400 mt-2 inline-block">Installed</span>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      <NavButtons onBack={onBack} onNext={onNext} nextLabel={status.has_whisper ? "Next" : "Skip"} />
+    </div>
+  );
+}
+
+function LlmStep({
+  status,
+  onOpenFolder,
+  onRefresh,
+  onNext,
+  onBack,
+}: {
+  status: SetupStatus;
+  onOpenFolder: () => void;
+  onRefresh: () => void;
+  onNext: () => void;
+  onBack: () => void;
+}) {
+  return (
+    <div className="max-w-lg mx-auto space-y-6">
+      <div>
+        <h2 className="text-xl font-bold mb-1">Language Model</h2>
+        <p className="text-sm text-[var(--text-secondary)]">
+          The LLM powers conversations. Place a GGUF model file in the models
+          folder and ensure <code className="bg-[var(--bg-elevated)] px-1.5 py-0.5 rounded text-xs">llama-server</code> is on your PATH.
+        </p>
+      </div>
+
+      <div className="space-y-3">
+        <StatusItem
+          label="llama-server"
+          ok={status.has_llama_server}
+          hint={
+            status.has_llama_server
+              ? "Found on PATH"
+              : "Install llama.cpp: brew install llama.cpp"
+          }
+        />
+        <StatusItem
+          label="GGUF model"
+          ok={status.has_llm}
+          hint={
+            status.has_llm
+              ? "Model found"
+              : "Download a .gguf model and place it in the models folder"
+          }
+        />
+      </div>
+
+      <div className="flex gap-3">
+        <button
+          onClick={onOpenFolder}
+          className="px-4 py-2 text-sm bg-[var(--bg-elevated)] text-[var(--text-primary)] rounded-lg hover:bg-[var(--border)] transition-colors"
+        >
+          Open Models Folder
+        </button>
+        <button
+          onClick={onRefresh}
+          className="px-4 py-2 text-sm bg-[var(--bg-elevated)] text-[var(--text-secondary)] rounded-lg hover:text-[var(--text-primary)] transition-colors"
+        >
+          Refresh
+        </button>
+      </div>
+
+      <div className="p-3 bg-[var(--bg-elevated)] rounded-lg text-xs text-[var(--text-secondary)] space-y-1">
+        <p className="font-medium text-[var(--text-primary)]">Recommended models:</p>
+        <p>Quick start: Qwen3-4B-Q4_K_M.gguf (~2.5 GB)</p>
+        <p>Full quality: Qwen3-30B-A3B-Q4_K_M.gguf (~17 GB)</p>
+        <p className="mt-2">
+          Models dir: <code className="text-[var(--primary)]">{status.models_dir}</code>
+        </p>
+      </div>
+
+      <NavButtons onBack={onBack} onNext={onNext} nextLabel={status.has_llm && status.has_llama_server ? "Next" : "Skip"} />
+    </div>
+  );
+}
+
+function TtsStep({
+  status,
+  onOpenFolder,
+  onRefresh,
+  onNext,
+  onBack,
+}: {
+  status: SetupStatus;
+  onOpenFolder: () => void;
+  onRefresh: () => void;
+  onNext: () => void;
+  onBack: () => void;
+}) {
+  return (
+    <div className="max-w-lg mx-auto space-y-6">
+      <div>
+        <h2 className="text-xl font-bold mb-1">Text to Speech</h2>
+        <p className="text-sm text-[var(--text-secondary)]">
+          Piper voice models make the AI speak naturally. Place <code className="bg-[var(--bg-elevated)] px-1.5 py-0.5 rounded text-xs">.onnx</code> and <code className="bg-[var(--bg-elevated)] px-1.5 py-0.5 rounded text-xs">.onnx.json</code> files in
+          the voices folder.
+        </p>
+      </div>
+
+      <StatusItem
+        label="Voice model"
+        ok={status.has_tts}
+        hint={
+          status.has_tts
+            ? "Voice model found"
+            : "Download Piper voices from github.com/rhasspy/piper"
+        }
+      />
+
+      <div className="flex gap-3">
+        <button
+          onClick={onOpenFolder}
+          className="px-4 py-2 text-sm bg-[var(--bg-elevated)] text-[var(--text-primary)] rounded-lg hover:bg-[var(--border)] transition-colors"
+        >
+          Open Voices Folder
+        </button>
+        <button
+          onClick={onRefresh}
+          className="px-4 py-2 text-sm bg-[var(--bg-elevated)] text-[var(--text-secondary)] rounded-lg hover:text-[var(--text-primary)] transition-colors"
+        >
+          Refresh
+        </button>
+      </div>
+
+      <div className="p-3 bg-[var(--bg-elevated)] rounded-lg text-xs text-[var(--text-secondary)] space-y-1">
+        <p className="font-medium text-[var(--text-primary)]">Each voice needs two files:</p>
+        <p><code>&lt;name&gt;.onnx</code> — the voice model (~60 MB)</p>
+        <p><code>&lt;name&gt;.onnx.json</code> — the voice config</p>
+        <p className="mt-2">
+          Voices dir: <code className="text-[var(--primary)]">{status.voices_dir}</code>
+        </p>
+      </div>
+
+      <NavButtons onBack={onBack} onNext={onNext} nextLabel={status.has_tts ? "Next" : "Skip"} />
+    </div>
+  );
+}
+
+function ReadyStep({
+  status,
+  onComplete,
+  onBack,
+}: {
+  status: SetupStatus;
+  onComplete: () => void;
+  onBack: () => void;
+}) {
+  const allReady = status.has_whisper && status.has_llm && status.has_llama_server;
+
+  return (
+    <div className="max-w-lg mx-auto space-y-6">
+      <div className="text-center">
+        <h2 className="text-xl font-bold mb-1">
+          {allReady ? "You're all set!" : "Setup Summary"}
+        </h2>
+        <p className="text-sm text-[var(--text-secondary)]">
+          {allReady
+            ? "All core components are ready. Start practicing!"
+            : "Some components are missing, but you can still use the text chat."}
+        </p>
+      </div>
+
+      <div className="space-y-2">
+        <StatusItem label="Speech Recognition (STT)" ok={status.has_whisper} hint="" />
+        <StatusItem label="Language Model (LLM)" ok={status.has_llm && status.has_llama_server} hint="" />
+        <StatusItem label="Text to Speech (TTS)" ok={status.has_tts} hint="" />
+      </div>
+
+      <NavButtons
+        onBack={onBack}
+        onNext={onComplete}
+        nextLabel={allReady ? "Start Practicing" : "Continue Anyway"}
+      />
+    </div>
+  );
+}
+
+function StatusItem({
+  label,
+  ok,
+  hint,
+}: {
+  label: string;
+  ok: boolean;
+  hint: string;
+}) {
+  return (
+    <div className="flex items-center gap-3 p-3 rounded-lg bg-[var(--bg-elevated)]">
+      <span className={`w-3 h-3 rounded-full flex-shrink-0 ${ok ? "bg-green-400" : "bg-yellow-400"}`} />
+      <div className="flex-1 min-w-0">
+        <span className="text-sm font-medium">{label}</span>
+        {hint && (
+          <p className="text-xs text-[var(--text-secondary)] truncate">{hint}</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function NavButtons({
+  onBack,
+  onNext,
+  nextLabel,
+}: {
+  onBack: () => void;
+  onNext: () => void;
+  nextLabel: string;
+}) {
+  return (
+    <div className="flex justify-between pt-4">
+      <button
+        onClick={onBack}
+        className="px-6 py-2 text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
+      >
+        Back
+      </button>
+      <button
+        onClick={onNext}
+        className="px-6 py-2 text-sm bg-[var(--primary)] text-white rounded-lg hover:bg-[var(--primary-hover)] transition-colors font-medium"
+      >
+        {nextLabel}
+      </button>
+    </div>
+  );
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1048576) return `${(bytes / 1024).toFixed(1)} KB`;
+  if (bytes < 1073741824) return `${(bytes / 1048576).toFixed(1)} MB`;
+  return `${(bytes / 1073741824).toFixed(2)} GB`;
+}
