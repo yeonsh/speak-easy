@@ -14,7 +14,7 @@ interface UseTtsReturn {
   isLoaded: boolean;
   isSpeaking: boolean;
   error: string | null;
-  loadVoice: (language: Language) => Promise<void>;
+  loadVoice: (language: Language, voiceName?: string) => Promise<void>;
   speak: (text: string, speed?: number) => Promise<void>;
   stop: () => void;
   availableVoices: string[];
@@ -39,18 +39,20 @@ export function useTts(): UseTtsReturn {
   }, []);
 
   const loadVoice = useCallback(
-    async (language: Language) => {
+    async (language: Language, voiceName?: string) => {
       setError(null);
-      const voiceName = DEFAULT_VOICES[language];
+      const resolvedVoice = voiceName || DEFAULT_VOICES[language];
 
-      if (!voiceName) {
+      if (!resolvedVoice) {
         setError(`No TTS voice available for ${language}`);
         setIsLoaded(false);
         return;
       }
 
       try {
-        await invoke("load_tts_voice", { voiceName });
+        await invoke("load_tts_voice", {
+          voiceName: resolvedVoice,
+        });
         setIsLoaded(true);
         await refreshVoices();
       } catch (e) {
@@ -68,7 +70,10 @@ export function useTts(): UseTtsReturn {
     try {
       const result = await invoke<{ sample_rate: number; samples: number[] }>(
         "synthesize_speech",
-        { text, speed: speed ?? null },
+        {
+          text,
+          speed: speed ?? null,
+        },
       );
 
       if (result.samples.length === 0) {

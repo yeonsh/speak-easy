@@ -218,7 +218,9 @@ pub fn load_tts_voice(
 }
 
 #[tauri::command]
-pub fn is_tts_loaded(state: tauri::State<'_, TtsState>) -> bool {
+pub fn is_tts_loaded(
+    state: tauri::State<'_, TtsState>,
+) -> bool {
     state.session.lock().unwrap().is_some() && state.voice_embedding.lock().unwrap().is_some()
 }
 

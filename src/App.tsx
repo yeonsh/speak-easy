@@ -12,9 +12,9 @@ import { useTts } from "./hooks/useTts";
 import { getSystemPrompt, getScenarioStarters } from "./lib/prompts";
 import type {
   AppSettings,
+  ConversationMode,
   Language,
   Message,
-  ConversationMode,
 } from "./lib/types";
 import { DEFAULT_SETTINGS } from "./lib/types";
 
@@ -29,7 +29,7 @@ function App() {
     invoke<{ has_whisper: boolean; has_llm: boolean; has_llama_server: boolean; has_tts: boolean; has_espeak: boolean }>(
       "check_setup_complete"
     ).then((s) => {
-      setShowWizard(!s.has_llm || !s.has_llama_server || !s.has_tts || !s.has_espeak);
+      setShowWizard(!s.has_llm || !s.has_llama_server || !s.has_tts);
     }).catch(() => {
       setShowWizard(false);
     });
@@ -50,10 +50,19 @@ function App() {
       stt.loadModel(settings.whisperModel);
     }
     if (!tts.isLoaded) {
-      tts.loadVoice(settings.language);
+      tts.loadVoice(settings.language, settings.ttsVoice !== "default" ? settings.ttsVoice : undefined);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showWizard]);
+
+  // When TTS voice changes, reload the voice
+  useEffect(() => {
+    if (showWizard !== false) return;
+    if (settings.ttsVoice === "default") return;
+
+    tts.loadVoice(settings.language, settings.ttsVoice);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settings.ttsVoice]);
 
   // Wire up completion handler to add assistant message and auto-speak
   useEffect(() => {
@@ -75,12 +84,14 @@ function App() {
 
   // Auto-load TTS voice when language changes
   const handleLanguageChange = useCallback((lang: Language) => {
-    setSettings((s) => ({ ...s, language: lang }));
-    setMessages([]); // Clear chat on language switch
+    setSettings((s) => {
+      if (tts.isLoaded) {
+        tts.loadVoice(lang);
+      }
+      return { ...s, language: lang };
+    });
+    setMessages([]);
     tts.stop();
-    if (tts.isLoaded) {
-      tts.loadVoice(lang);
-    }
   }, [tts]);
 
   const handleModeChange = useCallback((mode: ConversationMode) => {

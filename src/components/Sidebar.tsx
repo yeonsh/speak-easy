@@ -1,4 +1,27 @@
-import type { AppSettings } from "../lib/types";
+import { useState, useEffect } from "react";
+import { invoke } from "@tauri-apps/api/core";
+import type { AppSettings, Language } from "../lib/types";
+
+// Voice name prefix → language mapping
+const VOICE_LANG_PREFIX: Record<string, { lang: Language; label: string }> = {
+  a: { lang: "en", label: "English (US)" },
+  b: { lang: "en", label: "English (UK)" },
+  e: { lang: "es", label: "Spanish" },
+  f: { lang: "de", label: "French" },
+  h: { lang: "en", label: "Hindi" },
+  i: { lang: "en", label: "Italian" },
+  j: { lang: "ja", label: "Japanese" },
+  p: { lang: "en", label: "Portuguese" },
+  z: { lang: "zh", label: "Chinese" },
+};
+
+function voiceDisplayName(name: string): string {
+  const gender = name[1] === "f" ? "Female" : "Male";
+  const voiceName = name.slice(3); // e.g. "heart", "adam"
+  const prefix = VOICE_LANG_PREFIX[name[0]];
+  const lang = prefix?.label ?? "";
+  return `${voiceName} (${lang}, ${gender})`;
+}
 
 interface SidebarProps {
   isOpen: boolean;
@@ -15,6 +38,20 @@ export function Sidebar({
   onSettingsChange,
   onClearChat,
 }: SidebarProps) {
+  const [voices, setVoices] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (isOpen) {
+      invoke<string[]>("list_voices").then(setVoices).catch(() => {});
+    }
+  }, [isOpen]);
+
+  // Filter voices for the current language
+  const langPrefixes = Object.entries(VOICE_LANG_PREFIX)
+    .filter(([, v]) => v.lang === settings.language)
+    .map(([k]) => k);
+  const filteredVoices = voices.filter((v) => langPrefixes.includes(v[0]));
+
   if (!isOpen) return null;
 
   return (
@@ -83,6 +120,27 @@ export function Sidebar({
               {settings.ttsSpeed.toFixed(1)}x
             </span>
           </SettingGroup>
+
+          {filteredVoices.length > 0 && (
+            <SettingGroup label="Voice">
+              <select
+                value={settings.ttsVoice}
+                onChange={(e) =>
+                  onSettingsChange({
+                    ...settings,
+                    ttsVoice: e.target.value,
+                  })
+                }
+                className="w-full bg-[var(--bg-elevated)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm"
+              >
+                {filteredVoices.map((v) => (
+                  <option key={v} value={v}>
+                    {voiceDisplayName(v)}
+                  </option>
+                ))}
+              </select>
+            </SettingGroup>
+          )}
 
           <SettingGroup label="Whisper Model">
             <select

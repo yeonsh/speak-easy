@@ -812,7 +812,7 @@ function ReadyStep({
         <StatusItem label="Speech Recognition (STT)" ok={status.has_whisper} hint="" />
         <StatusItem label="Language Model (LLM)" ok={status.has_llm && status.has_llama_server} hint="" />
         <StatusItem label="Phonemizer (espeak-ng)" ok={status.has_espeak} hint="" />
-        <StatusItem label="Text to Speech (TTS)" ok={status.has_tts} hint="" />
+        <StatusItem label="Text to Speech (Kokoro)" ok={status.has_tts} hint="" />
       </div>
 
       <NavButtons
