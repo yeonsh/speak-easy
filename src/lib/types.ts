@@ -1,4 +1,4 @@
-export type Language = "en" | "es" | "fr" | "zh" | "ja" | "de" | "ko";
+export type Language = "en" | "es" | "fr" | "zh" | "ja" | "de" | "ko" | "pt" | "it" | "ru" | "ar" | "hi" | "tr" | "id" | "vi" | "pl";
 
 export type NativeLanguage = "en" | "ko";
 
@@ -44,6 +44,15 @@ export const LANGUAGE_CONFIG: Record<
   ja: { name: "Japanese", flag: "🇯🇵", nativeName: "日本語" },
   de: { name: "German", flag: "🇩🇪", nativeName: "Deutsch" },
   ko: { name: "Korean", flag: "🇰🇷", nativeName: "한국어" },
+  pt: { name: "Portuguese", flag: "🇧🇷", nativeName: "Português" },
+  it: { name: "Italian", flag: "🇮🇹", nativeName: "Italiano" },
+  ru: { name: "Russian", flag: "🇷🇺", nativeName: "Русский" },
+  ar: { name: "Arabic", flag: "🇸🇦", nativeName: "العربية" },
+  hi: { name: "Hindi", flag: "🇮🇳", nativeName: "हिन्दी" },
+  tr: { name: "Turkish", flag: "🇹🇷", nativeName: "Türkçe" },
+  id: { name: "Indonesian", flag: "🇮🇩", nativeName: "Indonesia" },
+  vi: { name: "Vietnamese", flag: "🇻🇳", nativeName: "Tiếng Việt" },
+  pl: { name: "Polish", flag: "🇵🇱", nativeName: "Polski" },
 };
 
 export const DEFAULT_SETTINGS: AppSettings = {

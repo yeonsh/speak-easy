@@ -11,6 +11,15 @@ const LANGUAGE_WHISPER_CODES: Record<Language, string> = {
   ja: "ja",
   de: "de",
   ko: "ko",
+  pt: "pt",
+  it: "it",
+  ru: "ru",
+  ar: "ar",
+  hi: "hi",
+  tr: "tr",
+  id: "id",
+  vi: "vi",
+  pl: "pl",
 };
 
 interface UseSttReturn {

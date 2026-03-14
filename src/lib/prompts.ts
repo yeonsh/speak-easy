@@ -8,6 +8,15 @@ const LANGUAGE_NAMES: Record<Language, string> = {
   ja: "Japanese",
   de: "German",
   ko: "Korean",
+  pt: "Portuguese (Brazilian)",
+  it: "Italian",
+  ru: "Russian",
+  ar: "Arabic",
+  hi: "Hindi",
+  tr: "Turkish",
+  id: "Indonesian",
+  vi: "Vietnamese",
+  pl: "Polish",
 };
 
 // Language-specific tips for correction mode
@@ -66,6 +75,78 @@ const CORRECTION_FOCUS: Record<Language, string> = {
 - Sentence endings and connectors (는데, 거든요, 잖아요, 니까)
 - Word order: SOV structure — verb always at the end
 - Counter words: 개 (general items), 명 (people), 마리 (animals), 잔 (cups), 권 (books), 장 (flat objects)`,
+
+  pt: `Common areas to watch for:
+- Ser vs. estar (permanent vs. temporary states, different from Spanish rules)
+- Gender agreement (o/a, adjective endings) and noun-adjective concordance
+- Subjunctive mood (presente do subjuntivo, futuro do subjuntivo)
+- Por vs. para (reason/means vs. purpose/destination)
+- Personal infinitive (unique to Portuguese: para eu fazer, antes de eles saírem)
+- Contractions with prepositions (no/na/do/da/num/numa, ao, pelo/pela)`,
+
+  it: `Common areas to watch for:
+- Gender agreement (il/la, un/una) and noun-adjective concordance
+- Subjunctive mood (congiuntivo) — required after che, penso che, credo che
+- Passato prossimo vs. imperfetto (completed action vs. habitual/ongoing)
+- Preposition usage (di/a/da/in/su/con/per) and articulated prepositions (del, nel, sul, al)
+- Double consonants — pronunciation and spelling distinction (pala vs. palla, casa vs. cassa)
+- Article usage: il/lo/la/l'/i/gli/le — when to use lo vs. il`,
+
+  ru: `Common areas to watch for:
+- Case system (6 cases: именительный, родительный, дательный, винительный, творительный, предложный)
+- Verb aspect: perfective (совершенный) vs. imperfective (несовершенный) choice
+- Motion verbs: идти/ходить (on foot) vs. ехать/ездить (by transport), unidirectional vs. multidirectional
+- Gender agreement in past tense (он сделал, она сделала, оно сделало)
+- Word order flexibility and emphasis shifts
+- Preposition + case combinations (в + prepositional for location, в + accusative for direction)`,
+
+  ar: `Common areas to watch for:
+- Root system and verb patterns (أوزان الفعل): Form I through X derived meanings
+- Definite article ال and sun/moon letter assimilation (الشمس vs. القمر)
+- Noun-adjective agreement in gender, number, and definiteness (كتاب كبير vs. الكتاب الكبير)
+- Verb conjugation for person, gender, and number (14 forms per tense)
+- إضافة (idafa/construct state): possessive constructions (كتاب الطالب)
+- Prepositions and their effects: في, على, من, إلى, ب, ل`,
+
+  hi: `Common areas to watch for:
+- Postpositions: में (in), पर (on), को (to/accusative), से (from/by), के लिए (for)
+- Verb conjugation agreement with gender and number (वह खाता है vs. वह खाती है)
+- Compound verbs (खा लेना, कर देना, बोल उठना) — nuanced meaning changes
+- Honorific levels: तू (intimate), तुम (informal), आप (formal) — verb forms change accordingly
+- Oblique case forms before postpositions (लड़का → लड़के को, लड़की → लड़की को)
+- SOV word order — verb always at end of clause`,
+
+  tr: `Common areas to watch for:
+- Vowel harmony: front/back and rounded/unrounded suffixes must match (evde but okulda)
+- Agglutinative suffixes: multiple suffixes chain onto stems (gel-e-me-yecek-ler-miş)
+- Case markers: nominative, accusative (-ı/-i/-u/-ü), dative (-a/-e), locative (-da/-de), ablative (-dan/-den)
+- Verb conjugation with tense/aspect/mood suffixes and personal endings
+- SOV word order — verb at end, but flexible for emphasis
+- No grammatical gender — o means he/she/it`,
+
+  id: `Common areas to watch for:
+- Affixes: me-/ber-/di-/ter-/pe- prefixes and -kan/-an/-i suffixes change word meaning and function
+- No verb conjugation — focus on word formation and affix patterns (menulis, ditulis, penulis, tulisan)
+- Measure words/classifiers: orang (people), buah (objects), ekor (animals), lembar (sheets)
+- Reduplication for plurals and emphasis (rumah-rumah, sayur-mayur)
+- Formal vs. informal register (saya/Anda vs. aku/kamu, bisa vs. dapat)
+- Word order: SVO but modifiers follow the noun (rumah besar = big house)`,
+
+  vi: `Common areas to watch for:
+- Tones (6 tones): level, falling, rising, dipping-rising, creaky rising, heavy — change word meaning entirely
+- Classifiers/measure words: cái (general objects), con (animals), người (people), quả/trái (round things)
+- Pronoun system based on age/relationship: anh/chị/em/ông/bà/cô/chú — no single "you"
+- No conjugation but aspect markers: đã (past), đang (present continuous), sẽ (future), chưa (not yet)
+- SVO word order with adjectives and modifiers after the noun (nhà lớn = big house)
+- Particles for politeness and emphasis: ạ (polite), nhé (friendly suggestion), đi (urging)`,
+
+  pl: `Common areas to watch for:
+- Case system (7 cases: mianownik, dopełniacz, celownik, biernik, narzędnik, miejscownik, wołacz)
+- Verb aspect: perfective (dokonany) vs. imperfective (niedokonany) — different stems, not just prefixes
+- Gender system: 3 genders singular + virile (męskoosobowy) vs. non-virile plural distinction
+- Consonant clusters and pronunciation (ść, szcz, chrząszcz, źdźbło)
+- Preposition + case requirements (w + locative, do + genitive, z + instrumental/genitive, na + accusative/locative)
+- Word order: relatively free but SVO default, changes for emphasis`,
 };
 
 // Per-language scenario sets
@@ -237,9 +318,223 @@ const SCENARIOS: Record<Language, string> = {
 - 세탁소: You are a dry cleaner, take in clothes, explain cleaning options and pickup times
 - 옷가게: You are a sales associate helping find the right size and style
 - 펫샵: You are a pet store employee helping choose a pet and explaining care needs`,
-};
 
-// Per-language free-talk personality
+  pt: `Scenarios to rotate through:
+- Feira: You are a vendor at a Brazilian street fair (feira livre), selling tropical fruits and vegetables
+- Churrascaria: You are a waiter at a Brazilian steakhouse, explain the rodízio system and side dishes
+- Farmácia: You are a pharmacist, help with a minor ailment and recommend medication
+- Cafeteria: You are a barista at a café, take orders and chat about the day
+- Hotel: You are a hotel receptionist, handle check-in and recommend local attractions
+- Supermercado: You are a store employee helping find products and explaining promotions
+- Academia: You are a personal trainer offering a trial class and explaining membership plans
+- Assistência técnica: You are a technician diagnosing a broken phone and explaining repair options
+- Salão de beleza: You are a hairstylist asking what style the customer wants
+- Correios: You are a postal clerk helping send a package domestically or internationally
+- Locadora de carros: You are a rental agent explaining car options and insurance
+- Vizinho: You are a neighbor welcoming someone who just moved in
+- Livraria: You are a bookstore employee helping find books and making recommendations
+- Cinema: You are a ticket booth attendant selling tickets and recommending movies
+- Pet shop: You are a pet store employee helping choose a pet and explaining care
+- Loja de roupas: You are a sales associate helping find the right size and style
+- Banco: You are a bank teller helping open an account or handle a transaction
+- Dentista: You are a dentist asking about the patient's problem and explaining treatment
+- Agência de viagens: You are a travel agent helping plan a vacation and comparing destinations
+- Achados e perdidos: You are a staff member at a lost-and-found office helping locate a missing item
+- Padaria: You are a baker at a Brazilian bakery (padaria), sell pão de queijo, coxinhas, and fresh bread
+- Praia: You are a beach vendor in Rio, rent chairs and umbrellas, sell coconut water and snacks`,
+
+  it: `Scenarios to rotate through:
+- Mercato: You are a vendor at an Italian outdoor market, selling fresh produce, cheese, and cured meats
+- Trattoria: You are a waiter at a family-run trattoria, recommend regional dishes and take orders
+- Farmacia: You are a pharmacist, help with a minor ailment and recommend medication
+- Bar: You are a barista at an Italian bar (café), take coffee orders and chat at the counter
+- Albergo: You are a hotel receptionist, handle check-in and suggest things to see nearby
+- Supermercato: You are a store employee helping find products and explaining special offers
+- Palestra: You are a fitness trainer offering a trial session and explaining membership plans
+- Centro assistenza: You are a technician diagnosing a broken phone and explaining repair options
+- Parrucchiere: You are a hairdresser discussing styles and preferences
+- Ufficio postale: You are a postal clerk helping with shipping options and forms
+- Autonoleggio: You are a rental agent going over car choices and insurance
+- Vicino: You are a neighbor welcoming someone new to the building
+- Libreria: You are a bookstore employee helping find books and making recommendations
+- Cinema: You are a ticket booth attendant selling tickets and recommending films
+- Negozio di animali: You are a pet store employee helping choose a pet and explaining care
+- Negozio di abbigliamento: You are a sales associate helping find the right size and style
+- Banca: You are a bank teller helping open an account or handle a transaction
+- Dentista: You are a dentist asking about the patient's problem and explaining treatment
+- Agenzia di viaggi: You are a travel agent helping plan a vacation and comparing destinations
+- Oggetti smarriti: You are a staff member at a lost-and-found office helping locate a missing item
+- Gelateria: You are a gelateria owner, help choose flavors, explain ingredients and sizes
+- Enoteca: You are a wine shop owner, recommend wines from different Italian regions`,
+
+  ru: `Scenarios to rotate through:
+- Рынок: You are a vendor at a Russian market, selling fresh produce, pickled goods, and dairy products
+- Ресторан: You are a waiter at a Russian restaurant, recommend traditional dishes like борщ and пельмени
+- Аптека: You are a pharmacist, help with a minor ailment and recommend medication
+- Кофейня: You are a barista at a coffee shop, take orders and chat casually
+- Гостиница: You are a hotel receptionist, handle check-in and recommend local attractions
+- Супермаркет: You are a store employee helping find products and explaining promotions
+- Спортзал: You are a fitness trainer offering a trial session and explaining membership plans
+- Ремонт телефонов: You are a technician diagnosing a broken phone and explaining repair options
+- Парикмахерская: You are a hairdresser asking about the desired style
+- Почта: You are a postal clerk helping send a package and explaining shipping options
+- Прокат автомобилей: You are a rental agent explaining car options and insurance
+- Сосед: You are a neighbor welcoming someone who just moved into the apartment building
+- Библиотека: You are a librarian helping find books and explaining the library card system
+- Кинотеатр: You are a ticket booth attendant selling tickets and recommending movies
+- Зоомагазин: You are a pet store employee helping choose a pet and explaining care needs
+- Магазин одежды: You are a sales associate helping find the right size and style
+- Банк: You are a bank teller helping open an account or handle a transaction
+- Стоматолог: You are a dentist asking about the patient's problem and explaining treatment
+- Турагентство: You are a travel agent helping plan a vacation and comparing destinations
+- Бюро находок: You are a staff member at a lost-and-found office helping locate a missing item
+- Баня: You are a баня (Russian bathhouse) attendant, explain procedures, offer tea, and discuss traditions
+- Дача: You are a friend inviting someone to your дача (countryside house) for a weekend gathering`,
+
+  ar: `Scenarios to rotate through:
+- السوق: You are a vendor at an Arab market (souk), selling spices, dried fruits, and traditional goods
+- المطعم: You are a waiter at a Middle Eastern restaurant, recommend dishes like مشاوي and مزة
+- الصيدلية: You are a pharmacist, help with a minor ailment and recommend medication
+- المقهى: You are a barista at a café, take orders for Arabic coffee and tea
+- الفندق: You are a hotel receptionist, handle check-in and recommend local sights
+- السوبرماركت: You are a store employee helping find products and explaining offers
+- النادي الرياضي: You are a fitness trainer offering a trial session and explaining membership
+- محل تصليح الهواتف: You are a technician diagnosing a broken phone and explaining repair options
+- صالون الحلاقة: You are a barber/hairstylist asking about the desired style
+- مكتب البريد: You are a postal clerk helping send a package and explaining shipping options
+- تأجير السيارات: You are a rental agent explaining car options and insurance
+- الجار: You are a neighbor welcoming someone who just moved in
+- المكتبة: You are a librarian helping find books and explaining the library system
+- السينما: You are a ticket booth attendant selling tickets and recommending movies
+- متجر الحيوانات: You are a pet store employee helping choose a pet and explaining care
+- متجر الملابس: You are a sales associate helping find the right size and style
+- البنك: You are a bank teller helping open an account or handle a transaction
+- طبيب الأسنان: You are a dentist asking about the patient's problem and explaining treatment
+- وكالة السفر: You are a travel agent helping plan a vacation and comparing destinations
+- المفقودات: You are a staff member at a lost-and-found office helping locate a missing item
+- الديوانية: You are a host at a ديوانية (traditional gathering), welcome guests and serve Arabic coffee and dates
+- البقالة: You are a shopkeeper at a traditional بقالة (neighborhood grocery), chat and recommend products`,
+
+  hi: `Scenarios to rotate through:
+- सब्ज़ी मंडी: You are a vendor at a vegetable market, selling fresh produce and spices
+- ढाबा: You are a waiter at a highway ढाबा (roadside eatery), recommend dishes like दाल and रोटी
+- दवाखाना: You are a pharmacist, help with a minor ailment and recommend medicine
+- चाय की दुकान: You are a chai shop owner, make tea and chat about daily life
+- होटल: You are a hotel receptionist, handle check-in and recommend nearby places to visit
+- सुपरमार्केट: You are a store employee helping find products and explaining offers
+- जिम: You are a fitness trainer offering a trial session and explaining membership plans
+- मोबाइल रिपेयर: You are a technician diagnosing a broken phone and explaining repair options
+- ब्यूटी पार्लर: You are a hairstylist asking about the desired style
+- डाकघर: You are a postal clerk helping send a package and explaining shipping options
+- कार रेंटल: You are a rental agent explaining car options and insurance
+- पड़ोसी: You are a neighbor welcoming someone who just moved in
+- किताबों की दुकान: You are a bookstore employee helping find books and making recommendations
+- सिनेमा हॉल: You are a ticket booth attendant selling tickets and recommending movies
+- पेट शॉप: You are a pet store employee helping choose a pet and explaining care needs
+- कपड़ों की दुकान: You are a sales associate helping find the right size and style
+- बैंक: You are a bank teller helping open an account or handle a transaction
+- दंत चिकित्सक: You are a dentist asking about the patient's problem and explaining treatment
+- ट्रैवल एजेंसी: You are a travel agent helping plan a vacation and comparing destinations
+- खोया-पाया: You are a staff member at a lost-and-found office helping locate a missing item
+- मिठाई की दुकान: You are a sweetshop owner, recommend Indian sweets like लड्डू, गुलाब जामुन, and जलेबी
+- ऑटो रिक्शा: You are an auto-rickshaw driver, discuss the fare, route, and landmarks`,
+
+  tr: `Scenarios to rotate through:
+- Pazar: You are a vendor at a Turkish street market (pazar), selling fresh fruits, vegetables, and olives
+- Lokanta: You are a waiter at a Turkish lokanta, recommend dishes like kebap, pide, and meze
+- Eczane: You are a pharmacist, help with a minor ailment and recommend medication
+- Kahvehane: You are the owner of a traditional Turkish kahvehane, serve Turkish coffee and chat
+- Otel: You are a hotel receptionist, handle check-in and recommend local attractions
+- Market: You are a store employee helping find products and explaining promotions
+- Spor salonu: You are a fitness trainer offering a trial session and explaining membership plans
+- Telefon tamircisi: You are a technician diagnosing a broken phone and explaining repair options
+- Kuaför: You are a hairdresser asking about the desired style
+- PTT: You are a postal clerk helping send a package and explaining shipping options
+- Araç kiralama: You are a rental agent explaining car options and insurance
+- Komşu: You are a neighbor welcoming someone who just moved in
+- Kitapçı: You are a bookstore employee helping find books and making recommendations
+- Sinema: You are a ticket booth attendant selling tickets and recommending movies
+- Pet shop: You are a pet store employee helping choose a pet and explaining care needs
+- Giyim mağazası: You are a sales associate helping find the right size and style
+- Banka: You are a bank teller helping open an account or handle a transaction
+- Dişçi: You are a dentist asking about the patient's problem and explaining treatment
+- Seyahat acentesi: You are a travel agent helping plan a vacation and comparing destinations
+- Kayıp eşya bürosu: You are a staff member at a lost-and-found office helping locate a missing item
+- Çay bahçesi: You are a waiter at a Turkish tea garden, serve tea and simit and chat about the weather
+- Hamam: You are an attendant at a Turkish hamam (bath), explain the rituals, services, and traditions`,
+
+  id: `Scenarios to rotate through:
+- Pasar: You are a vendor at an Indonesian traditional market (pasar), selling spices, vegetables, and snacks
+- Warung: You are a waiter at a warung (small eatery), recommend dishes like nasi goreng and sate
+- Apotek: You are a pharmacist, help with a minor ailment and recommend medication
+- Kedai kopi: You are a barista at an Indonesian coffee shop, take orders and chat about local coffee beans
+- Hotel: You are a hotel receptionist, handle check-in and recommend local attractions
+- Supermarket: You are a store employee helping find products and explaining promotions
+- Gym: You are a fitness trainer offering a trial session and explaining membership plans
+- Servis HP: You are a technician diagnosing a broken phone and explaining repair options
+- Salon: You are a hairstylist asking about the desired style
+- Kantor pos: You are a postal clerk helping send a package and explaining shipping options
+- Rental mobil: You are a rental agent explaining car options and insurance
+- Tetangga: You are a neighbor welcoming someone who just moved in
+- Toko buku: You are a bookstore employee helping find books and making recommendations
+- Bioskop: You are a ticket booth attendant selling tickets and recommending movies
+- Pet shop: You are a pet store employee helping choose a pet and explaining care needs
+- Toko baju: You are a sales associate helping find the right size and style
+- Bank: You are a bank teller helping open an account or handle a transaction
+- Dokter gigi: You are a dentist asking about the patient's problem and explaining treatment
+- Agen perjalanan: You are a travel agent helping plan a vacation and comparing destinations
+- Bagian kehilangan: You are a staff member at a lost-and-found office helping locate a missing item
+- Angkringan: You are an angkringan (Javanese street food stall) vendor, serve nasi kucing and wedang jahe
+- Batik shop: You are a batik shop owner, explain different batik patterns, their origins, and how to choose`,
+
+  vi: `Scenarios to rotate through:
+- Chợ: You are a vendor at a Vietnamese market (chợ), selling fresh produce, herbs, and street food
+- Quán phở: You are a waiter at a phở restaurant, recommend dishes and take orders
+- Nhà thuốc: You are a pharmacist, help with a minor ailment and recommend medication
+- Quán cà phê: You are a barista at a Vietnamese café, take orders for cà phê sữa đá and chat
+- Khách sạn: You are a hotel receptionist, handle check-in and recommend local sights
+- Siêu thị: You are a store employee helping find products and explaining promotions
+- Phòng gym: You are a fitness trainer offering a trial session and explaining membership plans
+- Tiệm sửa điện thoại: You are a technician diagnosing a broken phone and explaining repair options
+- Tiệm tóc: You are a hairstylist asking about the desired style
+- Bưu điện: You are a postal clerk helping send a package and explaining shipping options
+- Thuê xe: You are a rental agent explaining car/motorbike options and insurance
+- Hàng xóm: You are a neighbor welcoming someone who just moved in
+- Nhà sách: You are a bookstore employee helping find books and making recommendations
+- Rạp chiếu phim: You are a ticket booth attendant selling tickets and recommending movies
+- Cửa hàng thú cưng: You are a pet store employee helping choose a pet and explaining care
+- Cửa hàng quần áo: You are a sales associate helping find the right size and style
+- Ngân hàng: You are a bank teller helping open an account or handle a transaction
+- Nha sĩ: You are a dentist asking about the patient's problem and explaining treatment
+- Đại lý du lịch: You are a travel agent helping plan a vacation and comparing destinations
+- Phòng thất lạc: You are a staff member at a lost-and-found office helping locate a missing item
+- Quán bún chả: You are a bún chả shop owner in Hanoi, recommend dishes and explain how to eat them
+- Xe ôm: You are a xe ôm (motorbike taxi) driver, discuss routes, fares, and local tips`,
+
+  pl: `Scenarios to rotate through:
+- Bazar: You are a vendor at a Polish market hall, selling fresh produce, meats, and dairy products
+- Restauracja: You are a waiter at a Polish restaurant, recommend dishes like pierogi, bigos, and żurek
+- Apteka: You are a pharmacist, help with a minor ailment and recommend medication
+- Kawiarnia: You are a barista at a café, take orders and chat about the day
+- Hotel: You are a hotel receptionist, handle check-in and recommend local attractions
+- Supermarket: You are a store employee helping find products and explaining promotions
+- Siłownia: You are a fitness trainer offering a trial session and explaining membership plans
+- Serwis telefonów: You are a technician diagnosing a broken phone and explaining repair options
+- Fryzjer: You are a hairdresser asking about the desired style
+- Poczta: You are a postal clerk helping send a package and explaining shipping options
+- Wypożyczalnia samochodów: You are a rental agent explaining car options and insurance
+- Sąsiad: You are a neighbor welcoming someone who just moved in
+- Księgarnia: You are a bookstore employee helping find books and making recommendations
+- Kino: You are a ticket booth attendant selling tickets and recommending movies
+- Sklep zoologiczny: You are a pet store employee helping choose a pet and explaining care needs
+- Sklep odzieżowy: You are a sales associate helping find the right size and style
+- Bank: You are a bank teller helping open an account or handle a transaction
+- Dentysta: You are a dentist asking about the patient's problem and explaining treatment
+- Biuro podróży: You are a travel agent helping plan a vacation and comparing destinations
+- Biuro rzeczy znalezionych: You are a staff member at a lost-and-found office helping locate a missing item
+- Cukiernia: You are a Polish pastry shop owner, recommend pastries like pączki, sernik, and szarlotka
+- Pierogarnia: You are a pierogi restaurant owner, explain different fillings and preparation styles`,
+};
 const FREE_TALK_STYLE: Record<Language, string> = {
   en: "Be conversational and curious. Ask about hobbies, travel, opinions on current events, or daily life. Use natural contractions (I'm, don't, we'll).",
 
@@ -254,6 +549,24 @@ const FREE_TALK_STYLE: Record<Language, string> = {
   de: "Be natural and conversational. Use common German fillers (also, na ja, genau, eigentlich, halt). Ask about hobbies, travel, daily routines, food, or weekend plans. Start with du unless the user uses Sie. Occasionally use colloquial expressions (Das ist ja cool, Ach so, Klar).",
 
   ko: "Be friendly and natural. Use 해요체 (polite informal) as default. Include common conversational fillers (음, 근데, 그래서, 아, 진짜요?). Ask about food, daily life, hobbies, work, or travel. Adjust formality if the user switches to 반말 or 존댓말. Occasionally use natural expressions (맞아요, 그렇구나, 대박).",
+
+  pt: "Be warm and friendly. Use common Brazilian fillers (né, tipo, então, olha, sabe). Ask about music, food, travel, family, or weekend plans. Use você as default. Occasionally use colloquial expressions (que legal, beleza, tá bom, nossa).",
+
+  it: "Be expressive and friendly. Use natural Italian fillers (allora, cioè, insomma, guarda, sai). Ask about food, travel, family, hobbies, or daily routines. Use tu as default unless the user switches to Lei. Occasionally use common expressions (che bello, dai, figurati, mamma mia).",
+
+  ru: "Be warm and conversational. Use natural Russian fillers (ну, вот, значит, кстати, слушай). Ask about hobbies, travel, food, daily life, or weekend plans. Use ты as default unless the user prefers вы. Occasionally use colloquial expressions (здорово, ничего себе, понятно, ладно).",
+
+  ar: "Be warm and hospitable. Use natural Arabic fillers (يعني, طيب, والله, ممكن, هلا). Ask about family, food, travel, daily life, or culture. Use أنتَ/أنتِ as default. Occasionally use common expressions (إن شاء الله, ما شاء الله, الحمد لله, يلا).",
+
+  hi: "Be warm and friendly. Use natural Hindi fillers (अच्छा, हाँ, तो, वैसे, बस). Ask about family, food, movies, festivals, or daily routines. Use आप as default for politeness. Occasionally use common expressions (बहुत अच्छा, सच में, कोई बात नहीं, चलिए).",
+
+  tr: "Be friendly and hospitable. Use natural Turkish fillers (yani, işte, hani, şey, aslında). Ask about food, travel, family, daily life, or hobbies. Use sen as default unless the user uses siz. Occasionally use common expressions (harika, aynen, tabii ki, çok güzel).",
+
+  id: "Be friendly and relaxed. Use natural Indonesian fillers (nah, kok, sih, dong, kan). Ask about food, hobbies, travel, daily life, or weekend plans. Use kamu as default in casual settings, Anda in formal ones. Occasionally use common expressions (asyik, wah, santai aja, betul).",
+
+  vi: "Be friendly and warm. Use natural Vietnamese fillers (à, ừ, thế à, vậy hả, dạ). Ask about food, family, travel, hobbies, or daily routines. Use appropriate pronouns based on context (anh/chị/em/bạn). Occasionally use common expressions (hay quá, thật không, được rồi, vui ghê).",
+
+  pl: "Be friendly and conversational. Use natural Polish fillers (no, więc, właśnie, wiesz, tak naprawdę). Ask about food, travel, family, hobbies, or daily life. Use ty as default unless the user uses Pan/Pani. Occasionally use common expressions (super, fajnie, no właśnie, racja).",
 };
 
 const NATIVE_LANG_NAMES: Record<NativeLanguage, string> = {
@@ -488,6 +801,222 @@ const SCENARIO_DESCRIPTIONS_EN: Record<Language, string[]> = {
     "Shopping at a clothing store. Ask about sizes and styles.",
     "Visit a pet shop. Choose a pet and ask about care needs.",
   ],
+  pt: [
+    "A Brazilian street fair. Haggle with the vendor over tropical fruits and vegetables.",
+    "A Brazilian steakhouse (churrascaria). The waiter explains the rodízio system.",
+    "At a pharmacy. Explain your minor ailment and get advice.",
+    "Order drinks at a café. Chat casually with the barista.",
+    "Check in at a hotel. Ask about the room and nearby attractions.",
+    "Looking for items at a supermarket. Ask an employee for help.",
+    "First visit to a gym. The trainer explains facilities and membership.",
+    "Your phone is broken. Explain the problem to the technician.",
+    "At a hair salon. Describe the style you want.",
+    "Send a package at the post office. Ask about shipping methods.",
+    "Rent a car. Ask about options and insurance.",
+    "Meet a new neighbor. Introduce yourself and ask about the area.",
+    "At a bookstore looking for books. Ask for recommendations.",
+    "At a movie theater ticket booth. Pick a movie and buy tickets.",
+    "Visit a pet shop. Choose a pet and ask about care.",
+    "Shopping at a clothing store. Ask about sizes and styles.",
+    "At a bank. Open an account or make a transfer.",
+    "At the dentist. Explain your symptoms and ask about treatment.",
+    "Plan a vacation at a travel agency. Discuss destinations and schedules.",
+    "At a lost-and-found office. Describe and look for your missing item.",
+    "At a Brazilian bakery (padaria). Choose pão de queijo and fresh bread.",
+    "At a beach in Rio. Rent chairs and buy coconut water from the vendor.",
+  ],
+  it: [
+    "An Italian outdoor market. Chat with the vendor selling fresh produce and cheese.",
+    "A family-run trattoria. The waiter recommends regional dishes. Order something.",
+    "At a pharmacy. Explain your minor ailment and get advice.",
+    "At an Italian bar (café). Order an espresso and chat at the counter.",
+    "Check in at a hotel. Ask about the room and things to see nearby.",
+    "Looking for items at a supermarket. Ask an employee for help.",
+    "First visit to a gym. The trainer explains facilities and membership.",
+    "Your phone is broken. Explain the problem to the technician.",
+    "At a hair salon. Describe the style you want.",
+    "Send a package at the post office. Ask about shipping options.",
+    "Rent a car. Ask about options and insurance.",
+    "Meet a new neighbor in your building. Introduce yourself.",
+    "At a bookstore looking for books. Ask for recommendations.",
+    "At a movie theater ticket booth. Pick a film and buy tickets.",
+    "Visit a pet shop. Choose a pet and ask about care.",
+    "Shopping at a clothing store. Ask about sizes and styles.",
+    "At a bank. Open an account or make a transfer.",
+    "At the dentist. Explain your symptoms and ask about treatment.",
+    "Plan a vacation at a travel agency. Discuss destinations.",
+    "At a lost-and-found office. Describe and look for your missing item.",
+    "At a gelateria. Choose flavors and ask about ingredients.",
+    "At a wine shop (enoteca). Ask for wine recommendations from different Italian regions.",
+  ],
+  ru: [
+    "At a Russian market. Chat with the vendor selling produce and dairy.",
+    "At a Russian restaurant. The waiter recommends traditional dishes. Order something.",
+    "At a pharmacy. Explain your minor ailment and get advice.",
+    "Order drinks at a coffee shop. Chat casually with the barista.",
+    "Check in at a hotel. Ask about the room and local attractions.",
+    "Looking for items at a supermarket. Ask an employee for help.",
+    "First visit to a gym. The trainer explains facilities and membership.",
+    "Your phone is broken. Explain the problem to the technician.",
+    "At a hair salon. Describe the style you want.",
+    "Send a package at the post office. Ask about shipping options.",
+    "Rent a car. Ask about options and insurance.",
+    "Meet a new neighbor in your apartment building. Introduce yourself.",
+    "At a library looking for books. Ask for recommendations.",
+    "At a movie theater ticket booth. Pick a movie and buy tickets.",
+    "Visit a pet shop. Choose a pet and ask about care.",
+    "Shopping at a clothing store. Ask about sizes and styles.",
+    "At a bank. Open an account or make a transfer.",
+    "At the dentist. Explain your symptoms and ask about treatment.",
+    "Plan a vacation at a travel agency. Discuss destinations.",
+    "At a lost-and-found office. Describe and look for your missing item.",
+    "At a Russian bathhouse (баня). The attendant explains procedures and traditions.",
+    "A friend invites you to their дача (countryside house). Chat about weekend plans.",
+  ],
+  ar: [
+    "At an Arab souk. Haggle with the vendor over spices and traditional goods.",
+    "At a Middle Eastern restaurant. The waiter recommends dishes. Order something.",
+    "At a pharmacy. Explain your minor ailment and get advice.",
+    "At a café. Order Arabic coffee or tea and chat.",
+    "Check in at a hotel. Ask about the room and local sights.",
+    "Looking for items at a supermarket. Ask an employee for help.",
+    "First visit to a gym. The trainer explains facilities and membership.",
+    "Your phone is broken. Explain the problem to the technician.",
+    "At a barber shop. Describe the style you want.",
+    "Send a package at the post office. Ask about shipping options.",
+    "Rent a car. Ask about options and insurance.",
+    "Meet a new neighbor. Introduce yourself and ask about the area.",
+    "At a library looking for books. Ask for recommendations.",
+    "At a movie theater ticket booth. Pick a movie and buy tickets.",
+    "Visit a pet shop. Choose a pet and ask about care.",
+    "Shopping at a clothing store. Ask about sizes and styles.",
+    "At a bank. Open an account or make a transfer.",
+    "At the dentist. Explain your symptoms and ask about treatment.",
+    "Plan a vacation at a travel agency. Discuss destinations.",
+    "At a lost-and-found office. Describe and look for your missing item.",
+    "At a traditional ديوانية gathering. Your host serves Arabic coffee and dates.",
+    "At a traditional neighborhood بقالة (grocery). Chat with the shopkeeper.",
+  ],
+  hi: [
+    "At a vegetable market. Haggle with the vendor over fresh produce and spices.",
+    "At a highway ढाबा (roadside eatery). The waiter recommends dishes. Order something.",
+    "At a pharmacy. Explain your minor ailment and get medicine advice.",
+    "At a chai shop. Order tea and chat with the owner about daily life.",
+    "Check in at a hotel. Ask about the room and nearby places to visit.",
+    "Looking for items at a supermarket. Ask an employee for help.",
+    "First visit to a gym. The trainer explains facilities and membership.",
+    "Your phone is broken. Explain the problem to the technician.",
+    "At a beauty parlor. Describe the style you want.",
+    "Send a package at the post office. Ask about shipping options.",
+    "Rent a car. Ask about options and insurance.",
+    "Meet a new neighbor. Introduce yourself and ask about the area.",
+    "At a bookstore looking for books. Ask for recommendations.",
+    "At a movie theater ticket booth. Pick a movie and buy tickets.",
+    "Visit a pet shop. Choose a pet and ask about care.",
+    "Shopping at a clothing store. Ask about sizes and styles.",
+    "At a bank. Open an account or make a transfer.",
+    "At the dentist. Explain your symptoms and ask about treatment.",
+    "Plan a vacation at a travel agency. Discuss destinations.",
+    "At a lost-and-found office. Describe and look for your missing item.",
+    "At an Indian sweet shop. Choose sweets and ask about flavors and ingredients.",
+    "In an auto-rickshaw. Discuss the fare, route, and landmarks with the driver.",
+  ],
+  tr: [
+    "At a Turkish street market (pazar). Haggle over fresh fruits, vegetables, and olives.",
+    "At a Turkish lokanta. The waiter recommends dishes. Order something.",
+    "At a pharmacy. Explain your minor ailment and get advice.",
+    "At a traditional Turkish kahvehane. Order Turkish coffee and chat.",
+    "Check in at a hotel. Ask about the room and nearby attractions.",
+    "Looking for items at a supermarket. Ask an employee for help.",
+    "First visit to a gym. The trainer explains facilities and membership.",
+    "Your phone is broken. Explain the problem to the technician.",
+    "At a hair salon. Describe the style you want.",
+    "Send a package at the PTT (post office). Ask about shipping options.",
+    "Rent a car. Ask about options and insurance.",
+    "Meet a new neighbor. Introduce yourself and ask about the area.",
+    "At a bookstore looking for books. Ask for recommendations.",
+    "At a movie theater ticket booth. Pick a movie and buy tickets.",
+    "Visit a pet shop. Choose a pet and ask about care.",
+    "Shopping at a clothing store. Ask about sizes and styles.",
+    "At a bank. Open an account or make a transfer.",
+    "At the dentist. Explain your symptoms and ask about treatment.",
+    "Plan a vacation at a travel agency. Discuss destinations.",
+    "At a lost-and-found office. Describe and look for your missing item.",
+    "At a Turkish tea garden. Enjoy tea and simit and chat about the weather.",
+    "At a Turkish hamam (bath). The attendant explains the rituals and services.",
+  ],
+  id: [
+    "At a traditional Indonesian market (pasar). Haggle with the vendor over spices and vegetables.",
+    "At a warung (small eatery). The waiter recommends dishes. Order something.",
+    "At a pharmacy. Explain your minor ailment and get advice.",
+    "At an Indonesian coffee shop. Order local coffee and chat about the beans.",
+    "Check in at a hotel. Ask about the room and local attractions.",
+    "Looking for items at a supermarket. Ask an employee for help.",
+    "First visit to a gym. The trainer explains facilities and membership.",
+    "Your phone is broken. Explain the problem to the technician.",
+    "At a hair salon. Describe the style you want.",
+    "Send a package at the post office. Ask about shipping options.",
+    "Rent a car. Ask about options and insurance.",
+    "Meet a new neighbor. Introduce yourself and ask about the area.",
+    "At a bookstore looking for books. Ask for recommendations.",
+    "At a movie theater ticket booth. Pick a movie and buy tickets.",
+    "Visit a pet shop. Choose a pet and ask about care.",
+    "Shopping at a clothing store. Ask about sizes and styles.",
+    "At a bank. Open an account or make a transfer.",
+    "At the dentist. Explain your symptoms and ask about treatment.",
+    "Plan a vacation at a travel agency. Discuss destinations.",
+    "At a lost-and-found office. Describe and look for your missing item.",
+    "At an angkringan (Javanese street food stall). Order nasi kucing and warm drinks.",
+    "At a batik shop. The owner explains different patterns and how to choose.",
+  ],
+  vi: [
+    "At a Vietnamese market (chợ). Haggle with the vendor over fresh produce and herbs.",
+    "At a phở restaurant. The waiter recommends dishes. Order something.",
+    "At a pharmacy. Explain your minor ailment and get advice.",
+    "At a Vietnamese café. Order cà phê sữa đá and chat.",
+    "Check in at a hotel. Ask about the room and local sights.",
+    "Looking for items at a supermarket. Ask an employee for help.",
+    "First visit to a gym. The trainer explains facilities and membership.",
+    "Your phone is broken. Explain the problem to the technician.",
+    "At a hair salon. Describe the style you want.",
+    "Send a package at the post office. Ask about shipping options.",
+    "Rent a car or motorbike. Ask about options and insurance.",
+    "Meet a new neighbor. Introduce yourself and ask about the area.",
+    "At a bookstore looking for books. Ask for recommendations.",
+    "At a movie theater ticket booth. Pick a movie and buy tickets.",
+    "Visit a pet shop. Choose a pet and ask about care.",
+    "Shopping at a clothing store. Ask about sizes and styles.",
+    "At a bank. Open an account or make a transfer.",
+    "At the dentist. Explain your symptoms and ask about treatment.",
+    "Plan a vacation at a travel agency. Discuss destinations.",
+    "At a lost-and-found office. Describe and look for your missing item.",
+    "At a bún chả shop in Hanoi. The owner recommends dishes and explains how to eat.",
+    "On a xe ôm (motorbike taxi). Chat with the driver about routes and local tips.",
+  ],
+  pl: [
+    "At a Polish market hall. Chat with the vendor selling fresh produce and meats.",
+    "At a Polish restaurant. The waiter recommends traditional dishes. Order something.",
+    "At a pharmacy. Explain your minor ailment and get advice.",
+    "Order drinks at a café. Chat casually with the barista.",
+    "Check in at a hotel. Ask about the room and nearby attractions.",
+    "Looking for items at a supermarket. Ask an employee for help.",
+    "First visit to a gym. The trainer explains facilities and membership.",
+    "Your phone is broken. Explain the problem to the technician.",
+    "At a hair salon. Describe the style you want.",
+    "Send a package at the post office. Ask about shipping options.",
+    "Rent a car. Ask about options and insurance.",
+    "Meet a new neighbor. Introduce yourself and ask about the area.",
+    "At a bookstore looking for books. Ask for recommendations.",
+    "At a movie theater ticket booth. Pick a movie and buy tickets.",
+    "Visit a pet shop. Choose a pet and ask about care.",
+    "Shopping at a clothing store. Ask about sizes and styles.",
+    "At a bank. Open an account or make a transfer.",
+    "At the dentist. Explain your symptoms and ask about treatment.",
+    "Plan a vacation at a travel agency. Discuss destinations.",
+    "At a lost-and-found office. Describe and look for your missing item.",
+    "At a Polish pastry shop (cukiernia). Choose pączki, sernik, and other pastries.",
+    "At a pierogi restaurant. The owner explains different fillings and styles.",
+  ],
 };
 
 export function getScenarioStarters(language: Language, nativeLanguage: NativeLanguage = "ko"): ScenarioStarter[] {
@@ -650,6 +1179,222 @@ export function getScenarioStarters(language: Language, nativeLanguage: NativeLa
       "세탁소에 왔습니다. 옷을 맡기고 세탁 옵션을 확인해보세요.",
       "옷가게에서 쇼핑 중입니다. 사이즈와 스타일을 물어보세요.",
       "펫샵에 왔습니다. 반려동물을 고르고 관리 방법을 물어보세요.",
+    ],
+    pt: [
+      "브라질 길거리 시장(페이라)입니다. 열대 과일과 채소를 파는 상인과 흥정해보세요.",
+      "브라질 슈하스카리아(churrascaria)입니다. 호지지우 시스템을 체험해보세요.",
+      "약국에 왔습니다. 약사에게 증상을 설명하고 약을 구매해보세요.",
+      "카페에서 음료를 주문합니다. 바리스타와 가볍게 대화해보세요.",
+      "호텔에 체크인합니다. 방 상태와 주변 관광지를 물어보세요.",
+      "슈퍼마켓에서 물건을 찾고 있습니다. 직원에게 도움을 요청해보세요.",
+      "헬스장(아카데미아)에 처음 왔습니다. 트레이너가 시설과 회원권을 설명합니다.",
+      "휴대폰이 고장났습니다. 수리 기사에게 문제를 설명해보세요.",
+      "미용실에 왔습니다. 원하는 스타일을 설명해보세요.",
+      "우체국에서 소포를 보냅니다. 배송 방법을 물어보세요.",
+      "렌터카 업체에서 차를 빌립니다. 옵션과 보험을 확인해보세요.",
+      "새 이웃을 만났습니다. 자기소개를 하고 동네에 대해 물어보세요.",
+      "서점에서 책을 찾고 있습니다. 직원에게 추천을 부탁해보세요.",
+      "영화관 매표소입니다. 영화를 고르고 표를 사보세요.",
+      "펫샵에 왔습니다. 반려동물을 고르고 관리 방법을 물어보세요.",
+      "옷가게에서 쇼핑 중입니다. 사이즈와 스타일을 물어보세요.",
+      "은행에 왔습니다. 계좌 개설이나 거래를 해보세요.",
+      "치과에 왔습니다. 증상을 설명하고 치료에 대해 물어보세요.",
+      "여행사에서 휴가를 계획합니다. 목적지와 일정을 상담해보세요.",
+      "분실물 센터에 왔습니다. 잃어버린 물건을 찾아보세요.",
+      "브라질 빵집(파다리아)입니다. 빵지케이주와 신선한 빵을 골라보세요.",
+      "리우 해변에 왔습니다. 의자를 빌리고 코코넛 워터를 사보세요.",
+    ],
+    it: [
+      "이탈리아 야외 시장입니다. 신선한 농산물과 치즈를 파는 상인과 대화해보세요.",
+      "가족이 운영하는 트라토리아입니다. 웨이터가 지역 요리를 추천합니다. 주문해보세요.",
+      "약국에 왔습니다. 약사에게 증상을 설명하고 약을 구매해보세요.",
+      "이탈리아 바(카페)에서 에스프레소를 주문하고 카운터에서 대화해보세요.",
+      "호텔에 체크인합니다. 방 상태와 주변 볼거리를 물어보세요.",
+      "슈퍼마켓에서 물건을 찾고 있습니다. 직원에게 물어보세요.",
+      "헬스장에 처음 왔습니다. 트레이너가 시설과 회원권을 설명합니다.",
+      "휴대폰이 고장났습니다. 수리 기사에게 문제를 설명해보세요.",
+      "미용실에 왔습니다. 원하는 스타일을 설명해보세요.",
+      "우체국에서 소포를 보냅니다. 배송 옵션을 확인해보세요.",
+      "렌터카에서 차를 빌립니다. 차종과 보험을 물어보세요.",
+      "새 이웃을 만났습니다. 자기소개를 하고 동네를 물어보세요.",
+      "서점에서 책을 찾고 있습니다. 직원에게 추천을 부탁해보세요.",
+      "영화관 매표소입니다. 영화를 고르고 표를 사보세요.",
+      "펫샵에 왔습니다. 반려동물을 고르고 관리 방법을 물어보세요.",
+      "옷가게에서 쇼핑 중입니다. 사이즈와 스타일을 물어보세요.",
+      "은행에 왔습니다. 계좌 개설이나 거래를 해보세요.",
+      "치과에 왔습니다. 증상을 설명하고 치료에 대해 물어보세요.",
+      "여행사에서 휴가를 계획합니다. 목적지와 일정을 상담해보세요.",
+      "분실물 센터에 왔습니다. 잃어버린 물건을 찾아보세요.",
+      "젤라테리아에 왔습니다. 맛을 고르고 재료에 대해 물어보세요.",
+      "에노테카(와인 가게)에 왔습니다. 이탈리아 각 지역의 와인 추천을 받아보세요.",
+    ],
+    ru: [
+      "러시아 시장입니다. 신선한 농산물과 유제품을 파는 상인과 대화해보세요.",
+      "러시아 레스토랑입니다. 웨이터가 전통 요리를 추천합니다. 주문해보세요.",
+      "약국에 왔습니다. 약사에게 증상을 설명하고 약을 구매해보세요.",
+      "카페에서 음료를 주문합니다. 바리스타와 가볍게 대화해보세요.",
+      "호텔에 체크인합니다. 방 상태와 주변 관광지를 물어보세요.",
+      "슈퍼마켓에서 물건을 찾고 있습니다. 직원에게 물어보세요.",
+      "헬스장에 처음 왔습니다. 트레이너가 시설과 회원권을 설명합니다.",
+      "휴대폰이 고장났습니다. 수리 기사에게 문제를 설명해보세요.",
+      "미용실에 왔습니다. 원하는 스타일을 설명해보세요.",
+      "우체국에서 소포를 보냅니다. 배송 옵션을 확인해보세요.",
+      "렌터카에서 차를 빌립니다. 차종과 보험을 물어보세요.",
+      "아파트에 새로 이사 온 이웃을 만났습니다. 자기소개를 해보세요.",
+      "도서관에서 책을 찾고 있습니다. 사서에게 추천을 부탁해보세요.",
+      "영화관 매표소입니다. 영화를 고르고 표를 사보세요.",
+      "펫샵에 왔습니다. 반려동물을 고르고 관리 방법을 물어보세요.",
+      "옷가게에서 쇼핑 중입니다. 사이즈와 스타일을 물어보세요.",
+      "은행에 왔습니다. 계좌 개설이나 거래를 해보세요.",
+      "치과에 왔습니다. 증상을 설명하고 치료에 대해 물어보세요.",
+      "여행사에서 휴가를 계획합니다. 목적지와 일정을 상담해보세요.",
+      "분실물 센터에 왔습니다. 잃어버린 물건을 찾아보세요.",
+      "러시아 바냐(목욕탕)에 왔습니다. 직원이 절차와 전통을 설명합니다.",
+      "친구가 다차(시골집)에 초대했습니다. 주말 계획에 대해 대화해보세요.",
+    ],
+    ar: [
+      "아랍 수크(시장)입니다. 향신료와 전통 물건을 파는 상인과 흥정해보세요.",
+      "중동 레스토랑입니다. 웨이터가 요리를 추천합니다. 주문해보세요.",
+      "약국에 왔습니다. 약사에게 증상을 설명하고 약을 구매해보세요.",
+      "카페에 왔습니다. 아랍 커피나 차를 주문하고 대화해보세요.",
+      "호텔에 체크인합니다. 방 상태와 주변 관광지를 물어보세요.",
+      "슈퍼마켓에서 물건을 찾고 있습니다. 직원에게 물어보세요.",
+      "헬스장에 처음 왔습니다. 트레이너가 시설과 회원권을 설명합니다.",
+      "휴대폰이 고장났습니다. 수리 기사에게 문제를 설명해보세요.",
+      "이발소에 왔습니다. 원하는 스타일을 설명해보세요.",
+      "우체국에서 소포를 보냅니다. 배송 옵션을 확인해보세요.",
+      "렌터카에서 차를 빌립니다. 차종과 보험을 물어보세요.",
+      "새 이웃을 만났습니다. 자기소개를 하고 동네에 대해 물어보세요.",
+      "도서관에서 책을 찾고 있습니다. 사서에게 추천을 부탁해보세요.",
+      "영화관 매표소입니다. 영화를 고르고 표를 사보세요.",
+      "펫샵에 왔습니다. 반려동물을 고르고 관리 방법을 물어보세요.",
+      "옷가게에서 쇼핑 중입니다. 사이즈와 스타일을 물어보세요.",
+      "은행에 왔습니다. 계좌 개설이나 거래를 해보세요.",
+      "치과에 왔습니다. 증상을 설명하고 치료에 대해 물어보세요.",
+      "여행사에서 휴가를 계획합니다. 목적지와 일정을 상담해보세요.",
+      "분실물 센터에 왔습니다. 잃어버린 물건을 찾아보세요.",
+      "디와니야(전통 모임)에 초대받았습니다. 아랍 커피와 대추를 즐기며 대화해보세요.",
+      "동네 바깔라(전통 식료품점)에 왔습니다. 주인과 대화하며 물건을 골라보세요.",
+    ],
+    hi: [
+      "채소 시장(사브지 만디)입니다. 신선한 채소와 향신료를 파는 상인과 흥정해보세요.",
+      "도로변 식당(다바)입니다. 웨이터가 요리를 추천합니다. 주문해보세요.",
+      "약국에 왔습니다. 약사에게 증상을 설명하고 약을 구매해보세요.",
+      "차이 가게에 왔습니다. 차를 주문하고 주인과 일상 대화를 나눠보세요.",
+      "호텔에 체크인합니다. 방 상태와 주변 관광지를 물어보세요.",
+      "슈퍼마켓에서 물건을 찾고 있습니다. 직원에게 물어보세요.",
+      "헬스장에 처음 왔습니다. 트레이너가 시설과 회원권을 설명합니다.",
+      "휴대폰이 고장났습니다. 수리 기사에게 문제를 설명해보세요.",
+      "뷰티 팔러에 왔습니다. 원하는 스타일을 설명해보세요.",
+      "우체국에서 소포를 보냅니다. 배송 옵션을 확인해보세요.",
+      "렌터카에서 차를 빌립니다. 차종과 보험을 물어보세요.",
+      "새 이웃을 만났습니다. 자기소개를 하고 동네에 대해 물어보세요.",
+      "서점에서 책을 찾고 있습니다. 직원에게 추천을 부탁해보세요.",
+      "영화관 매표소입니다. 영화를 고르고 표를 사보세요.",
+      "펫샵에 왔습니다. 반려동물을 고르고 관리 방법을 물어보세요.",
+      "옷가게에서 쇼핑 중입니다. 사이즈와 스타일을 물어보세요.",
+      "은행에 왔습니다. 계좌 개설이나 거래를 해보세요.",
+      "치과에 왔습니다. 증상을 설명하고 치료에 대해 물어보세요.",
+      "여행사에서 휴가를 계획합니다. 목적지와 일정을 상담해보세요.",
+      "분실물 센터에 왔습니다. 잃어버린 물건을 찾아보세요.",
+      "인도 과자 가게(미타이 두칸)에 왔습니다. 과자를 고르고 맛에 대해 물어보세요.",
+      "오토 릭샤를 탔습니다. 기사와 요금, 경로에 대해 이야기해보세요.",
+    ],
+    tr: [
+      "터키 길거리 시장(파자르)입니다. 과일, 채소, 올리브를 파는 상인과 흥정해보세요.",
+      "터키 로칸타에 왔습니다. 웨이터가 요리를 추천합니다. 주문해보세요.",
+      "약국에 왔습니다. 약사에게 증상을 설명하고 약을 구매해보세요.",
+      "전통 카흐베하네에 왔습니다. 터키 커피를 주문하고 대화해보세요.",
+      "호텔에 체크인합니다. 방 상태와 주변 관광지를 물어보세요.",
+      "슈퍼마켓에서 물건을 찾고 있습니다. 직원에게 물어보세요.",
+      "헬스장에 처음 왔습니다. 트레이너가 시설과 회원권을 설명합니다.",
+      "휴대폰이 고장났습니다. 수리 기사에게 문제를 설명해보세요.",
+      "미용실에 왔습니다. 원하는 스타일을 설명해보세요.",
+      "PTT(우체국)에서 소포를 보냅니다. 배송 옵션을 확인해보세요.",
+      "렌터카에서 차를 빌립니다. 차종과 보험을 물어보세요.",
+      "새 이웃을 만났습니다. 자기소개를 하고 동네에 대해 물어보세요.",
+      "서점에서 책을 찾고 있습니다. 직원에게 추천을 부탁해보세요.",
+      "영화관 매표소입니다. 영화를 고르고 표를 사보세요.",
+      "펫샵에 왔습니다. 반려동물을 고르고 관리 방법을 물어보세요.",
+      "옷가게에서 쇼핑 중입니다. 사이즈와 스타일을 물어보세요.",
+      "은행에 왔습니다. 계좌 개설이나 거래를 해보세요.",
+      "치과에 왔습니다. 증상을 설명하고 치료에 대해 물어보세요.",
+      "여행사에서 휴가를 계획합니다. 목적지와 일정을 상담해보세요.",
+      "분실물 센터에 왔습니다. 잃어버린 물건을 찾아보세요.",
+      "터키 차 정원(차이 바흐체시)에 왔습니다. 차와 시미트를 즐기며 대화해보세요.",
+      "터키 하맘(목욕탕)에 왔습니다. 직원이 의식과 서비스를 설명합니다.",
+    ],
+    id: [
+      "인도네시아 전통 시장(파사르)입니다. 향신료와 채소를 파는 상인과 흥정해보세요.",
+      "와룽(작은 식당)에 왔습니다. 웨이터가 요리를 추천합니다. 주문해보세요.",
+      "약국에 왔습니다. 약사에게 증상을 설명하고 약을 구매해보세요.",
+      "인도네시아 커피숍에 왔습니다. 현지 커피를 주문하고 대화해보세요.",
+      "호텔에 체크인합니다. 방 상태와 주변 관광지를 물어보세요.",
+      "슈퍼마켓에서 물건을 찾고 있습니다. 직원에게 물어보세요.",
+      "헬스장에 처음 왔습니다. 트레이너가 시설과 회원권을 설명합니다.",
+      "휴대폰이 고장났습니다. 수리 기사에게 문제를 설명해보세요.",
+      "미용실에 왔습니다. 원하는 스타일을 설명해보세요.",
+      "우체국에서 소포를 보냅니다. 배송 옵션을 확인해보세요.",
+      "렌터카에서 차를 빌립니다. 차종과 보험을 물어보세요.",
+      "새 이웃을 만났습니다. 자기소개를 하고 동네에 대해 물어보세요.",
+      "서점에서 책을 찾고 있습니다. 직원에게 추천을 부탁해보세요.",
+      "영화관 매표소입니다. 영화를 고르고 표를 사보세요.",
+      "펫샵에 왔습니다. 반려동물을 고르고 관리 방법을 물어보세요.",
+      "옷가게에서 쇼핑 중입니다. 사이즈와 스타일을 물어보세요.",
+      "은행에 왔습니다. 계좌 개설이나 거래를 해보세요.",
+      "치과에 왔습니다. 증상을 설명하고 치료에 대해 물어보세요.",
+      "여행사에서 휴가를 계획합니다. 목적지와 일정을 상담해보세요.",
+      "분실물 센터에 왔습니다. 잃어버린 물건을 찾아보세요.",
+      "앙크링안(자바 길거리 음식 포장마차)에 왔습니다. 나시 쿠칭과 따뜻한 음료를 주문해보세요.",
+      "바틱 가게에 왔습니다. 주인이 다양한 바틱 패턴과 선택법을 설명합니다.",
+    ],
+    vi: [
+      "베트남 시장(쩌)입니다. 신선한 채소와 허브를 파는 상인과 흥정해보세요.",
+      "퍼(phở) 식당에 왔습니다. 웨이터가 요리를 추천합니다. 주문해보세요.",
+      "약국에 왔습니다. 약사에게 증상을 설명하고 약을 구매해보세요.",
+      "베트남 카페에 왔습니다. 카페쓰어다(cà phê sữa đá)를 주문하고 대화해보세요.",
+      "호텔에 체크인합니다. 방 상태와 주변 관광지를 물어보세요.",
+      "슈퍼마켓에서 물건을 찾고 있습니다. 직원에게 물어보세요.",
+      "헬스장에 처음 왔습니다. 트레이너가 시설과 회원권을 설명합니다.",
+      "휴대폰이 고장났습니다. 수리 기사에게 문제를 설명해보세요.",
+      "미용실에 왔습니다. 원하는 스타일을 설명해보세요.",
+      "우체국에서 소포를 보냅니다. 배송 옵션을 확인해보세요.",
+      "렌터카에서 차나 오토바이를 빌립니다. 옵션과 보험을 물어보세요.",
+      "새 이웃을 만났습니다. 자기소개를 하고 동네에 대해 물어보세요.",
+      "서점에서 책을 찾고 있습니다. 직원에게 추천을 부탁해보세요.",
+      "영화관 매표소입니다. 영화를 고르고 표를 사보세요.",
+      "펫샵에 왔습니다. 반려동물을 고르고 관리 방법을 물어보세요.",
+      "옷가게에서 쇼핑 중입니다. 사이즈와 스타일을 물어보세요.",
+      "은행에 왔습니다. 계좌 개설이나 거래를 해보세요.",
+      "치과에 왔습니다. 증상을 설명하고 치료에 대해 물어보세요.",
+      "여행사에서 휴가를 계획합니다. 목적지와 일정을 상담해보세요.",
+      "분실물 센터에 왔습니다. 잃어버린 물건을 찾아보세요.",
+      "하노이의 분짜(bún chả) 가게에 왔습니다. 주인이 요리와 먹는 법을 설명합니다.",
+      "쎄옴(xe ôm, 오토바이 택시)을 탔습니다. 기사와 경로와 현지 팁에 대해 대화해보세요.",
+    ],
+    pl: [
+      "폴란드 시장입니다. 신선한 농산물과 육류를 파는 상인과 대화해보세요.",
+      "폴란드 레스토랑입니다. 웨이터가 전통 요리를 추천합니다. 주문해보세요.",
+      "약국에 왔습니다. 약사에게 증상을 설명하고 약을 구매해보세요.",
+      "카페에서 음료를 주문합니다. 바리스타와 가볍게 대화해보세요.",
+      "호텔에 체크인합니다. 방 상태와 주변 관광지를 물어보세요.",
+      "슈퍼마켓에서 물건을 찾고 있습니다. 직원에게 물어보세요.",
+      "헬스장에 처음 왔습니다. 트레이너가 시설과 회원권을 설명합니다.",
+      "휴대폰이 고장났습니다. 수리 기사에게 문제를 설명해보세요.",
+      "미용실에 왔습니다. 원하는 스타일을 설명해보세요.",
+      "우체국에서 소포를 보냅니다. 배송 옵션을 확인해보세요.",
+      "렌터카에서 차를 빌립니다. 차종과 보험을 물어보세요.",
+      "새 이웃을 만났습니다. 자기소개를 하고 동네에 대해 물어보세요.",
+      "서점에서 책을 찾고 있습니다. 직원에게 추천을 부탁해보세요.",
+      "영화관 매표소입니다. 영화를 고르고 표를 사보세요.",
+      "펫샵에 왔습니다. 반려동물을 고르고 관리 방법을 물어보세요.",
+      "옷가게에서 쇼핑 중입니다. 사이즈와 스타일을 물어보세요.",
+      "은행에 왔습니다. 계좌 개설이나 거래를 해보세요.",
+      "치과에 왔습니다. 증상을 설명하고 치료에 대해 물어보세요.",
+      "여행사에서 휴가를 계획합니다. 목적지와 일정을 상담해보세요.",
+      "분실물 센터에 왔습니다. 잃어버린 물건을 찾아보세요.",
+      "폴란드 과자점(추키에르니아)에 왔습니다. 폰치키, 세르니크 등 과자를 골라보세요.",
+      "피에로기 전문점에 왔습니다. 주인이 다양한 속과 조리법을 설명합니다.",
     ],
   };
 
@@ -814,6 +1559,222 @@ export function getScenarioStarters(language: Language, nativeLanguage: NativeLa
       "어서오세요! 세탁물 맡기시려고요? 어떤 옷이에요? 한번 볼게요.",
       "어서오세요! 뭐 찾으시는 거 있으세요? 이번 주 겨울 코트 세일 중이에요.",
       "어서오세요! 반려동물 찾으세요? 이번에 새끼 고양이들이 새로 들어왔어요, 정말 귀여워요.",
+    ],
+    pt: [
+      "Bom dia! Bem-vindo à feira! O que vai levar hoje? As mangas estão uma delícia, quer experimentar?",
+      "Bem-vindo à churrascaria! Já conhece o nosso rodízio? Vou explicar como funciona.",
+      "Boa tarde! Em que posso ajudar? Está sentindo alguma coisa?",
+      "Oi! Bem-vindo! O que você vai querer? Hoje temos um café especial de Minas.",
+      "Boa noite! Bem-vindo ao hotel. Tem reserva no seu nome?",
+      "Oi! Está procurando alguma coisa? Hoje tem promoção nos laticínios.",
+      "Bem-vindo à academia! É a primeira vez aqui? Vou te mostrar as instalações.",
+      "Oi! O que aconteceu com o celular? Desde quando está com problema?",
+      "Oi! Bem-vinda! O que você quer fazer hoje? Corte, cor, ou os dois?",
+      "Bom dia! Quer enviar um pacote? É nacional ou internacional?",
+      "Bem-vindo! Tem reserva ou quer ver os carros disponíveis?",
+      "Oi! Você é o vizinho novo, né? Eu sou o Carlos, moro aqui do lado. Prazer!",
+      "Oi! Está procurando algum livro em especial ou quer uma recomendação?",
+      "Oi! Qual filme você quer ver? Essa semana tem umas estreias bem legais.",
+      "Bem-vindo! Está procurando um bichinho? Acabamos de receber uns filhotes lindos.",
+      "Oi! Posso te ajudar? Essa semana temos desconto em jaquetas.",
+      "Bom dia! Em que posso ajudar? Quer abrir uma conta ou fazer uma transferência?",
+      "Pode sentar. O que te traz aqui hoje? Está sentindo alguma dor?",
+      "Bem-vindo! Está planejando uma viagem? Já tem algum destino em mente?",
+      "Oi! Perdeu alguma coisa? Pode descrever o objeto pra mim?",
+      "Bom dia! Bem-vindo à padaria! O pão de queijo acabou de sair do forno. Quer experimentar?",
+      "E aí! Quer alugar cadeira e guarda-sol? Também tenho água de coco bem geladinha!",
+    ],
+    it: [
+      "Buongiorno! Benvenuto al mercato! Cosa Le posso dare oggi? I pomodori sono freschissimi.",
+      "Benvenuti! Avete già scelto o volete un consiglio? Oggi vi consiglio le tagliatelle al ragù, sono speciali.",
+      "Buongiorno! Come posso aiutarLa? Ha qualche disturbo?",
+      "Buongiorno! Cosa prende? Abbiamo un ottimo espresso oggi.",
+      "Buonasera! Benvenuto all'albergo. Ha una prenotazione?",
+      "Buongiorno! Cerca qualcosa in particolare? Questa settimana abbiamo offerte sui latticini.",
+      "Benvenuto! È la prima volta qui? Le faccio vedere le strutture.",
+      "Buongiorno! Cosa è successo al telefono? Da quando ha questo problema?",
+      "Buongiorno! Come vuole i capelli oggi? Solo taglio o anche colore?",
+      "Buongiorno! Vuole spedire un pacco? In Italia o all'estero?",
+      "Benvenuto! Ha una prenotazione o vuole vedere le auto disponibili?",
+      "Oh ciao! Lei deve essere il nuovo vicino. Io sono Marco, abito qui accanto. Piacere!",
+      "Buongiorno! Cerca un libro in particolare o posso consigliarLe qualcosa?",
+      "Buonasera! Che film vuole vedere? Questa settimana ci sono delle belle novità.",
+      "Benvenuto! Cerca un animale domestico? Abbiamo appena ricevuto dei gattini adorabili.",
+      "Buongiorno! Posso aiutarLa? Questa settimana abbiamo i cappotti in saldo.",
+      "Buongiorno! Come posso aiutarLa? Vuole aprire un conto o fare un bonifico?",
+      "Si accomodi. Cosa La porta qui oggi? Ha qualche dolore?",
+      "Benvenuto! Sta pianificando un viaggio? Ha già una destinazione in mente?",
+      "Buongiorno! Ha perso qualcosa? Può descrivermi l'oggetto?",
+      "Buongiorno! Benvenuto alla gelateria! Vuole assaggiare qualche gusto? Il pistacchio oggi è eccezionale.",
+      "Buonasera! Benvenuto all'enoteca. Cerca un vino per un'occasione speciale o per tutti i giorni?",
+    ],
+    ru: [
+      "Здравствуйте! Добро пожаловать на рынок! Что вам предложить? Помидоры сегодня отличные, попробуйте!",
+      "Добро пожаловать! Вы уже выбрали или хотите, чтобы я порекомендовал? Сегодня борщ особенно хорош.",
+      "Здравствуйте! Чем могу помочь? Что вас беспокоит?",
+      "Привет! Что будете заказывать? У нас сегодня отличный капучино.",
+      "Добрый вечер! Добро пожаловать в гостиницу. У вас есть бронирование?",
+      "Здравствуйте! Вам помочь что-то найти? Сегодня скидки на молочные продукты.",
+      "Добро пожаловать! Вы у нас впервые? Давайте я покажу вам зал.",
+      "Здравствуйте! Что случилось с телефоном? Когда начались проблемы?",
+      "Здравствуйте! Какую стрижку хотите сегодня? Только стрижка или ещё покраска?",
+      "Здравствуйте! Хотите отправить посылку? По России или за границу?",
+      "Добро пожаловать! У вас есть бронирование или хотите посмотреть доступные машины?",
+      "О, здравствуйте! Вы, наверное, новый сосед? Я Наталья из соседней квартиры. Очень приятно!",
+      "Здравствуйте! Ищете что-то конкретное или хотите, чтобы я порекомендовала?",
+      "Здравствуйте! Какой фильм хотите посмотреть? На этой неделе несколько хороших новинок.",
+      "Добро пожаловать! Ищете домашнего питомца? У нас только что появились милые котята.",
+      "Здравствуйте! Могу помочь? На этой неделе скидки на куртки.",
+      "Здравствуйте! Чем могу помочь? Хотите открыть счёт или сделать перевод?",
+      "Присаживайтесь. Что вас привело к нам? Есть какие-то боли?",
+      "Добро пожаловать! Планируете путешествие? Есть уже направление на примете?",
+      "Здравствуйте! Вы что-то потеряли? Можете описать предмет?",
+      "Добро пожаловать в баню! Первый раз у нас? Давайте я расскажу, как всё устроено. Чай будете?",
+      "Привет! Рад, что приехал! Проходи, я тебе всё покажу. Шашлык уже готовится, а пока давай чаю.",
+    ],
+    ar: [
+      "أهلاً وسهلاً! تفضل، عندنا بهارات طازة وتمر ممتاز. شو تحب تشوف؟",
+      "أهلاً! تفضلوا اجلسوا. عندنا اليوم مشاوي طازة ومزة لبنانية. تحبوا تبدأوا بإيش؟",
+      "أهلاً! كيف أقدر أساعدك؟ عندك أي أعراض؟",
+      "أهلاً وسهلاً! شو تحب تشرب؟ عندنا قهوة عربية طازة.",
+      "مساء الخير! أهلاً بك في الفندق. عندك حجز؟",
+      "أهلاً! تدور على شي معين؟ اليوم عندنا عروض على المنتجات الطازة.",
+      "أهلاً وسهلاً! أول مرة عندنا؟ خلني أوريك النادي.",
+      "أهلاً! شو صار بالجوال؟ من متى عندك هالمشكلة؟",
+      "أهلاً! كيف تحب تقص شعرك اليوم؟",
+      "أهلاً! تبي ترسل طرد؟ داخلي ولا دولي؟",
+      "أهلاً وسهلاً! عندك حجز ولا تبي تشوف السيارات المتوفرة؟",
+      "أهلاً! أنت الجار الجديد صح؟ أنا أحمد، ساكن بالشقة الجنب. تشرفنا!",
+      "أهلاً! تدور على كتاب معين ولا تبي أنصحك بشي؟",
+      "أهلاً! أي فيلم تبي تشوف؟ هالأسبوع عندنا أفلام جديدة حلوة.",
+      "أهلاً وسهلاً! تدور على حيوان أليف؟ عندنا قطط صغيرة لطيفة.",
+      "أهلاً! أقدر أساعدك؟ هالأسبوع عندنا تخفيضات على الجاكيتات.",
+      "أهلاً! كيف أقدر أساعدك؟ تبي تفتح حساب ولا تسوي تحويل؟",
+      "تفضل اجلس. شو اللي جابك اليوم؟ عندك ألم؟",
+      "أهلاً وسهلاً! تخطط لسفرة؟ عندك وجهة معينة بالبال؟",
+      "أهلاً! ضيعت شي؟ ممكن توصف لي الشي اللي ضاع؟",
+      "أهلاً وسهلاً بك في الديوانية! تفضل اجلس. قهوة عربية مع تمر؟",
+      "أهلاً يا جاري! تفضل، شو تحتاج اليوم؟ وصلنا أرز جديد وزيت زيتون طازج.",
+    ],
+    hi: [
+      "नमस्ते! आइए, क्या चाहिए? आज भिंडी और टमाटर एकदम ताज़े हैं, देखिए!",
+      "नमस्ते जी! बैठिए, बैठिए। आज दाल मखनी बहुत अच्छी बनी है। क्या लेंगे?",
+      "नमस्ते! बताइए, क्या तकलीफ़ है? कब से ऐसा हो रहा है?",
+      "नमस्ते! क्या लेंगे? एक अदरक वाली चाय बनाऊँ? बहुत अच्छी बनती है यहाँ की।",
+      "नमस्कार! होटल में आपका स्वागत है। क्या आपने रिज़र्वेशन किया है?",
+      "नमस्ते! कुछ ढूँढ रहे हैं? आज दूध और दही पर छूट चल रही है।",
+      "नमस्ते! पहली बार आए हैं? चलिए, मैं आपको सब दिखाता हूँ।",
+      "नमस्ते! फ़ोन में क्या प्रॉब्लम है? कब से ऐसा हो रहा है?",
+      "नमस्ते! आज कैसा हेयर स्टाइल चाहिए? सिर्फ़ कटिंग या कलर भी?",
+      "नमस्ते! पार्सल भेजना है? कहाँ भेजना है? देश में या विदेश?",
+      "नमस्ते! रिज़र्वेशन है या गाड़ियाँ देखना चाहेंगे?",
+      "अरे नमस्ते! आप नए पड़ोसी हैं ना? मैं शर्मा जी हूँ, बगल वाले फ्लैट में रहता हूँ। बहुत खुशी हुई!",
+      "नमस्ते! कोई ख़ास किताब ढूँढ रहे हैं या सुझाव दूँ?",
+      "नमस्ते! कौन सी फ़िल्म देखनी है? इस हफ़्ते कई अच्छी फ़िल्में आई हैं।",
+      "नमस्ते! पालतू जानवर ढूँढ रहे हैं? हमारे पास नए पिल्ले आए हैं, बहुत प्यारे हैं।",
+      "नमस्ते! कुछ मदद चाहिए? इस हफ़्ते जैकेट पर सेल चल रही है।",
+      "नमस्कार! बताइए, क्या काम है? खाता खोलना है या पैसे भेजने हैं?",
+      "बैठिए। आज क्या तकलीफ़ है? कहाँ दर्द हो रहा है?",
+      "नमस्ते! कहीं घूमने का प्लान है? कोई जगह सोची है?",
+      "नमस्ते! कुछ खो गया है? बताइए, कैसा सामान था?",
+      "नमस्ते! मिठाई की दुकान में आपका स्वागत है! लड्डू आज ताज़े बने हैं। कौन सी मिठाई पसंद करेंगे?",
+      "नमस्ते साहब! कहाँ जाना है? मीटर से चलेंगे या भाव बताइए।",
+    ],
+    tr: [
+      "Hoş geldiniz! Bugün meyve ve sebzeler çok taze. Bir bakın, ne istersiniz?",
+      "Hoş geldiniz! Menüyü gördünüz mü? Bugün Adana kebabımız çok güzel olmuş, tavsiye ederim.",
+      "Merhaba! Size nasıl yardımcı olabilirim? Bir şikayetiniz mi var?",
+      "Hoş geldiniz! Ne içmek istersiniz? Bugün özel Türk kahvemiz var, bir deneyin.",
+      "İyi akşamlar! Otele hoş geldiniz. Rezervasyonunuz var mı?",
+      "Merhaba! Bir şey mi arıyorsunuz? Bu hafta süt ürünlerinde indirim var.",
+      "Hoş geldiniz! İlk kez mi geliyorsunuz? Size tesisleri gezdireyim.",
+      "Merhaba! Telefonunuza ne oldu? Ne zamandan beri böyle?",
+      "Merhaba! Bugün nasıl bir saç istiyorsunuz? Sadece kesim mi, renk de mi?",
+      "Merhaba! Kargo göndermek mi istiyorsunuz? Yurt içi mi, yurt dışı mı?",
+      "Hoş geldiniz! Rezervasyonunuz var mı, yoksa araçları görmek ister misiniz?",
+      "Aa merhaba! Siz yeni komşu olmalısınız. Ben Ayşe, yan dairede oturuyorum. Hoş geldiniz!",
+      "Merhaba! Özel bir kitap mı arıyorsunuz, yoksa tavsiye ister misiniz?",
+      "Merhaba! Hangi filmi izlemek istiyorsunuz? Bu hafta güzel filmler var.",
+      "Hoş geldiniz! Evcil hayvan mı arıyorsunuz? Yeni yavru kedilerimiz geldi, çok tatlılar.",
+      "Merhaba! Yardımcı olabilir miyim? Bu hafta montlarda indirim var.",
+      "Merhaba! Size nasıl yardımcı olabilirim? Hesap açmak mı istiyorsunuz, yoksa havale mi?",
+      "Buyurun, oturun. Bugün sizi ne getirdi? Ağrınız mı var?",
+      "Hoş geldiniz! Tatil mi planlıyorsunuz? Aklınızda bir yer var mı?",
+      "Merhaba! Bir şey mi kaybettiniz? Eşyayı tarif edebilir misiniz?",
+      "Hoş geldiniz çay bahçesine! Buyurun oturun. Çay mı istersiniz, simit de getirelim mi?",
+      "Hoş geldiniz hamama! İlk kez mi geliyorsunuz? Size hamamın nasıl işlediğini anlatayım.",
+    ],
+    id: [
+      "Selamat datang! Mau cari apa, Kak? Hari ini sayur dan bumbunya segar-segar, silakan pilih!",
+      "Selamat datang! Sudah lihat menunya? Hari ini nasi goreng spesial kita enak banget, mau coba?",
+      "Selamat siang! Ada yang bisa saya bantu? Ada keluhan apa?",
+      "Halo! Mau pesan apa? Hari ini kopi Toraja kita lagi bagus banget, mau coba?",
+      "Selamat malam! Selamat datang di hotel. Sudah ada reservasi?",
+      "Halo! Cari sesuatu? Minggu ini ada promo susu dan buah-buahan.",
+      "Selamat datang! Baru pertama kali ke sini? Yuk, saya tunjukkan fasilitasnya.",
+      "Halo! HP-nya kenapa? Sejak kapan bermasalah?",
+      "Halo! Mau potong model apa hari ini? Potong aja atau sekalian warnain?",
+      "Selamat siang! Mau kirim paket? Tujuannya ke mana? Dalam negeri atau luar negeri?",
+      "Selamat datang! Sudah ada reservasi atau mau lihat-lihat mobil yang tersedia?",
+      "Halo! Kamu pasti tetangga baru ya? Aku Budi, tinggal di sebelah. Salam kenal!",
+      "Halo! Cari buku tertentu atau mau saya rekomendasikan sesuatu?",
+      "Halo! Mau nonton film apa? Minggu ini ada beberapa film baru yang bagus.",
+      "Selamat datang! Cari hewan peliharaan? Kami baru dapat anak kucing lucu-lucu.",
+      "Halo! Bisa saya bantu? Minggu ini jaket lagi diskon.",
+      "Selamat pagi! Ada yang bisa saya bantu? Mau buka rekening atau transfer?",
+      "Silakan duduk. Ada keluhan apa hari ini? Giginya yang mana yang sakit?",
+      "Selamat datang! Lagi rencanain liburan? Sudah ada tujuan yang diinginkan?",
+      "Halo! Ada barang yang hilang? Bisa jelaskan barangnya seperti apa?",
+      "Selamat datang di angkringan! Silakan duduk. Mau nasi kucing sama wedang jahe?",
+      "Selamat datang! Mau cari batik? Sini, saya jelaskan motif-motifnya. Setiap motif punya makna berbeda.",
+    ],
+    vi: [
+      "Chào chị! Hôm nay rau quả tươi lắm. Chị muốn mua gì? Mấy quả xoài này ngọt lắm!",
+      "Chào anh! Mời anh ngồi. Hôm nay phở bò đặc biệt ngon lắm. Anh dùng gì ạ?",
+      "Chào anh! Anh có vấn đề gì không ạ? Triệu chứng thế nào?",
+      "Chào bạn! Bạn muốn uống gì? Hôm nay cà phê sữa đá của tụi mình ngon lắm, thử không?",
+      "Chào anh! Chào mừng anh đến khách sạn. Anh có đặt phòng trước không ạ?",
+      "Chào chị! Chị cần tìm gì không? Tuần này sữa và trái cây đang giảm giá.",
+      "Chào mừng bạn! Lần đầu đến đây hả? Để mình dẫn bạn đi xem cơ sở vật chất nhé.",
+      "Chào anh! Điện thoại bị sao vậy ạ? Bị từ lúc nào?",
+      "Chào chị! Hôm nay chị muốn cắt kiểu gì ạ? Cắt thôi hay nhuộm luôn?",
+      "Chào anh! Anh muốn gửi bưu kiện hả? Gửi trong nước hay quốc tế ạ?",
+      "Chào mừng! Anh có đặt trước không hay muốn xem xe có sẵn?",
+      "Ồ chào! Anh mới chuyển đến hả? Em là Lan, ở nhà bên cạnh. Rất vui được gặp anh!",
+      "Chào bạn! Bạn tìm sách gì? Hay để mình gợi ý cho bạn nhé?",
+      "Chào anh! Anh muốn xem phim gì? Tuần này có mấy phim mới hay lắm.",
+      "Chào mừng! Bạn muốn nuôi thú cưng hả? Tụi mình mới có mấy chú mèo con dễ thương lắm.",
+      "Chào chị! Em giúp gì được cho chị? Tuần này áo khoác đang giảm giá.",
+      "Chào anh! Em có thể giúp gì ạ? Anh muốn mở tài khoản hay chuyển tiền?",
+      "Mời anh ngồi. Hôm nay anh đến vì lý do gì ạ? Có đau ở đâu không?",
+      "Chào mừng! Anh đang lên kế hoạch du lịch hả? Đã có điểm đến nào chưa?",
+      "Chào anh! Anh bị mất đồ hả? Anh mô tả lại đồ vật được không ạ?",
+      "Chào anh! Mời anh ngồi. Bún chả hôm nay ngon lắm. Để em chỉ cách ăn cho anh nhé!",
+      "Chào anh! Anh muốn đi đâu? Lên xe đi, em chở. Đường này em thuộc lắm!",
+    ],
+    pl: [
+      "Dzień dobry! Witamy na targu! Co podać? Dzisiaj pomidory są wyjątkowo dobre, proszę spróbować!",
+      "Dzień dobry! Witamy w restauracji. Co podać? Dzisiaj polecam pierogi ruskie i żurek, są wyśmienite.",
+      "Dzień dobry! W czym mogę pomóc? Jakie ma Pan/Pani dolegliwości?",
+      "Cześć! Co podać? Mamy dzisiaj świetną kawę z nowej palarni.",
+      "Dobry wieczór! Witamy w hotelu. Czy ma Pan/Pani rezerwację?",
+      "Dzień dobry! Szuka Pan/Pani czegoś konkretnego? W tym tygodniu mamy promocję na nabiał.",
+      "Witamy! Pierwszy raz u nas? Pokażę Panu/Pani wszystko.",
+      "Dzień dobry! Co się stało z telefonem? Od kiedy jest problem?",
+      "Dzień dobry! Jaką fryzurę sobie życzy? Tylko strzyżenie czy też koloryzacja?",
+      "Dzień dobry! Chce Pan/Pani wysłać paczkę? W kraju czy za granicę?",
+      "Witamy! Ma Pan/Pani rezerwację czy chce zobaczyć dostępne samochody?",
+      "O cześć! Pan/Pani to chyba nowy sąsiad? Jestem Kasia z mieszkania obok. Miło mi!",
+      "Dzień dobry! Szuka Pan/Pani jakiejś konkretnej książki czy mogę coś polecić?",
+      "Cześć! Jaki film chcecie zobaczyć? W tym tygodniu mamy kilka świetnych premier.",
+      "Witamy! Szuka Pan/Pani zwierzaka? Właśnie dostaliśmy urocze kocięta.",
+      "Dzień dobry! Mogę w czymś pomóc? W tym tygodniu mamy wyprzedaż kurtek.",
+      "Dzień dobry! W czym mogę pomóc? Chce Pan/Pani otworzyć konto czy zrobić przelew?",
+      "Proszę usiąść. Co Pana/Panią do nas sprowadza? Coś boli?",
+      "Witamy! Planuje Pan/Pani podróż? Ma już Pan/Pani jakiś kierunek na myśli?",
+      "Dzień dobry! Zgubił Pan/Pani coś? Może Pan/Pani opisać ten przedmiot?",
+      "Dzień dobry! Witamy w cukierni! Pączki są dzisiaj prosto z pieca. Co podać? Może sernik albo szarlotkę?",
+      "Dzień dobry! Witamy w pierogarni! Jakie pierogi Pana/Panią interesują? Mamy ruskie, z mięsem i ze szpinakiem.",
     ],
   };
 

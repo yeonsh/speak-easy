@@ -14,6 +14,15 @@ pub fn default_voice(lang: &str) -> &'static str {
         "ja" => "ja-JP-NanamiNeural",
         "de" => "de-DE-KatjaNeural",
         "ko" => "ko-KR-SunHiNeural",
+        "pt" => "pt-BR-FranciscaNeural",
+        "it" => "it-IT-ElsaNeural",
+        "ru" => "ru-RU-SvetlanaNeural",
+        "ar" => "ar-SA-ZariyahNeural",
+        "hi" => "hi-IN-SwaraNeural",
+        "tr" => "tr-TR-EmelNeural",
+        "id" => "id-ID-GadisNeural",
+        "vi" => "vi-VN-HoaiMyNeural",
+        "pl" => "pl-PL-ZofiaNeural",
         _ => "en-US-JennyNeural",
     }
 }

@@ -11,6 +11,15 @@ const KOKORO_VOICES: Record<Language, string> = {
   ja: "jf_alpha",
   de: "", // not supported by Kokoro
   ko: "", // not supported by Kokoro
+  pt: "", // not supported by Kokoro
+  it: "", // not supported by Kokoro
+  ru: "", // not supported by Kokoro
+  ar: "", // not supported by Kokoro
+  hi: "", // not supported by Kokoro
+  tr: "", // not supported by Kokoro
+  id: "", // not supported by Kokoro
+  vi: "", // not supported by Kokoro
+  pl: "", // not supported by Kokoro
 };
 
 const EDGE_VOICES: Record<Language, string> = {
@@ -21,6 +30,15 @@ const EDGE_VOICES: Record<Language, string> = {
   ja: "ja-JP-NanamiNeural",
   de: "de-DE-KatjaNeural",
   ko: "ko-KR-SunHiNeural",
+  pt: "pt-BR-FranciscaNeural",
+  it: "it-IT-ElsaNeural",
+  ru: "ru-RU-SvetlanaNeural",
+  ar: "ar-SA-ZariyahNeural",
+  hi: "hi-IN-SwaraNeural",
+  tr: "tr-TR-EmelNeural",
+  id: "id-ID-GadisNeural",
+  vi: "vi-VN-HoaiMyNeural",
+  pl: "pl-PL-ZofiaNeural",
 };
 
 interface TtsChunkPayload {

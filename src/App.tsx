@@ -21,7 +21,7 @@ import type {
 import { DEFAULT_SETTINGS } from "./lib/types";
 
 const KOKORO_LANGUAGES: Language[] = ["en", "es", "fr", "zh", "ja"];
-const ALL_LANGUAGES: Language[] = ["en", "es", "fr", "zh", "ja", "de", "ko"];
+const ALL_LANGUAGES: Language[] = ["en", "es", "fr", "zh", "ja", "de", "ko", "pt", "it", "ru", "ar", "hi", "tr", "id", "vi", "pl"];
 
 function App() {
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
@@ -288,6 +288,15 @@ function App() {
             ja: "こんにちは、今日はいかがですか？",
             de: "Hallo, wie geht es Ihnen heute?",
             ko: "안녕하세요, 오늘 어떠세요?",
+            pt: "Olá, como você está hoje?",
+            it: "Ciao, come stai oggi?",
+            ru: "Привет, как у вас дела сегодня?",
+            ar: "مرحبا، كيف حالك اليوم؟",
+            hi: "नमस्ते, आज आप कैसे हैं?",
+            tr: "Merhaba, bugün nasılsınız?",
+            id: "Halo, apa kabar hari ini?",
+            vi: "Xin chào, hôm nay bạn thế nào?",
+            pl: "Cześć, jak się dzisiaj masz?",
           };
           tts.loadVoice(settings.language, voiceName, settings.ttsEngine).then(() => {
             tts.speak(samples[settings.language], settings.ttsSpeed, settings.language);

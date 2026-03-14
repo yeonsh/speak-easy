@@ -72,6 +72,15 @@ export function Sidebar({
           ja: ["ja-"],
           de: ["de-"],
           ko: ["ko-"],
+          pt: ["pt-"],
+          it: ["it-"],
+          ru: ["ru-"],
+          ar: ["ar-"],
+          hi: ["hi-"],
+          tr: ["tr-"],
+          id: ["id-"],
+          vi: ["vi-"],
+          pl: ["pl-"],
         };
         const prefixes = langMap[settings.language] ?? [];
         return prefixes.some((p) => v.startsWith(p));
@@ -171,7 +180,7 @@ export function Sidebar({
             </select>
             <p className="text-xs text-[var(--text-secondary)] mt-1 opacity-60">
               {settings.ttsEngine === "edge"
-                ? "EN, ES, FR, ZH, JA, DE, KO"
+                ? "EN, ES, FR, ZH, JA, DE, KO, PT, IT, RU, AR, HI, TR, ID, VI, PL"
                 : "EN, ES, FR, ZH, JA"}
             </p>
           </SettingGroup>

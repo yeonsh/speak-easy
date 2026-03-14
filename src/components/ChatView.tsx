@@ -13,6 +13,15 @@ const EMPTY_HINTS: Record<Language, string> = {
   ja: "「こんにちは」と言って始めましょう",
   de: "Sagen Sie \"Hallo\" um zu starten",
   ko: "\"안녕하세요\"라고 말해보세요",
+  pt: "Diga \"Olá\" para começar",
+  it: "Di \"Ciao\" per iniziare",
+  ru: "Скажите \"Привет\" чтобы начать",
+  ar: "قل \"مرحبا\" للبدء",
+  hi: "बातचीत शुरू करने के लिए \"नमस्ते\" कहें",
+  tr: "Başlamak için \"Merhaba\" deyin",
+  id: "Katakan \"Halo\" untuk memulai",
+  vi: "Nói \"Xin chào\" để bắt đầu",
+  pl: "Powiedz \"Cześć\" aby zacząć",
 };
 
 interface ChatViewProps {
