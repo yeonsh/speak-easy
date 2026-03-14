@@ -356,6 +356,64 @@ pub fn synthesize_text(state: &TtsState, text: &str, speed: f32, lang: &str) -> 
     })
 }
 
+/// Split text into sentences for TTS with silence gaps.
+fn split_into_sentences(text: &str) -> Vec<String> {
+    let mut sentences = Vec::new();
+    let mut current = String::new();
+
+    let chars: Vec<char> = text.chars().collect();
+    let len = chars.len();
+
+    for i in 0..len {
+        let ch = chars[i];
+        current.push(ch);
+
+        // CJK sentence endings — always split
+        if ch == '\u{3002}' || ch == '\u{FF01}' || ch == '\u{FF1F}' {
+            let trimmed = current.trim().to_string();
+            if !trimmed.is_empty() {
+                sentences.push(trimmed);
+            }
+            current.clear();
+            continue;
+        }
+
+        // ASCII sentence endings
+        if (ch == '.' || ch == '!' || ch == '?') && i + 1 < len {
+            let next = chars[i + 1];
+            if next == ' ' || next.is_uppercase() {
+                // Skip abbreviations (e.g., "U.S.")
+                if ch == '.' && i >= 2 {
+                    let prev = chars[i - 1];
+                    let before_prev = chars[i - 2];
+                    if prev.is_uppercase() && (before_prev == '.' || before_prev == ' ') {
+                        continue;
+                    }
+                }
+                // Skip decimals (e.g., "3.14")
+                if ch == '.' && i > 0 && chars[i - 1].is_ascii_digit() && next.is_ascii_digit() {
+                    continue;
+                }
+                let trimmed = current.trim().to_string();
+                if !trimmed.is_empty() {
+                    sentences.push(trimmed);
+                }
+                current.clear();
+            }
+        }
+    }
+
+    let trimmed = current.trim().to_string();
+    if !trimmed.is_empty() {
+        sentences.push(trimmed);
+    }
+
+    sentences
+}
+
+/// Silence gap between sentences: ~250ms at 24kHz
+const SENTENCE_SILENCE_SAMPLES: usize = 6000;
+
 #[tauri::command]
 pub fn synthesize_speech(
     state: tauri::State<'_, TtsState>,
@@ -363,7 +421,28 @@ pub fn synthesize_speech(
     speed: Option<f32>,
     language: Option<String>,
 ) -> Result<TtsResult, String> {
-    synthesize_text(&state, &text, speed.unwrap_or(1.0), &language.unwrap_or_else(|| "en".to_string()))
+    let spd = speed.unwrap_or(1.0);
+    let lang = language.unwrap_or_else(|| "en".to_string());
+    let sentences = split_into_sentences(&text);
+
+    if sentences.len() <= 1 {
+        return synthesize_text(&state, &text, spd, &lang);
+    }
+
+    let mut all_samples: Vec<f32> = Vec::new();
+    for (i, sentence) in sentences.iter().enumerate() {
+        let result = synthesize_text(&state, sentence, spd, &lang)?;
+        all_samples.extend_from_slice(&result.samples);
+        // Add silence gap between sentences (not after the last one)
+        if i < sentences.len() - 1 {
+            all_samples.extend(std::iter::repeat(0.0f32).take(SENTENCE_SILENCE_SAMPLES));
+        }
+    }
+
+    Ok(TtsResult {
+        sample_rate: KOKORO_SAMPLE_RATE,
+        samples: all_samples,
+    })
 }
 
 /// Convert WAV samples to WAV bytes for playback in frontend

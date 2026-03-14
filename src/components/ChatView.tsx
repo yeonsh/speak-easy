@@ -1,4 +1,5 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import Markdown from "react-markdown";
 import type { Language, Message } from "../lib/types";
 import { LANGUAGE_CONFIG } from "../lib/types";
 
@@ -17,6 +18,10 @@ interface ChatViewProps {
   isStreamingTts?: boolean;
   language?: Language;
   onReplay?: (text: string) => void;
+  onExplain?: (msgId: string, text: string) => Promise<string>;
+  onSuggest?: (msgId: string, text: string) => Promise<string>;
+  explanations?: Record<string, string>;
+  suggestions?: Record<string, string>;
 }
 
 export function ChatView({
@@ -26,6 +31,10 @@ export function ChatView({
   isStreamingTts,
   language,
   onReplay,
+  onExplain,
+  onSuggest,
+  explanations,
+  suggestions,
 }: ChatViewProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -65,8 +74,22 @@ export function ChatView({
         </div>
       )}
 
-      {messages.map((msg) => (
-        <MessageBubble key={msg.id} message={msg} onReplay={onReplay} />
+      {messages.map((msg) => msg.role === "system" ? (
+        <div key={msg.id} className="flex justify-center">
+          <div className="px-4 py-2 rounded-lg bg-[var(--bg-surface)] border border-[var(--border)] text-sm text-[var(--text-secondary)] text-center max-w-[85%]">
+            {msg.content}
+          </div>
+        </div>
+      ) : (
+        <MessageBubble
+          key={msg.id}
+          message={msg}
+          onReplay={onReplay}
+          onExplain={onExplain}
+          onSuggest={onSuggest}
+          explanation={explanations?.[msg.id]}
+          suggestion={suggestions?.[msg.id]}
+        />
       ))}
 
       {/* Streaming TTS: show revealed text */}
@@ -97,14 +120,44 @@ export function ChatView({
 function MessageBubble({
   message,
   onReplay,
+  onExplain,
+  onSuggest,
+  explanation,
+  suggestion,
 }: {
   message: Message;
   onReplay?: (text: string) => void;
+  onExplain?: (msgId: string, text: string) => Promise<string>;
+  onSuggest?: (msgId: string, text: string) => Promise<string>;
+  explanation?: string;
+  suggestion?: string;
 }) {
   const isUser = message.role === "user";
+  const [isExplaining, setIsExplaining] = useState(false);
+  const [isSuggesting, setIsSuggesting] = useState(false);
+
+  const handleExplain = async () => {
+    if (!onExplain || isExplaining || explanation) return;
+    setIsExplaining(true);
+    try {
+      await onExplain(message.id, message.content);
+    } finally {
+      setIsExplaining(false);
+    }
+  };
+
+  const handleSuggest = async () => {
+    if (!onSuggest || isSuggesting || suggestion) return;
+    setIsSuggesting(true);
+    try {
+      await onSuggest(message.id, message.content);
+    } finally {
+      setIsSuggesting(false);
+    }
+  };
 
   return (
-    <div className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
+    <div className={`flex flex-col ${isUser ? "items-end" : "items-start"}`}>
       <div
         className={`max-w-[80%] px-4 py-3 rounded-2xl ${
           isUser
@@ -113,16 +166,71 @@ function MessageBubble({
         }`}
       >
         <p className="whitespace-pre-wrap select-text">{message.content}</p>
-        {!isUser && onReplay && (
-          <button
-            onClick={() => onReplay(message.content)}
-            className="mt-1.5 p-1 rounded hover:bg-black/10 transition-colors opacity-40 hover:opacity-80"
-            title="Replay"
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <polygon points="5 3 19 12 5 21 5 3" />
-            </svg>
-          </button>
+        {isUser && onReplay && (
+          <div className="flex gap-1 mt-1.5">
+            <button
+              onClick={() => onReplay(message.content)}
+              className="p-1 rounded hover:bg-white/20 transition-colors opacity-40 hover:opacity-80"
+              title="Replay"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polygon points="5 3 19 12 5 21 5 3" />
+              </svg>
+            </button>
+          </div>
+        )}
+        {!isUser && (onReplay || onExplain || onSuggest) && (
+          <div className="flex gap-1 mt-1.5">
+            {onReplay && (
+              <button
+                onClick={() => onReplay(message.content)}
+                className="p-1 rounded hover:bg-black/10 transition-colors opacity-40 hover:opacity-80"
+                title="Replay"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <polygon points="5 3 19 12 5 21 5 3" />
+                </svg>
+              </button>
+            )}
+            {onExplain && (
+              <button
+                onClick={handleExplain}
+                disabled={isExplaining || !!explanation}
+                className={`p-1 rounded transition-colors ${
+                  explanation ? "opacity-80" : "opacity-40 hover:opacity-80 hover:bg-black/10"
+                }`}
+                title={isExplaining ? "Translating..." : explanation ? "Translated" : "Translate to Korean"}
+              >
+                {isExplaining ? (
+                  <div className="w-[14px] h-[14px] border-2 border-current border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="12" cy="12" r="10" />
+                    <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+                    <line x1="12" y1="17" x2="12.01" y2="17" />
+                  </svg>
+                )}
+              </button>
+            )}
+            {onSuggest && (
+              <button
+                onClick={handleSuggest}
+                disabled={isSuggesting || !!suggestion}
+                className={`p-1 rounded transition-colors ${
+                  suggestion ? "opacity-80" : "opacity-40 hover:opacity-80 hover:bg-black/10"
+                }`}
+                title={isSuggesting ? "Loading..." : suggestion ? "Suggestions shown" : "Sample responses"}
+              >
+                {isSuggesting ? (
+                  <div className="w-[14px] h-[14px] border-2 border-current border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                  </svg>
+                )}
+              </button>
+            )}
+          </div>
         )}
         {message.corrections && message.corrections.length > 0 && (
           <div className="mt-2 pt-2 border-t border-white/20 space-y-1">
@@ -137,6 +245,16 @@ function MessageBubble({
           </div>
         )}
       </div>
+      {explanation && (
+        <div className="max-w-[80%] mt-1 px-4 py-3 rounded-2xl rounded-tl-md bg-[var(--bg-surface)] border border-[var(--border)] text-sm text-[var(--text-primary)] select-text">
+          {explanation}
+        </div>
+      )}
+      {suggestion && (
+        <div className="max-w-[80%] mt-1 px-4 py-3 rounded-2xl rounded-tl-md bg-[var(--bg-surface)] border border-[var(--border)] text-sm text-[var(--text-primary)] prose prose-sm prose-invert max-w-none select-text">
+          <Markdown>{suggestion}</Markdown>
+        </div>
+      )}
     </div>
   );
 }

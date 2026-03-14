@@ -1,6 +1,6 @@
 export type Language = "en" | "es" | "fr" | "zh" | "ja";
 
-export type ConversationMode = "free-talk" | "scenario" | "correction";
+export type ConversationMode = "free-talk" | "scenario";
 
 export interface Message {
   id: string;
@@ -19,6 +19,7 @@ export interface Correction {
 export interface AppSettings {
   language: Language;
   mode: ConversationMode;
+  correctionsEnabled: boolean;
   llmTemperature: number;
   ttsSpeed: number;
   ttsVoice: string;
@@ -40,6 +41,7 @@ export const LANGUAGE_CONFIG: Record<
 export const DEFAULT_SETTINGS: AppSettings = {
   language: "en",
   mode: "free-talk",
+  correctionsEnabled: false,
   llmTemperature: 0.7,
   ttsSpeed: 1.0,
   ttsVoice: "default",

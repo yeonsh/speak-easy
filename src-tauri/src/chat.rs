@@ -39,7 +39,7 @@ struct SseResponse {
 
 /// Accumulates LLM tokens and detects sentence boundaries.
 struct SentenceBuffer {
-    buffer: String,
+    pub buffer: String,
     max_len: usize,
 }
 
@@ -291,6 +291,9 @@ pub fn send_chat_message(
             .send(body_str.as_bytes());
 
         let mut sentence_buffer = SentenceBuffer::new();
+        // Track whether we've hit the "---" corrections delimiter;
+        // once true, stop feeding text to TTS but keep streaming to frontend.
+        let mut past_corrections_delimiter = false;
 
         match result {
             Ok(response) => {
@@ -315,9 +318,11 @@ pub fn send_chat_message(
                     let data = &line[6..];
                     if data == "[DONE]" {
                         // Flush remaining sentence buffer
-                        let remaining = sentence_buffer.flush();
-                        if !remaining.is_empty() && tts_enabled {
-                            let _ = sentence_tx.send(Some(remaining));
+                        if !past_corrections_delimiter {
+                            let remaining = sentence_buffer.flush();
+                            if !remaining.is_empty() && tts_enabled {
+                                let _ = sentence_tx.send(Some(remaining));
+                            }
                         }
                         // Send sentinel to TTS worker
                         if tts_enabled {
@@ -348,19 +353,44 @@ pub fn send_chat_message(
                                             },
                                         );
 
-                                        // Feed to sentence buffer for TTS
-                                        if tts_enabled {
+                                        // Check for corrections delimiter "---"
+                                        if !past_corrections_delimiter {
                                             if let Some(sentence) = sentence_buffer.feed(content) {
-                                                let _ = sentence_tx.send(Some(sentence));
+                                                // Check if this sentence contains the delimiter
+                                                if sentence.contains("---") {
+                                                    // Send only the part before "---" to TTS
+                                                    if let Some(before) = sentence.split("---").next() {
+                                                        let before = before.trim().to_string();
+                                                        if !before.is_empty() && tts_enabled {
+                                                            let _ = sentence_tx.send(Some(before));
+                                                        }
+                                                    }
+                                                    past_corrections_delimiter = true;
+                                                } else if tts_enabled {
+                                                    let _ = sentence_tx.send(Some(sentence));
+                                                }
+                                            }
+                                            // Also check the buffer itself for "---"
+                                            if sentence_buffer.buffer.contains("---") {
+                                                let remaining = sentence_buffer.flush();
+                                                if let Some(before) = remaining.split("---").next() {
+                                                    let before = before.trim().to_string();
+                                                    if !before.is_empty() && tts_enabled {
+                                                        let _ = sentence_tx.send(Some(before));
+                                                    }
+                                                }
+                                                past_corrections_delimiter = true;
                                             }
                                         }
                                     }
                                 }
                                 if choice.finish_reason.is_some() {
                                     // Flush remaining sentence buffer
-                                    let remaining = sentence_buffer.flush();
-                                    if !remaining.is_empty() && tts_enabled {
-                                        let _ = sentence_tx.send(Some(remaining));
+                                    if !past_corrections_delimiter {
+                                        let remaining = sentence_buffer.flush();
+                                        if !remaining.is_empty() && tts_enabled {
+                                            let _ = sentence_tx.send(Some(remaining));
+                                        }
                                     }
                                     if tts_enabled {
                                         let _ = sentence_tx.send(None);
@@ -425,6 +455,157 @@ pub fn cancel_generation(
         flag.store(true, Ordering::Relaxed);
         eprintln!("[chat] Cancelled generation {}", request_id);
     }
+}
+
+#[derive(Debug, Deserialize)]
+struct CompletionResponse {
+    choices: Option<Vec<CompletionChoice>>,
+}
+
+#[derive(Debug, Deserialize)]
+struct CompletionChoice {
+    message: Option<CompletionMessage>,
+}
+
+#[derive(Debug, Deserialize)]
+struct CompletionMessage {
+    content: Option<String>,
+}
+
+#[tauri::command]
+pub async fn explain_message(
+    state: tauri::State<'_, LlmState>,
+    text: String,
+    language: String,
+) -> Result<String, String> {
+    let port = *state.port.lock().unwrap();
+    if port == 0 {
+        return Err("LLM server is not running".to_string());
+    }
+
+    let url = format!("http://127.0.0.1:{}/v1/chat/completions", port);
+
+    let system_prompt = format!(
+        "Translate the following {} sentence into Korean (한국어). \
+         Return ONLY the Korean translation, nothing else. \
+         No explanations, no original text, no formatting.",
+        language
+    );
+
+    let body = serde_json::json!({
+        "messages": [
+            { "role": "system", "content": system_prompt },
+            { "role": "user", "content": text }
+        ],
+        "temperature": 0.3,
+        "stream": false,
+        "max_tokens": 1024,
+    });
+
+    let body_str = body.to_string();
+    let (tx, rx) = mpsc::channel::<Result<String, String>>();
+
+    std::thread::spawn(move || {
+        let result = ureq::post(&url)
+            .header("Content-Type", "application/json")
+            .send(body_str.as_bytes());
+
+        let reply = match result {
+            Ok(response) => {
+                match response.into_body().read_to_string() {
+                    Ok(body_text) => {
+                        match serde_json::from_str::<CompletionResponse>(&body_text) {
+                            Ok(parsed) => {
+                                let content = parsed
+                                    .choices
+                                    .and_then(|c| c.into_iter().next())
+                                    .and_then(|c| c.message)
+                                    .and_then(|m| m.content)
+                                    .unwrap_or_default();
+                                Ok(content)
+                            }
+                            Err(e) => Err(format!("Parse error: {}", e)),
+                        }
+                    }
+                    Err(e) => Err(format!("Read error: {}", e)),
+                }
+            }
+            Err(e) => Err(format!("LLM request failed: {}", e)),
+        };
+        let _ = tx.send(reply);
+    });
+
+    rx.recv().map_err(|e| format!("Channel error: {}", e))?
+}
+
+#[tauri::command]
+pub async fn suggest_responses(
+    state: tauri::State<'_, LlmState>,
+    text: String,
+    language: String,
+) -> Result<String, String> {
+    let port = *state.port.lock().unwrap();
+    if port == 0 {
+        return Err("LLM server is not running".to_string());
+    }
+
+    let url = format!("http://127.0.0.1:{}/v1/chat/completions", port);
+
+    let system_prompt = format!(
+        "The user is practicing {}. Given the following sentence from a conversation partner, \
+         suggest 2 natural sample responses that the learner could say back. \
+         For each response, show the {} text first, then the Korean (한국어) translation on the next line. \
+         Use this exact format:\n\
+         1. [response in {}]\n(한국어: [Korean translation])\n\n\
+         2. [response in {}]\n(한국어: [Korean translation])\n\n\
+         Keep responses concise and natural for an intermediate learner. Do NOT add any other explanation.",
+        language, language, language, language
+    );
+
+    let body = serde_json::json!({
+        "messages": [
+            { "role": "system", "content": system_prompt },
+            { "role": "user", "content": text }
+        ],
+        "temperature": 0.7,
+        "stream": false,
+        "max_tokens": 512,
+    });
+
+    let body_str = body.to_string();
+    let (tx, rx) = mpsc::channel::<Result<String, String>>();
+
+    std::thread::spawn(move || {
+        let result = ureq::post(&url)
+            .header("Content-Type", "application/json")
+            .send(body_str.as_bytes());
+
+        let reply = match result {
+            Ok(response) => {
+                match response.into_body().read_to_string() {
+                    Ok(body_text) => {
+                        match serde_json::from_str::<CompletionResponse>(&body_text) {
+                            Ok(parsed) => {
+                                let content = parsed
+                                    .choices
+                                    .and_then(|c| c.into_iter().next())
+                                    .and_then(|c| c.message)
+                                    .and_then(|m| m.content)
+                                    .unwrap_or_default();
+                                Ok(content)
+                            }
+                            Err(e) => Err(format!("Parse error: {}", e)),
+                        }
+                    }
+                    Err(e) => Err(format!("Read error: {}", e)),
+                }
+            }
+            Err(e) => Err(format!("LLM request failed: {}", e)),
+        };
+        let _ = tx.send(reply);
+    });
+
+    rx.recv().map_err(|e| format!("Channel error: {}", e))?
 }
 
 #[cfg(test)]

@@ -29,6 +29,8 @@ function App() {
   const isStreamingTtsRef = useRef(false);
   const pendingFullTextRef = useRef<string | null>(null);
   const currentRequestIdRef = useRef<string | null>(null);
+  const [explanations, setExplanations] = useState<Record<string, string>>({});
+  const [suggestions, setSuggestions] = useState<Record<string, string>>({});
 
   // Check if first launch
   useEffect(() => {
@@ -118,37 +120,57 @@ function App() {
   // Auto-load TTS voice when language changes
   const handleLanguageChange = useCallback((lang: Language) => {
     setSettings((s) => {
-      // Save current messages under old language
-      messagesByLangRef.current[s.language] = messages;
+      const key = `${s.language}:${s.mode}`;
+      messagesByLangRef.current[key] = messages;
       if (tts.isLoaded) {
         tts.loadVoice(lang);
       }
+
+      const newKey = `${lang}:${s.mode}`;
+      const saved = messagesByLangRef.current[newKey];
+      if (saved && saved.length > 0) {
+        setMessages(saved);
+      } else if (s.mode === "scenario" && llm.isServerRunning) {
+        const starters = getScenarioStarters(lang);
+        const starter = starters[Math.floor(Math.random() * starters.length)];
+        setMessages([
+          { id: crypto.randomUUID(), role: "system", content: starter.description, timestamp: Date.now() },
+          { id: crypto.randomUUID(), role: "assistant", content: starter.opening, timestamp: Date.now() },
+        ]);
+      } else {
+        setMessages([]);
+      }
+
       return { ...s, language: lang };
     });
-    // Restore saved messages for new language (or empty)
-    setMessages(messagesByLangRef.current[lang] ?? []);
     tts.stop();
-  }, [tts, messages]);
+  }, [tts, messages, llm.isServerRunning]);
 
   const handleModeChange = useCallback((mode: ConversationMode) => {
     setSettings((s) => {
-      const newSettings = { ...s, mode };
-      // Auto-start a scenario when switching to scenario mode
-      if (mode === "scenario" && llm.isServerRunning) {
-        setMessages([]);
+      // Save current messages under old key
+      const oldKey = `${s.language}:${s.mode}`;
+      messagesByLangRef.current[oldKey] = messages;
+
+      // Restore saved messages for new mode, or start fresh
+      const newKey = `${s.language}:${mode}`;
+      const saved = messagesByLangRef.current[newKey];
+      if (saved && saved.length > 0) {
+        setMessages(saved);
+      } else if (mode === "scenario" && llm.isServerRunning) {
         const starters = getScenarioStarters(s.language);
         const starter = starters[Math.floor(Math.random() * starters.length)];
-        const msg: Message = {
-          id: crypto.randomUUID(),
-          role: "assistant",
-          content: starter,
-          timestamp: Date.now(),
-        };
-        setMessages([msg]);
+        setMessages([
+          { id: crypto.randomUUID(), role: "system", content: starter.description, timestamp: Date.now() },
+          { id: crypto.randomUUID(), role: "assistant", content: starter.opening, timestamp: Date.now() },
+        ]);
+      } else {
+        setMessages([]);
       }
-      return newSettings;
+
+      return { ...s, mode };
     });
-  }, [llm.isServerRunning, tts]);
+  }, [llm.isServerRunning, messages]);
 
   const handleClearChat = useCallback(() => {
     setMessages([]);
@@ -190,10 +212,10 @@ function App() {
       isStreamingTtsRef.current = false;
       pendingFullTextRef.current = null;
 
-      const systemPrompt = getSystemPrompt(settings.language, settings.mode);
+      const systemPrompt = getSystemPrompt(settings.language, settings.mode, settings.correctionsEnabled);
       const allMessages = [
         { role: "system", content: systemPrompt },
-        ...messages.map((m) => ({ role: m.role, content: m.content })),
+        ...messages.filter((m) => m.role !== "system").map((m) => ({ role: m.role, content: m.content })),
         { role: "user", content: userText },
       ];
 
@@ -278,7 +300,13 @@ function App() {
             onChange={handleLanguageChange}
           />
 
-          <ModeSelector selected={settings.mode} onChange={handleModeChange} />
+          <div className="flex items-center gap-2">
+            <ModeSelector selected={settings.mode} onChange={handleModeChange} />
+            <CorrectionsToggle
+              enabled={settings.correctionsEnabled}
+              onChange={(enabled) => setSettings((s) => ({ ...s, correctionsEnabled: enabled }))}
+            />
+          </div>
         </header>
 
         <ServerStatus
@@ -306,6 +334,24 @@ function App() {
               tts.speak(text, settings.ttsSpeed, settings.language);
             }
           }}
+          onExplain={async (msgId, text) => {
+            const result = await invoke<string>("explain_message", {
+              text,
+              language: settings.language,
+            });
+            setExplanations((prev) => ({ ...prev, [msgId]: result }));
+            return result;
+          }}
+          onSuggest={async (msgId, text) => {
+            const result = await invoke<string>("suggest_responses", {
+              text,
+              language: settings.language,
+            });
+            setSuggestions((prev) => ({ ...prev, [msgId]: result }));
+            return result;
+          }}
+          explanations={explanations}
+          suggestions={suggestions}
         />
 
         <footer className="flex items-center justify-center gap-4 p-6 border-t border-[var(--border)]">
@@ -362,7 +408,6 @@ function ModeSelector({
   const modes: { value: ConversationMode; label: string }[] = [
     { value: "free-talk", label: "Free Talk" },
     { value: "scenario", label: "Scenario" },
-    { value: "correction", label: "Corrections" },
   ];
 
   return (
@@ -381,6 +426,28 @@ function ModeSelector({
         </button>
       ))}
     </div>
+  );
+}
+
+function CorrectionsToggle({
+  enabled,
+  onChange,
+}: {
+  enabled: boolean;
+  onChange: (enabled: boolean) => void;
+}) {
+  return (
+    <button
+      onClick={() => onChange(!enabled)}
+      className={`px-3 py-1 rounded-md text-sm transition-colors ${
+        enabled
+          ? "bg-amber-500 text-white"
+          : "bg-[var(--bg-surface)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+      }`}
+      title={enabled ? "Corrections ON" : "Corrections OFF"}
+    >
+      {enabled ? "ABC" : "ABC"}
+    </button>
   );
 }
 
