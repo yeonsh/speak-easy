@@ -107,7 +107,7 @@ export function getSystemPrompt(
 ): string {
   const lang = LANGUAGE_NAMES[language];
 
-  const base = `You are a friendly and patient ${lang} language practice partner. ALWAYS respond in ${lang}. Keep responses concise (1-3 sentences) to maintain a natural spoken conversation flow. Use vocabulary appropriate for an intermediate learner unless the user demonstrates advanced proficiency.`;
+  const base = `You are a friendly and patient ${lang} language practice partner. ALWAYS respond in ${lang}. Keep responses concise (1-3 sentences) to maintain a natural spoken conversation flow. Use vocabulary appropriate for an intermediate learner unless the user demonstrates advanced proficiency. IMPORTANT: Do NOT use any emojis or emoticons in your responses. Use only plain text.`;
 
   switch (mode) {
     case "free-talk":
@@ -132,7 +132,7 @@ Pick a scenario and begin. If the conversation in one scenario reaches a natural
 Your primary role is helping the user improve their ${lang}. For every user message:
 1. First, respond naturally to the content of what they said (keep the conversation going)
 2. If there are errors, add a brief correction section at the end:
-   "✏️ [incorrect phrase] → [corrected phrase] — [brief explanation]"
+   "[incorrect phrase] -> [corrected phrase] -- [brief explanation]"
 3. Only correct meaningful errors, not stylistic preferences
 4. If their ${lang} was perfect, say nothing about corrections — just continue the conversation
 

@@ -1,6 +1,6 @@
 use ort::session::Session;
 use ort::value::Tensor;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use std::collections::HashMap;
 use std::io::Cursor;
 use std::path::PathBuf;
@@ -8,36 +8,29 @@ use std::sync::Mutex;
 
 pub struct TtsState {
     session: Mutex<Option<Session>>,
-    config: Mutex<Option<PiperConfig>>,
-    loaded_voice: Mutex<Option<String>>,
+    voices: Mutex<Option<VoicesData>>,
+    loaded_voice_name: Mutex<Option<String>>,
+    voice_embedding: Mutex<Option<Vec<Vec<f32>>>>,
 }
 
 impl TtsState {
     pub fn new() -> Self {
         Self {
             session: Mutex::new(None),
-            config: Mutex::new(None),
-            loaded_voice: Mutex::new(None),
+            voices: Mutex::new(None),
+            loaded_voice_name: Mutex::new(None),
+            voice_embedding: Mutex::new(None),
         }
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct PiperConfig {
-    audio: PiperAudioConfig,
-    phoneme_id_map: HashMap<String, Vec<Vec<i64>>>,
-    #[serde(default = "default_sample_rate")]
-    sample_rate: u32,
+/// Parsed voices.bin (NumPy .npz format)
+struct VoicesData {
+    voices: HashMap<String, Vec<Vec<f32>>>,
 }
 
-fn default_sample_rate() -> u32 {
-    22050
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct PiperAudioConfig {
-    sample_rate: u32,
-}
+const KOKORO_SAMPLE_RATE: u32 = 24000;
+const MAX_PHONEME_LENGTH: usize = 510;
 
 #[derive(Debug, Serialize, Clone)]
 pub struct TtsResult {
@@ -54,43 +47,118 @@ fn voices_dir() -> Result<PathBuf, String> {
     Ok(dir)
 }
 
-fn find_voice_files(voice_name: &str) -> Result<(PathBuf, PathBuf), String> {
-    let dir = voices_dir()?;
-
-    // Try common patterns
-    let onnx_candidates = [
-        format!("{}.onnx", voice_name),
-        format!("{}/{}.onnx", voice_name, voice_name),
+/// Build Kokoro vocabulary: phoneme character → token ID
+fn kokoro_vocab() -> HashMap<String, i64> {
+    let mut v = HashMap::new();
+    let entries: &[(&str, i64)] = &[
+        (";", 1), (":", 2), (",", 3), (".", 4), ("!", 5), ("?", 6),
+        ("\u{2014}", 9), ("\u{2026}", 10), ("\"", 11), ("(", 12), (")", 13),
+        ("\u{201C}", 14), ("\u{201D}", 15), (" ", 16), ("\u{0303}", 17),
+        ("ʣ", 18), ("ʥ", 19), ("ʦ", 20), ("ʨ", 21), ("ᵝ", 22), ("\u{AB67}", 23),
+        ("A", 24), ("I", 25), ("O", 31), ("Q", 33), ("S", 35), ("T", 36),
+        ("W", 39), ("Y", 41), ("ᵊ", 42),
+        ("a", 43), ("b", 44), ("c", 45), ("d", 46), ("e", 47), ("f", 48),
+        ("h", 50), ("i", 51), ("j", 52), ("k", 53), ("l", 54), ("m", 55),
+        ("n", 56), ("o", 57), ("p", 58), ("q", 59), ("r", 60), ("s", 61),
+        ("t", 62), ("u", 63), ("v", 64), ("w", 65), ("x", 66), ("y", 67),
+        ("z", 68),
+        ("ɑ", 69), ("ɐ", 70), ("ɒ", 71), ("æ", 72), ("β", 75), ("ɔ", 76),
+        ("ɕ", 77), ("ç", 78), ("ɖ", 80), ("ð", 81), ("ʤ", 82), ("ə", 83),
+        ("ɚ", 85), ("ɛ", 86), ("ɜ", 87), ("ɟ", 90), ("ɡ", 92), ("ɥ", 99),
+        ("ɨ", 101), ("ɪ", 102), ("ʝ", 103), ("ɯ", 110), ("ɰ", 111),
+        ("ŋ", 112), ("ɳ", 113), ("ɲ", 114), ("ɴ", 115), ("ø", 116),
+        ("ɸ", 118), ("θ", 119), ("œ", 120), ("ɹ", 123), ("ɾ", 125),
+        ("ɻ", 126), ("ʁ", 128), ("ɽ", 129), ("ʂ", 130), ("ʃ", 131),
+        ("ʈ", 132), ("ʧ", 133), ("ʊ", 135), ("ʋ", 136), ("ʌ", 138),
+        ("ɣ", 139), ("ɤ", 140), ("χ", 142), ("ʎ", 143), ("ʒ", 147),
+        ("ʔ", 148),
+        ("ˈ", 156), ("ˌ", 157), ("ː", 158), ("ʰ", 162), ("ʲ", 164),
+        ("↓", 169), ("→", 171), ("↗", 172), ("↘", 173), ("ᵻ", 177),
     ];
-
-    for candidate in &onnx_candidates {
-        let onnx_path = dir.join(candidate);
-        let json_path = onnx_path.with_extension("onnx.json");
-        if onnx_path.exists() && json_path.exists() {
-            return Ok((onnx_path, json_path));
-        }
+    for (k, id) in entries {
+        v.insert(k.to_string(), *id);
     }
+    v
+}
 
-    // Scan directory for any .onnx file matching the voice name prefix
-    if let Ok(entries) = std::fs::read_dir(&dir) {
-        for entry in entries.flatten() {
-            let path = entry.path();
-            if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
-                if name.starts_with(voice_name) && name.ends_with(".onnx") && !name.ends_with(".onnx.json") {
-                    let json_path = path.with_extension("onnx.json");
-                    if json_path.exists() {
-                        return Ok((path, json_path));
-                    }
+/// Parse NumPy .npz voices file
+/// The .npz format is a zip of .npy files, each named <voice_name>.npy
+fn load_voices_npz(path: &PathBuf) -> Result<VoicesData, String> {
+    use std::io::Read;
+
+    let file = std::fs::File::open(path).map_err(|e| format!("Failed to open voices file: {}", e))?;
+    let mut archive = zip::ZipArchive::new(file).map_err(|e| format!("Failed to read voices archive: {}", e))?;
+
+    let mut voices = HashMap::new();
+
+    for i in 0..archive.len() {
+        let mut entry = archive.by_index(i).map_err(|e| format!("Failed to read archive entry: {}", e))?;
+        let name = entry.name().trim_end_matches(".npy").to_string();
+
+        let mut data = Vec::new();
+        entry.read_to_end(&mut data).map_err(|e| format!("Failed to read voice data: {}", e))?;
+
+        // Parse .npy format: 10-byte magic + header, then raw float32 data
+        // Shape is [MAX_PHONEME_LENGTH, STYLE_DIM] = [510, 256]
+        if let Some(float_data) = parse_npy_f32(&data) {
+            // Reshape into [510][256]
+            let style_dim = 256;
+            let rows = float_data.len() / style_dim;
+            let mut matrix = Vec::with_capacity(rows);
+            for r in 0..rows {
+                let start = r * style_dim;
+                let end = start + style_dim;
+                if end <= float_data.len() {
+                    matrix.push(float_data[start..end].to_vec());
                 }
             }
+            voices.insert(name, matrix);
         }
     }
 
-    Err(format!(
-        "Voice '{}' not found in {}. Place <name>.onnx and <name>.onnx.json files there.",
-        voice_name,
-        dir.display()
-    ))
+    eprintln!("[tts] Loaded {} voices from {:?}", voices.len(), path);
+    Ok(VoicesData { voices })
+}
+
+/// Parse a .npy file and extract f32 data
+fn parse_npy_f32(data: &[u8]) -> Option<Vec<f32>> {
+    // NumPy .npy format:
+    // 6 bytes magic: \x93NUMPY
+    // 1 byte major version
+    // 1 byte minor version
+    // 2 bytes (v1) or 4 bytes (v2) header length
+    // Then ASCII header (Python dict string)
+    // Then raw data
+
+    if data.len() < 10 || &data[..6] != b"\x93NUMPY" {
+        return None;
+    }
+
+    let major = data[6];
+    let header_len = if major >= 2 {
+        if data.len() < 12 { return None; }
+        u32::from_le_bytes([data[8], data[9], data[10], data[11]]) as usize
+    } else {
+        u16::from_le_bytes([data[8], data[9]]) as usize
+    };
+
+    let data_offset = if major >= 2 { 12 + header_len } else { 10 + header_len };
+
+    if data_offset >= data.len() {
+        return None;
+    }
+
+    let raw = &data[data_offset..];
+    let num_floats = raw.len() / 4;
+    let mut floats = Vec::with_capacity(num_floats);
+
+    for i in 0..num_floats {
+        let offset = i * 4;
+        let bytes = [raw[offset], raw[offset + 1], raw[offset + 2], raw[offset + 3]];
+        floats.push(f32::from_le_bytes(bytes));
+    }
+
+    Some(floats)
 }
 
 #[tauri::command]
@@ -98,57 +166,75 @@ pub fn load_tts_voice(
     state: tauri::State<'_, TtsState>,
     voice_name: String,
 ) -> Result<(), String> {
-    // Skip if already loaded
-    if let Some(ref loaded) = *state.loaded_voice.lock().unwrap() {
-        if loaded == &voice_name {
-            return Ok(());
+    let dir = voices_dir()?;
+
+    // Load ONNX model if not already loaded
+    if state.session.lock().unwrap().is_none() {
+        let model_path = dir.join("kokoro-v1.0.onnx");
+        if !model_path.exists() {
+            return Err("Kokoro model not found. Download it from the setup wizard.".to_string());
         }
+
+        let session = Session::builder()
+            .map_err(|e| format!("Failed to create ONNX session builder: {}", e))?
+            .with_intra_threads(4)
+            .map_err(|e| format!("Failed to set threads: {}", e))?
+            .commit_from_file(&model_path)
+            .map_err(|e| format!("Failed to load Kokoro model: {}", e))?;
+
+        *state.session.lock().unwrap() = Some(session);
     }
 
-    let (onnx_path, json_path) = find_voice_files(&voice_name)?;
+    // Load voices data if not already loaded
+    if state.voices.lock().unwrap().is_none() {
+        let voices_path = dir.join("voices-v1.0.bin");
+        if !voices_path.exists() {
+            return Err("Voices file not found. Download it from the setup wizard.".to_string());
+        }
 
-    let config_data = std::fs::read_to_string(&json_path).map_err(|e| e.to_string())?;
-    let config: PiperConfig =
-        serde_json::from_str(&config_data).map_err(|e| format!("Invalid voice config: {}", e))?;
+        let voices = load_voices_npz(&voices_path)?;
+        *state.voices.lock().unwrap() = Some(voices);
+    }
 
-    let session = Session::builder()
-        .map_err(|e| format!("Failed to create ONNX session builder: {}", e))?
-        .with_intra_threads(4)
-        .map_err(|e| format!("Failed to set threads: {}", e))?
-        .commit_from_file(&onnx_path)
-        .map_err(|e| format!("Failed to load ONNX model {}: {}", onnx_path.display(), e))?;
+    // Select the voice embedding
+    let voices_guard = state.voices.lock().unwrap();
+    let voices_data = voices_guard.as_ref().unwrap();
 
-    *state.session.lock().unwrap() = Some(session);
-    *state.config.lock().unwrap() = Some(config);
-    *state.loaded_voice.lock().unwrap() = Some(voice_name);
+    if !voices_data.voices.contains_key(&voice_name) {
+        // Try to find a matching voice
+        let available: Vec<&String> = voices_data.voices.keys().collect();
+        return Err(format!(
+            "Voice '{}' not found. Available voices: {:?}",
+            voice_name,
+            &available[..available.len().min(10)]
+        ));
+    }
+
+    let embedding = voices_data.voices[&voice_name].clone();
+    *state.voice_embedding.lock().unwrap() = Some(embedding);
+    *state.loaded_voice_name.lock().unwrap() = Some(voice_name);
 
     Ok(())
 }
 
 #[tauri::command]
 pub fn is_tts_loaded(state: tauri::State<'_, TtsState>) -> bool {
-    state.session.lock().unwrap().is_some()
+    state.session.lock().unwrap().is_some() && state.voice_embedding.lock().unwrap().is_some()
 }
 
 #[tauri::command]
 pub fn list_voices() -> Result<Vec<String>, String> {
     let dir = voices_dir()?;
-    let mut voices = Vec::new();
+    let voices_path = dir.join("voices-v1.0.bin");
 
-    if let Ok(entries) = std::fs::read_dir(&dir) {
-        for entry in entries.flatten() {
-            let path = entry.path();
-            if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
-                if name.ends_with(".onnx") && !name.ends_with(".onnx.json") {
-                    let voice_name = name.trim_end_matches(".onnx").to_string();
-                    voices.push(voice_name);
-                }
-            }
-        }
+    if !voices_path.exists() {
+        return Ok(vec![]);
     }
 
-    voices.sort();
-    Ok(voices)
+    let voices = load_voices_npz(&voices_path)?;
+    let mut names: Vec<String> = voices.voices.keys().cloned().collect();
+    names.sort();
+    Ok(names)
 }
 
 #[tauri::command]
@@ -160,37 +246,74 @@ pub fn synthesize_speech(
     let mut session_guard = state.session.lock().unwrap();
     let session = session_guard
         .as_mut()
-        .ok_or("TTS voice not loaded. Call load_tts_voice first.")?;
+        .ok_or("TTS not loaded. Call load_tts_voice first.")?;
 
-    let config_guard = state.config.lock().unwrap();
-    let config = config_guard.as_ref().unwrap();
+    let embedding_guard = state.voice_embedding.lock().unwrap();
+    let voice_matrix = embedding_guard
+        .as_ref()
+        .ok_or("No voice selected.")?;
 
     let speed = speed.unwrap_or(1.0);
-    let phoneme_ids = text_to_phoneme_ids(&text, &config.phoneme_id_map);
+    let vocab = kokoro_vocab();
 
-    if phoneme_ids.is_empty() {
+    // Phonemize text using espeak-ng
+    let phonemes = espeak_phonemize(&text);
+    eprintln!("[tts] Phonemes: {}", phonemes);
+
+    // Convert phonemes to token IDs
+    let mut tokens: Vec<i64> = Vec::new();
+    for ch in phonemes.chars() {
+        let key = ch.to_string();
+        if let Some(&id) = vocab.get(&key) {
+            tokens.push(id);
+        }
+    }
+
+    if tokens.is_empty() {
         return Ok(TtsResult {
-            sample_rate: config.audio.sample_rate,
+            sample_rate: KOKORO_SAMPLE_RATE,
             samples: vec![],
         });
     }
 
-    let input_len = phoneme_ids.len();
+    // Truncate to max length
+    if tokens.len() > MAX_PHONEME_LENGTH {
+        tokens.truncate(MAX_PHONEME_LENGTH);
+    }
 
-    let input_tensor = Tensor::from_array(([1, input_len], phoneme_ids))
+    // Get style embedding for this token length
+    let token_len = tokens.len();
+    let style: Vec<f32> = if token_len < voice_matrix.len() {
+        voice_matrix[token_len].clone()
+    } else {
+        voice_matrix[voice_matrix.len() - 1].clone()
+    };
+
+    // Add padding tokens: [0, ...tokens, 0]
+    let mut padded: Vec<i64> = Vec::with_capacity(tokens.len() + 2);
+    padded.push(0);
+    padded.extend(&tokens);
+    padded.push(0);
+
+    let padded_len = padded.len();
+
+    // Create tensors
+    let input_tensor = Tensor::from_array(([1, padded_len], padded))
         .map_err(|e| format!("Failed to create input tensor: {}", e))?;
 
-    let input_lengths_tensor = Tensor::from_array(([1], vec![input_len as i64]))
-        .map_err(|e| format!("Failed to create lengths tensor: {}", e))?;
+    let style_dim = style.len();
+    let style_tensor = Tensor::from_array(([1_usize, style_dim], style))
+        .map_err(|e| format!("Failed to create style tensor: {}", e))?;
 
-    let scales_tensor = Tensor::from_array(([3], vec![0.667f32, speed, 0.8f32]))
-        .map_err(|e| format!("Failed to create scales tensor: {}", e))?;
+    let speed_tensor = Tensor::from_array(([1_usize], vec![speed]))
+        .map_err(|e| format!("Failed to create speed tensor: {}", e))?;
 
+    // Run inference
     let outputs = session
-        .run(ort::inputs![input_tensor, input_lengths_tensor, scales_tensor])
+        .run(ort::inputs!["tokens" => input_tensor, "style" => style_tensor, "speed" => speed_tensor])
         .map_err(|e| format!("TTS inference failed: {}", e))?;
 
-    // Extract audio from first output
+    // Extract audio from output
     let output = &outputs[0];
     let audio_tensor = output
         .try_extract_tensor::<f32>()
@@ -199,7 +322,7 @@ pub fn synthesize_speech(
     let samples: Vec<f32> = audio_tensor.1.iter().copied().collect();
 
     Ok(TtsResult {
-        sample_rate: config.audio.sample_rate,
+        sample_rate: KOKORO_SAMPLE_RATE,
         samples,
     })
 }
@@ -225,33 +348,37 @@ pub fn samples_to_wav_bytes(samples: Vec<f32>, sample_rate: u32) -> Result<Vec<u
     Ok(buf)
 }
 
-/// Simple character-level phoneme mapping for Piper models.
-/// Piper uses a phoneme_id_map that maps characters to sequences of phoneme IDs.
-/// We add BOS/EOS markers (padding) around the sequence.
-fn text_to_phoneme_ids(text: &str, phoneme_map: &HashMap<String, Vec<Vec<i64>>>) -> Vec<i64> {
-    let mut ids = Vec::new();
+/// Use espeak-ng to convert text to IPA phonemes
+fn espeak_phonemize(text: &str) -> String {
+    let programs = ["espeak-ng", "espeak"];
 
-    // Piper convention: pad id is 0, BOS
-    ids.push(0);
-
-    for ch in text.chars() {
-        let key = ch.to_string();
-        if let Some(sequences) = phoneme_map.get(&key) {
-            for seq in sequences {
-                ids.extend(seq);
-                ids.push(0); // pad between phonemes
-            }
-        } else if ch == ' ' {
-            // Space character — use the space mapping or just pad
-            if let Some(sequences) = phoneme_map.get(" ") {
-                for seq in sequences {
-                    ids.extend(seq);
-                    ids.push(0);
+    for prog in &programs {
+        if let Ok(output) = std::process::Command::new(prog)
+            .args(["--ipa=2", "-q", "--stdin"])
+            .stdin(std::process::Stdio::piped())
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::null())
+            .spawn()
+            .and_then(|mut child| {
+                use std::io::Write;
+                if let Some(ref mut stdin) = child.stdin {
+                    let _ = stdin.write_all(text.as_bytes());
+                }
+                child.wait_with_output()
+            })
+        {
+            if output.status.success() {
+                let result = String::from_utf8_lossy(&output.stdout)
+                    .trim()
+                    .replace('\n', " ")
+                    .replace("  ", " ");
+                if !result.is_empty() {
+                    return result;
                 }
             }
         }
-        // Skip unmapped characters
     }
 
-    ids
+    eprintln!("[tts] WARNING: espeak-ng not found");
+    text.to_lowercase()
 }

@@ -52,12 +52,16 @@ pub fn send_chat_message(
     let event_name_clone = event_name.clone();
 
     std::thread::spawn(move || {
+        let body_str = body.to_string();
+        eprintln!("[chat] Sending to {}: {}", url, &body_str[..body_str.len().min(200)]);
+
         let result = ureq::post(&url)
             .header("Content-Type", "application/json")
-            .send(body.to_string().as_bytes());
+            .send(body_str.as_bytes());
 
         match result {
             Ok(response) => {
+                eprintln!("[chat] Got response, reading stream...");
                 let reader = BufReader::new(response.into_body().into_reader());
                 for line in reader.lines() {
                     let line = match line {
@@ -110,6 +114,7 @@ pub fn send_chat_message(
                 }
             }
             Err(e) => {
+                eprintln!("[chat] Error: {}", e);
                 let _ = app.emit(
                     &event_name_clone,
                     StreamDelta {

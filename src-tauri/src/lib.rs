@@ -76,6 +76,8 @@ pub fn run() {
             downloads::get_llama_server_info,
             downloads::extract_llama_server,
             downloads::get_llama_server_path,
+            downloads::is_espeak_installed,
+            downloads::install_espeak,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

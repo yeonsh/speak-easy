@@ -26,10 +26,10 @@ function App() {
 
   // Check if first launch
   useEffect(() => {
-    invoke<{ has_whisper: boolean; has_llm: boolean; has_llama_server: boolean }>(
+    invoke<{ has_whisper: boolean; has_llm: boolean; has_llama_server: boolean; has_tts: boolean; has_espeak: boolean }>(
       "check_setup_complete"
     ).then((s) => {
-      setShowWizard(!s.has_llm || !s.has_llama_server);
+      setShowWizard(!s.has_llm || !s.has_llama_server || !s.has_tts || !s.has_espeak);
     }).catch(() => {
       setShowWizard(false);
     });
@@ -38,6 +38,22 @@ function App() {
   const llm = useLlm();
   const stt = useStt();
   const tts = useTts();
+
+  // Auto-load LLM, STT, TTS when entering main screen
+  useEffect(() => {
+    if (showWizard !== false) return;
+
+    if (!llm.isServerRunning && !llm.isServerStarting) {
+      llm.startServer(undefined, settings.gpuLayers);
+    }
+    if (!stt.isModelLoaded) {
+      stt.loadModel(settings.whisperModel);
+    }
+    if (!tts.isLoaded) {
+      tts.loadVoice(settings.language);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showWizard]);
 
   // Wire up completion handler to add assistant message and auto-speak
   useEffect(() => {

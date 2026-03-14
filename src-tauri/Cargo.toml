@@ -23,3 +23,4 @@ ort = "2.0.0-rc.12"
 ndarray = "0.16"
 serde_bytes = "0.11"
 open = "5"
+zip = { version = "2", default-features = false, features = ["deflate"] }

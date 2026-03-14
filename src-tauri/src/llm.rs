@@ -113,8 +113,15 @@ pub fn start_llm_server(
     // Resolve llama-server: ~/.speakeasy/bin/ → bundled sidecar → PATH
     let program = resolve_llama_server(&app)?;
 
-    let mut child = Command::new(&program)
-        .args([
+    // Set library search path to the directory containing llama-server
+    // so it can find libllama.dylib and other shared libraries
+    let program_dir = std::path::Path::new(&program)
+        .parent()
+        .map(|p| p.to_string_lossy().to_string())
+        .unwrap_or_default();
+
+    let mut cmd = Command::new(&program);
+    cmd.args([
             "--model",
             &model,
             "--port",
@@ -129,8 +136,16 @@ pub fn start_llm_server(
             &num_cpus().to_string(),
         ])
         .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::piped())
-        .spawn()
+        .stderr(std::process::Stdio::piped());
+
+    if !program_dir.is_empty() {
+        #[cfg(target_os = "macos")]
+        cmd.env("DYLD_LIBRARY_PATH", &program_dir);
+        #[cfg(target_os = "linux")]
+        cmd.env("LD_LIBRARY_PATH", &program_dir);
+    }
+
+    let mut child = cmd.spawn()
         .map_err(|e| format!("Failed to start llama-server ({}): {}", program, e))?;
 
     // Monitor stderr in background for startup readiness
@@ -141,8 +156,10 @@ pub fn start_llm_server(
             let reader = BufReader::new(stderr);
             for line in reader.lines() {
                 if let Ok(line) = line {
+                    eprintln!("[llama-server] {}", line);
                     let _ = app_clone.emit("llm-log", &line);
-                    if line.contains("server is listening") {
+                    // "all slots are idle" indicates model is fully loaded and ready
+                    if line.contains("all slots are idle") {
                         let _ = app_clone.emit("llm-ready", true);
                     }
                 }

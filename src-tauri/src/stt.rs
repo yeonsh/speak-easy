@@ -29,7 +29,7 @@ fn find_whisper_model(model_size: &str) -> Result<PathBuf, String> {
         .join(".speakeasy")
         .join("models");
 
-    // Try common naming patterns
+    // Try common naming patterns for the requested size
     let candidates = [
         format!("ggml-{}.bin", model_size),
         format!("whisper-{}.bin", model_size),
@@ -43,11 +43,21 @@ fn find_whisper_model(model_size: &str) -> Result<PathBuf, String> {
         }
     }
 
+    // If requested size not found, try any available whisper model
+    let fallback_sizes = ["small", "base", "medium", "large", "tiny"];
+    for size in &fallback_sizes {
+        if *size == model_size {
+            continue;
+        }
+        let path = models_dir.join(format!("ggml-{}.bin", size));
+        if path.exists() {
+            return Ok(path);
+        }
+    }
+
     Err(format!(
-        "No whisper {} model found in {}. Expected one of: {}",
-        model_size,
+        "No whisper model found in {}. Please download one from the setup wizard.",
         models_dir.display(),
-        candidates.join(", ")
     ))
 }
 

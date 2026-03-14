@@ -7,6 +7,7 @@ interface SetupStatus {
   has_llm: boolean;
   has_tts: boolean;
   has_llama_server: boolean;
+  has_espeak: boolean;
   models_dir: string;
   voices_dir: string;
 }
@@ -37,6 +38,7 @@ export function SetupWizard({ onComplete }: SetupWizardProps) {
   const [status, setStatus] = useState<SetupStatus | null>(null);
   const [models, setModels] = useState<ModelInfo[]>([]);
   const [downloads, setDownloads] = useState<Record<string, DownloadState>>({});
+  const [installedFiles, setInstalledFiles] = useState<string[]>([]);
 
   useEffect(() => {
     checkStatus();
@@ -46,10 +48,13 @@ export function SetupWizard({ onComplete }: SetupWizardProps) {
   const checkStatus = async () => {
     const s = await invoke<SetupStatus>("check_setup_complete");
     setStatus(s);
+    const files = await invoke<string[]>("get_installed_models");
+    setInstalledFiles(files);
   };
 
   const startDownload = useCallback(
     async (model: ModelInfo) => {
+      console.log("[startDownload] called with model:", JSON.stringify(model));
       const downloadId = model.id;
 
       setDownloads((d) => ({
@@ -112,12 +117,24 @@ export function SetupWizard({ onComplete }: SetupWizardProps) {
         },
       );
 
-      await invoke("download_file", {
-        url: model.url,
-        destDir: model.dest_dir,
-        filename: model.filename,
-        downloadId,
-      });
+      try {
+        await invoke("download_file", {
+          url: model.url,
+          destDir: model.dest_dir,
+          filename: model.filename,
+          downloadId,
+        });
+      } catch (err) {
+        console.error("[SetupWizard] download_file invoke failed:", err);
+        setDownloads((d) => ({
+          ...d,
+          [downloadId]: {
+            ...d[downloadId],
+            downloading: false,
+            error: String(err),
+          },
+        }));
+      }
     },
     [],
   );
@@ -143,6 +160,7 @@ export function SetupWizard({ onComplete }: SetupWizardProps) {
           status={status}
           models={models.filter((m) => m.id.startsWith("whisper"))}
           downloads={downloads}
+          installedFiles={installedFiles}
           onDownload={startDownload}
           onNext={() => setStep(2)}
           onBack={() => setStep(0)}
@@ -165,22 +183,34 @@ export function SetupWizard({ onComplete }: SetupWizardProps) {
       ),
     },
     {
-      title: "Text to Speech",
+      title: "Phonemizer",
       component: (
-        <TtsStep
+        <EspeakStep
           status={status}
-          models={models.filter((m) => m.id.startsWith("voice"))}
-          downloads={downloads}
-          onDownload={startDownload}
+          onRefresh={checkStatus}
           onNext={() => setStep(4)}
           onBack={() => setStep(2)}
         />
       ),
     },
     {
+      title: "Text to Speech",
+      component: (
+        <TtsStep
+          status={status}
+          models={models.filter((m) => m.id.startsWith("kokoro"))}
+          downloads={downloads}
+          installedFiles={installedFiles}
+          onDownload={startDownload}
+          onNext={() => setStep(5)}
+          onBack={() => setStep(3)}
+        />
+      ),
+    },
+    {
       title: "Ready",
       component: (
-        <ReadyStep status={status} onComplete={onComplete} onBack={() => setStep(3)} />
+        <ReadyStep status={status} onComplete={onComplete} onBack={() => setStep(4)} />
       ),
     },
   ];
@@ -253,6 +283,7 @@ function WhisperStep({
   status,
   models,
   downloads,
+  installedFiles,
   onDownload,
   onNext,
   onBack,
@@ -260,6 +291,7 @@ function WhisperStep({
   status: SetupStatus;
   models: ModelInfo[];
   downloads: Record<string, DownloadState>;
+  installedFiles: string[];
   onDownload: (m: ModelInfo) => void;
   onNext: () => void;
   onBack: () => void;
@@ -286,7 +318,7 @@ function WhisperStep({
       <div className="space-y-3">
         {models.map((model) => {
           const dl = downloads[model.id];
-          const isComplete = dl?.complete || status.has_whisper;
+          const isComplete = dl?.complete || installedFiles.includes(model.filename);
           return (
             <div
               key={model.id}
@@ -528,10 +560,121 @@ function LlmStep({
   );
 }
 
+function EspeakStep({
+  status,
+  onRefresh,
+  onNext,
+  onBack,
+}: {
+  status: SetupStatus;
+  onRefresh: () => void;
+  onNext: () => void;
+  onBack: () => void;
+}) {
+  const [installing, setInstalling] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const isMac = navigator.userAgent.includes("Mac");
+
+  const handleInstall = async () => {
+    setInstalling(true);
+    setError(null);
+
+    const unComplete = await listen<boolean>("espeak-install-complete", () => {
+      setInstalling(false);
+      unComplete();
+      unError();
+      onRefresh();
+    });
+
+    const unError = await listen<string>("espeak-install-error", (event) => {
+      setInstalling(false);
+      setError(event.payload);
+      unComplete();
+      unError();
+    });
+
+    try {
+      await invoke("install_espeak");
+    } catch (err) {
+      setInstalling(false);
+      setError(String(err));
+    }
+  };
+
+  return (
+    <div className="max-w-lg mx-auto space-y-6">
+      <div>
+        <h2 className="text-xl font-bold mb-1">Phonemizer (espeak-ng)</h2>
+        <p className="text-sm text-[var(--text-secondary)]">
+          Kokoro TTS needs espeak-ng to convert text into phonemes.
+          {isMac
+            ? " It can be installed automatically via Homebrew."
+            : " It can be installed automatically from the official release."}
+        </p>
+      </div>
+
+      {status.has_espeak ? (
+        <div className="flex items-center gap-2 p-3 bg-green-500/10 rounded-lg text-green-400 text-sm">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M20 6L9 17l-5-5" />
+          </svg>
+          espeak-ng is installed
+        </div>
+      ) : (
+        <div className="p-4 rounded-lg bg-[var(--bg-elevated)] border border-[var(--border)] space-y-3">
+          <div className="flex items-center gap-3">
+            <span className="w-3 h-3 rounded-full flex-shrink-0 bg-yellow-400" />
+            <span className="font-medium text-sm">espeak-ng — not found</span>
+          </div>
+
+          <p className="text-xs text-[var(--text-secondary)] ml-6">
+            {isMac
+              ? "Requires Homebrew. Run `brew install espeak-ng` in Terminal, or click the button below."
+              : "Downloads and installs the official espeak-ng MSI package (~3 MB)."}
+          </p>
+
+          {installing && (
+            <div className="flex items-center gap-2 ml-6">
+              <div className="animate-spin w-4 h-4 border-2 border-[var(--primary)] border-t-transparent rounded-full" />
+              <span className="text-xs text-[var(--text-secondary)]">
+                {isMac ? "Running brew install espeak-ng..." : "Installing espeak-ng..."}
+              </span>
+            </div>
+          )}
+
+          {error && (
+            <p className="text-xs text-red-400 ml-6">{error}</p>
+          )}
+
+          {!installing && (
+            <button
+              onClick={handleInstall}
+              className="ml-6 px-4 py-1.5 text-xs bg-[var(--primary)] text-white rounded hover:bg-[var(--primary-hover)] transition-colors"
+            >
+              Install espeak-ng
+            </button>
+          )}
+        </div>
+      )}
+
+      <button
+        onClick={() => onRefresh()}
+        className="px-4 py-2 text-sm bg-[var(--bg-elevated)] text-[var(--text-secondary)] rounded-lg hover:text-[var(--text-primary)] transition-colors"
+      >
+        Re-check
+      </button>
+
+      <NavButtons onBack={onBack} onNext={onNext} nextLabel={status.has_espeak ? "Next" : "Skip"} />
+    </div>
+  );
+}
+
 function TtsStep({
   status,
   models,
   downloads,
+  installedFiles,
   onDownload,
   onNext,
   onBack,
@@ -539,119 +682,104 @@ function TtsStep({
   status: SetupStatus;
   models: ModelInfo[];
   downloads: Record<string, DownloadState>;
+  installedFiles: string[];
   onDownload: (m: ModelInfo) => void;
   onNext: () => void;
   onBack: () => void;
 }) {
-  // Group voice models by language (pair onnx + json)
-  const voiceLangs = [
-    { code: "en", flag: "🇺🇸", label: "English" },
-    { code: "es", flag: "🇪🇸", label: "Spanish" },
-    { code: "zh", flag: "🇨🇳", label: "Chinese" },
-    { code: "de", flag: "🇩🇪", label: "German" },
-    { code: "ja", flag: "🇯🇵", label: "Japanese" },
-  ];
+  const kokoroModel = models.find((m) => m.id === "kokoro-model");
+  const kokoroVoices = models.find((m) => m.id === "kokoro-voices");
 
-  const downloadVoicePair = (langCode: string) => {
-    const onnx = models.find((m) => m.id === `voice-${langCode}-onnx`);
-    const json = models.find((m) => m.id === `voice-${langCode}-json`);
-    if (onnx) onDownload(onnx);
-    if (json) onDownload(json);
+  const modelInstalled = installedFiles.includes("voices/kokoro-v1.0.onnx") || downloads["kokoro-model"]?.complete;
+  const voicesInstalled = installedFiles.includes("voices/voices-v1.0.bin") || downloads["kokoro-voices"]?.complete;
+  const allInstalled = status.has_tts || (modelInstalled && voicesInstalled);
+
+  const downloadAll = () => {
+    if (kokoroModel && !modelInstalled) onDownload(kokoroModel);
+    if (kokoroVoices && !voicesInstalled) onDownload(kokoroVoices);
   };
 
-  const isVoiceDownloading = (langCode: string) => {
-    const dl = downloads[`voice-${langCode}-onnx`];
-    return dl?.downloading ?? false;
-  };
-
-  const isVoiceComplete = (langCode: string) => {
-    const dlOnnx = downloads[`voice-${langCode}-onnx`];
-    const dlJson = downloads[`voice-${langCode}-json`];
-    return (dlOnnx?.complete && dlJson?.complete) ?? false;
-  };
-
-  const getVoiceProgress = (langCode: string) => {
-    const dl = downloads[`voice-${langCode}-onnx`];
-    if (!dl) return null;
-    return dl;
-  };
-
-  const anyInstalled = status.has_tts || voiceLangs.some((v) => isVoiceComplete(v.code));
+  const supportedLangs = ["English", "Spanish", "Chinese", "German", "Japanese", "French"];
 
   return (
     <div className="max-w-lg mx-auto space-y-6">
       <div>
         <h2 className="text-xl font-bold mb-1">Text to Speech</h2>
         <p className="text-sm text-[var(--text-secondary)]">
-          Download voice packs so the AI can speak to you. Each voice is ~60 MB.
-          Download at least one for the language you want to practice.
+          Kokoro TTS provides natural-sounding voices for {supportedLangs.join(", ")}.
+          Two files are needed: the model (~325 MB) and voice pack (~28 MB).
         </p>
       </div>
 
-      {status.has_tts && (
+      {allInstalled && (
         <div className="flex items-center gap-2 p-3 bg-green-500/10 rounded-lg text-green-400 text-sm">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M20 6L9 17l-5-5" />
           </svg>
-          Voice model(s) already installed
+          Kokoro TTS installed — 50+ voices available
         </div>
       )}
 
       <div className="space-y-3">
-        {voiceLangs.map((lang) => {
-          const downloading = isVoiceDownloading(lang.code);
-          const complete = isVoiceComplete(lang.code);
-          const progress = getVoiceProgress(lang.code);
-          const onnxModel = models.find((m) => m.id === `voice-${lang.code}-onnx`);
+        {[kokoroModel, kokoroVoices].filter(Boolean).map((model) => {
+          const dl = downloads[model!.id];
+          const isComplete = model!.id === "kokoro-model" ? modelInstalled : voicesInstalled;
 
           return (
             <div
-              key={lang.code}
+              key={model!.id}
               className="p-4 rounded-lg bg-[var(--bg-elevated)] border border-[var(--border)]"
             >
               <div className="flex items-center justify-between mb-1">
-                <span className="font-medium text-sm">
-                  {lang.flag} {lang.label}
-                </span>
+                <span className="font-medium text-sm">{model!.name}</span>
                 <span className="text-xs text-[var(--text-secondary)]">
-                  {onnxModel ? formatBytes(onnxModel.size_bytes) : "~60 MB"}
+                  {formatBytes(model!.size_bytes)}
                 </span>
               </div>
-              {downloading && progress && (
+              {dl?.downloading && (
                 <div className="mt-2">
                   <div className="w-full h-2 bg-[var(--bg-main)] rounded-full overflow-hidden">
                     <div
                       className="h-full bg-[var(--primary)] transition-all duration-300"
                       style={{
-                        width: `${progress.total ? (progress.progress / progress.total) * 100 : 0}%`,
+                        width: `${dl.total ? (dl.progress / dl.total) * 100 : 0}%`,
                       }}
                     />
                   </div>
                   <span className="text-xs text-[var(--text-secondary)] mt-1">
-                    {formatBytes(progress.progress)} / {formatBytes(progress.total ?? onnxModel?.size_bytes ?? 0)}
+                    {formatBytes(dl.progress)} / {formatBytes(dl.total ?? model!.size_bytes)}
                   </span>
                 </div>
               )}
-              {progress?.error && (
-                <p className="text-xs text-red-400 mt-1">{progress.error}</p>
+              {dl?.error && (
+                <p className="text-xs text-red-400 mt-1">{dl.error}</p>
               )}
-              {!downloading && !complete && (
+              {isComplete && (
+                <span className="text-xs text-green-400 mt-2 inline-block">Installed</span>
+              )}
+              {!dl?.downloading && !isComplete && (
                 <button
-                  onClick={() => downloadVoicePair(lang.code)}
+                  onClick={() => onDownload(model!)}
                   className="mt-2 px-4 py-1.5 text-xs bg-[var(--primary)] text-white rounded hover:bg-[var(--primary-hover)] transition-colors"
                 >
                   Download
                 </button>
-              )}
-              {complete && (
-                <span className="text-xs text-green-400 mt-2 inline-block">Installed</span>
               )}
             </div>
           );
         })}
       </div>
 
-      <NavButtons onBack={onBack} onNext={onNext} nextLabel={anyInstalled ? "Next" : "Skip"} />
+      {!allInstalled && (!downloads["kokoro-model"]?.downloading && !downloads["kokoro-voices"]?.downloading) && (
+        <button
+          onClick={downloadAll}
+          className="w-full px-4 py-2.5 text-sm bg-[var(--primary)] text-white rounded-lg hover:bg-[var(--primary-hover)] transition-colors font-medium"
+        >
+          Download All ({formatBytes((kokoroModel?.size_bytes ?? 0) + (kokoroVoices?.size_bytes ?? 0))})
+        </button>
+      )}
+
+      <NavButtons onBack={onBack} onNext={onNext} nextLabel={allInstalled ? "Next" : "Skip"} />
     </div>
   );
 }
@@ -683,6 +811,7 @@ function ReadyStep({
       <div className="space-y-2">
         <StatusItem label="Speech Recognition (STT)" ok={status.has_whisper} hint="" />
         <StatusItem label="Language Model (LLM)" ok={status.has_llm && status.has_llama_server} hint="" />
+        <StatusItem label="Phonemizer (espeak-ng)" ok={status.has_espeak} hint="" />
         <StatusItem label="Text to Speech (TTS)" ok={status.has_tts} hint="" />
       </div>
 

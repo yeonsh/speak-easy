@@ -3,11 +3,11 @@ import { invoke } from "@tauri-apps/api/core";
 import type { Language } from "../lib/types";
 
 const DEFAULT_VOICES: Record<Language, string> = {
-  en: "en_US-amy-medium",
-  es: "es_ES-davefx-medium",
-  zh: "zh_CN-huayan-medium",
-  de: "de_DE-thorsten-medium",
-  ja: "ja_JP-takumi-medium",
+  en: "af_heart",
+  es: "ef_dora",
+  zh: "zf_xiaobei",
+  de: "df_anna",
+  ja: "jf_alpha",
 };
 
 interface UseTtsReturn {
@@ -42,6 +42,12 @@ export function useTts(): UseTtsReturn {
     async (language: Language) => {
       setError(null);
       const voiceName = DEFAULT_VOICES[language];
+
+      if (!voiceName) {
+        setError(`No TTS voice available for ${language}`);
+        setIsLoaded(false);
+        return;
+      }
 
       try {
         await invoke("load_tts_voice", { voiceName });
