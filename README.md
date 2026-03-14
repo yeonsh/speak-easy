@@ -2,13 +2,13 @@
 
 A desktop app for practicing foreign languages with AI. Speak, listen, and get corrections — with offline-first design and optional cloud TTS for higher quality voices.
 
-Supports **English, Spanish, French, Chinese, Japanese, German, and Korean** with two practice modes (Free Talk and Scenario Role-Play) and an optional Corrections toggle. The interface is localized in Korean and English.
+Supports **16 languages** — English, Spanish, French, Chinese, Japanese, German, Korean, Portuguese (BR), Italian, Russian, Arabic, Hindi, Turkish, Indonesian, Vietnamese, and Polish — with two practice modes (Free Talk and Scenario Role-Play) and an optional Corrections toggle. The entire interface is localized in all 16 languages.
 
 ## Features
 
 - **Free Talk** — open conversation practice in the target language
 - **Scenario Mode** — 20+ real-world situations per language (cafe, hotel, dentist, etc.) with scenario picker
-- **Native Language** — choose Korean or English as your native language; all UI hints, corrections, translations, and scenario descriptions adapt accordingly
+- **Native Language** — choose any of the 16 supported languages as your native language; all UI, corrections, translations, and scenario descriptions adapt accordingly
 - **Corrections Toggle** — enable in either mode to get grammar/meaning feedback in your native language
 - **Replay** — re-listen to any message (yours or the assistant's) via TTS
 - **Translate** — one-tap translation of assistant messages into your native language
@@ -17,7 +17,7 @@ Supports **English, Spanish, French, Chinese, Japanese, German, and Korean** wit
 - **Streaming TTS** — sentence-by-sentence audio with natural pauses between sentences
 - **Voice Preview** — hear a sample phrase when selecting a voice in settings
 - **Language Reset** — switching practice language resets conversation and returns to the initial screen
-- **UI Localization** — interface language follows your native language setting (Korean/English)
+- **UI Localization** — interface language follows your native language setting (all 16 languages)
 - **Japanese/Chinese support** — MeCab-based kanji-to-kana conversion, CJK punctuation handling
 
 ## Architecture
