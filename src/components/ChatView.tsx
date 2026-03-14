@@ -13,10 +13,18 @@ const EMPTY_HINTS: Record<Language, string> = {
 interface ChatViewProps {
   messages: Message[];
   streamingText: string;
+  revealedText?: string;
+  isStreamingTts?: boolean;
   language?: Language;
 }
 
-export function ChatView({ messages, streamingText, language }: ChatViewProps) {
+export function ChatView({
+  messages,
+  streamingText,
+  revealedText,
+  isStreamingTts,
+  language,
+}: ChatViewProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -24,7 +32,7 @@ export function ChatView({ messages, streamingText, language }: ChatViewProps) {
       top: scrollRef.current.scrollHeight,
       behavior: "smooth",
     });
-  }, [messages, streamingText]);
+  }, [messages, streamingText, revealedText]);
 
   return (
     <div
@@ -59,7 +67,20 @@ export function ChatView({ messages, streamingText, language }: ChatViewProps) {
         <MessageBubble key={msg.id} message={msg} />
       ))}
 
-      {streamingText && (
+      {/* Streaming TTS: show revealed text */}
+      {isStreamingTts && revealedText && (
+        <div className="flex justify-start">
+          <div className="max-w-[80%] px-4 py-3 rounded-2xl rounded-bl-md bg-[var(--bg-elevated)] text-[var(--text-primary)]">
+            <p className="whitespace-pre-wrap">
+              {revealedText}
+              <span className="inline-block w-1.5 h-4 ml-1 bg-[var(--primary)] animate-pulse rounded-sm" />
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Fallback: streaming text without TTS */}
+      {!isStreamingTts && streamingText && (
         <div className="flex justify-start">
           <div className="max-w-[80%] px-4 py-3 rounded-2xl rounded-bl-md bg-[var(--bg-elevated)] text-[var(--text-primary)]">
             {streamingText}
