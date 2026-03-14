@@ -7,6 +7,8 @@ class TtsChunkProcessor extends AudioWorkletProcessor {
     this.currentChunk = null;
     this.silenceRemaining = 0; // silence samples to insert between chunks
     this.silenceGap = 6000; // ~250ms at 24kHz
+    this.fadeSamples = 480; // ~20ms fade-out/fade-in at 24kHz
+    this.needsFadeIn = false; // apply fade-in to next chunk after silence
 
     this.port.onmessage = (event) => {
       if (event.data.type === "chunk") {
@@ -57,13 +59,32 @@ class TtsChunkProcessor extends AudioWorkletProcessor {
       // Copy samples from current chunk to output
       const remaining = this.currentChunk.samples.length - this.readOffset;
       const toCopy = Math.min(remaining, output.length - outIdx);
+      const chunkStart = outIdx;
 
       for (let i = 0; i < toCopy; i++) {
         output[outIdx++] = this.currentChunk.samples[this.readOffset++];
       }
 
+      // Apply fade-in at the start of a chunk after silence
+      if (this.needsFadeIn) {
+        const fadeLen = Math.min(this.fadeSamples, toCopy);
+        for (let i = 0; i < fadeLen; i++) {
+          output[chunkStart + i] *= i / fadeLen;
+        }
+        if (this.readOffset >= this.fadeSamples) {
+          this.needsFadeIn = false;
+        }
+      }
+
       // Check if chunk is fully consumed
       if (this.readOffset >= this.currentChunk.samples.length) {
+        // Apply fade-out to the last fadeSamples written into output
+        const fadeLen = Math.min(this.fadeSamples, toCopy);
+        const fadeStart = outIdx - fadeLen;
+        for (let i = 0; i < fadeLen; i++) {
+          output[fadeStart + i] *= (fadeLen - 1 - i) / fadeLen;
+        }
+
         this.port.postMessage({
           type: "chunkDone",
           index: this.currentChunk.index,
@@ -72,6 +93,7 @@ class TtsChunkProcessor extends AudioWorkletProcessor {
         this.readOffset = 0;
         // Insert silence before next chunk
         this.silenceRemaining = this.silenceGap;
+        this.needsFadeIn = true;
       }
     }
 

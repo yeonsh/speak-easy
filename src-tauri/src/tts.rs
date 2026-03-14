@@ -413,6 +413,26 @@ fn split_into_sentences(text: &str) -> Vec<String> {
 
 /// Silence gap between sentences: ~250ms at 24kHz
 const SENTENCE_SILENCE_SAMPLES: usize = 6000;
+/// Fade duration: ~20ms at 24kHz
+const FADE_SAMPLES: usize = 480;
+
+/// Apply linear fade-out to the last `fade_len` samples
+fn fade_out(samples: &mut [f32], fade_len: usize) {
+    let len = samples.len();
+    let fade = fade_len.min(len);
+    let start = len - fade;
+    for i in 0..fade {
+        samples[start + i] *= (fade - 1 - i) as f32 / fade as f32;
+    }
+}
+
+/// Apply linear fade-in to the first `fade_len` samples
+fn fade_in(samples: &mut [f32], fade_len: usize) {
+    let fade = fade_len.min(samples.len());
+    for i in 0..fade {
+        samples[i] *= i as f32 / fade as f32;
+    }
+}
 
 #[tauri::command]
 pub fn synthesize_speech(
@@ -431,7 +451,14 @@ pub fn synthesize_speech(
 
     let mut all_samples: Vec<f32> = Vec::new();
     for (i, sentence) in sentences.iter().enumerate() {
-        let result = synthesize_text(&state, sentence, spd, &lang)?;
+        let mut result = synthesize_text(&state, sentence, spd, &lang)?;
+        // Apply fade-out/fade-in at sentence boundaries to avoid clicks
+        if i < sentences.len() - 1 {
+            fade_out(&mut result.samples, FADE_SAMPLES);
+        }
+        if i > 0 {
+            fade_in(&mut result.samples, FADE_SAMPLES);
+        }
         all_samples.extend_from_slice(&result.samples);
         // Add silence gap between sentences (not after the last one)
         if i < sentences.len() - 1 {
