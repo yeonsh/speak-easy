@@ -2,12 +2,12 @@
 
 A desktop app for practicing foreign languages with AI. Speak, listen, and get corrections — with offline-first design and optional cloud TTS for higher quality voices.
 
-Supports **English, Spanish, French, Chinese, and Japanese** with two practice modes (Free Talk and Scenario Role-Play) and an optional Corrections toggle.
+Supports **English, Spanish, French, Chinese, Japanese, German, and Korean** with two practice modes (Free Talk and Scenario Role-Play) and an optional Corrections toggle. The interface is localized in Korean and English.
 
 ## Features
 
 - **Free Talk** — open conversation practice in the target language
-- **Scenario Mode** — 20 real-world situations per language (cafe, hotel, dentist, etc.) with scenario picker
+- **Scenario Mode** — 20+ real-world situations per language (cafe, hotel, dentist, etc.) with scenario picker
 - **Native Language** — choose Korean or English as your native language; all UI hints, corrections, translations, and scenario descriptions adapt accordingly
 - **Corrections Toggle** — enable in either mode to get grammar/meaning feedback in your native language
 - **Replay** — re-listen to any message (yours or the assistant's) via TTS
@@ -15,7 +15,9 @@ Supports **English, Spanish, French, Chinese, and Japanese** with two practice m
 - **Sample Responses** — get 2 suggested replies with native language translations
 - **Dual TTS Engine** — Edge TTS (online, high quality) or Kokoro (offline, fully private); switchable in settings
 - **Streaming TTS** — sentence-by-sentence audio with natural pauses between sentences
-- **Per-language chat history** — conversations saved separately per language and mode
+- **Voice Preview** — hear a sample phrase when selecting a voice in settings
+- **Language Reset** — switching practice language resets conversation and returns to the initial screen
+- **UI Localization** — interface language follows your native language setting (Korean/English)
 - **Japanese/Chinese support** — MeCab-based kanji-to-kana conversion, CJK punctuation handling
 
 ## Architecture
@@ -83,7 +85,7 @@ The output is in `src-tauri/target/release/bundle/`.
 src/                          # React frontend
   components/                 # UI: ChatView, MicButton, SetupWizard, etc.
   hooks/                      # useLlm, useStt, useTts, useAudioRecorder
-  lib/                        # Types, per-language prompts
+  lib/                        # Types, per-language prompts, i18n
 src-tauri/src/                # Rust backend
   lib.rs                      # Tauri command registration
   llm.rs                      # llama-server lifecycle management

@@ -125,27 +125,21 @@ function App() {
     };
   }, [llm.onComplete, tts.isLoaded]);
 
-  // Auto-load TTS voice when language changes
+  // Auto-load TTS voice when language changes — reset conversation
   const handleLanguageChange = useCallback((lang: Language) => {
-    setSettings((s) => {
-      const key = `${s.language}:${s.mode}`;
-      messagesByLangRef.current[key] = messages;
-      if (tts.isLoaded) {
-        tts.loadVoice(lang, undefined, s.ttsEngine);
-      }
-
-      const newKey = `${lang}:${s.mode}`;
-      const saved = messagesByLangRef.current[newKey];
-      if (saved && saved.length > 0) {
-        setMessages(saved);
-      } else {
-        setMessages([]);
-      }
-
-      return { ...s, language: lang };
-    });
     tts.stop();
-  }, [tts, messages]);
+    setMessages([]);
+    setExplanations({});
+    setSuggestions({});
+    setRevealedSentences([]);
+    setIsStreamingTts(false);
+    isStreamingTtsRef.current = false;
+    pendingFullTextRef.current = null;
+    if (tts.isLoaded) {
+      tts.loadVoice(lang, undefined, settings.ttsEngine);
+    }
+    setSettings((s) => ({ ...s, language: lang, ttsVoice: "default" }));
+  }, [tts, settings.ttsEngine]);
 
   const handleModeChange = useCallback((mode: ConversationMode) => {
     setSettings((s) => {
