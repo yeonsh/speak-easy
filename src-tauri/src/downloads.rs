@@ -43,6 +43,7 @@ fn voices_dir() -> Result<PathBuf, String> {
 #[tauri::command]
 pub fn get_available_models() -> Vec<ModelInfo> {
     vec![
+        // Whisper STT models
         ModelInfo {
             id: "whisper-base".to_string(),
             name: "Whisper Base (multilingual)".to_string(),
@@ -60,6 +61,102 @@ pub fn get_available_models() -> Vec<ModelInfo> {
                 .to_string(),
             dest_dir: "models".to_string(),
             filename: "ggml-small.bin".to_string(),
+        },
+        // Piper TTS voices — each voice has an .onnx model and .onnx.json config
+        // English
+        ModelInfo {
+            id: "voice-en-onnx".to_string(),
+            name: "English voice (Amy, medium)".to_string(),
+            size_bytes: 63_201_685,
+            url: "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/amy/medium/en_US-amy-medium.onnx"
+                .to_string(),
+            dest_dir: "voices".to_string(),
+            filename: "en_US-amy-medium.onnx".to_string(),
+        },
+        ModelInfo {
+            id: "voice-en-json".to_string(),
+            name: "English voice config".to_string(),
+            size_bytes: 5_000,
+            url: "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/amy/medium/en_US-amy-medium.onnx.json"
+                .to_string(),
+            dest_dir: "voices".to_string(),
+            filename: "en_US-amy-medium.onnx.json".to_string(),
+        },
+        // Spanish
+        ModelInfo {
+            id: "voice-es-onnx".to_string(),
+            name: "Spanish voice (Davefx, medium)".to_string(),
+            size_bytes: 63_201_685,
+            url: "https://huggingface.co/rhasspy/piper-voices/resolve/main/es/es_ES/davefx/medium/es_ES-davefx-medium.onnx"
+                .to_string(),
+            dest_dir: "voices".to_string(),
+            filename: "es_ES-davefx-medium.onnx".to_string(),
+        },
+        ModelInfo {
+            id: "voice-es-json".to_string(),
+            name: "Spanish voice config".to_string(),
+            size_bytes: 5_000,
+            url: "https://huggingface.co/rhasspy/piper-voices/resolve/main/es/es_ES/davefx/medium/es_ES-davefx-medium.onnx.json"
+                .to_string(),
+            dest_dir: "voices".to_string(),
+            filename: "es_ES-davefx-medium.onnx.json".to_string(),
+        },
+        // Chinese
+        ModelInfo {
+            id: "voice-zh-onnx".to_string(),
+            name: "Chinese voice (Huayan, medium)".to_string(),
+            size_bytes: 63_201_685,
+            url: "https://huggingface.co/rhasspy/piper-voices/resolve/main/zh/zh_CN/huayan/medium/zh_CN-huayan-medium.onnx"
+                .to_string(),
+            dest_dir: "voices".to_string(),
+            filename: "zh_CN-huayan-medium.onnx".to_string(),
+        },
+        ModelInfo {
+            id: "voice-zh-json".to_string(),
+            name: "Chinese voice config".to_string(),
+            size_bytes: 5_000,
+            url: "https://huggingface.co/rhasspy/piper-voices/resolve/main/zh/zh_CN/huayan/medium/zh_CN-huayan-medium.onnx.json"
+                .to_string(),
+            dest_dir: "voices".to_string(),
+            filename: "zh_CN-huayan-medium.onnx.json".to_string(),
+        },
+        // German
+        ModelInfo {
+            id: "voice-de-onnx".to_string(),
+            name: "German voice (Thorsten, medium)".to_string(),
+            size_bytes: 63_201_685,
+            url: "https://huggingface.co/rhasspy/piper-voices/resolve/main/de/de_DE/thorsten/medium/de_DE-thorsten-medium.onnx"
+                .to_string(),
+            dest_dir: "voices".to_string(),
+            filename: "de_DE-thorsten-medium.onnx".to_string(),
+        },
+        ModelInfo {
+            id: "voice-de-json".to_string(),
+            name: "German voice config".to_string(),
+            size_bytes: 5_000,
+            url: "https://huggingface.co/rhasspy/piper-voices/resolve/main/de/de_DE/thorsten/medium/de_DE-thorsten-medium.onnx.json"
+                .to_string(),
+            dest_dir: "voices".to_string(),
+            filename: "de_DE-thorsten-medium.onnx.json".to_string(),
+        },
+        // Japanese
+        ModelInfo {
+            id: "voice-ja-onnx".to_string(),
+            name: "Japanese voice (Takumi, medium)".to_string(),
+            size_bytes: 63_201_685,
+            url: "https://huggingface.co/rhasspy/piper-voices/resolve/main/ja/ja_JP/takumi/medium/ja_JP-takumi-medium.onnx"
+                .to_string(),
+            dest_dir: "voices".to_string(),
+            filename: "ja_JP-takumi-medium.onnx".to_string(),
+        },
+        ModelInfo {
+            id: "voice-ja-json".to_string(),
+            name: "Japanese voice config".to_string(),
+            size_bytes: 5_000,
+            url: "https://huggingface.co/rhasspy/piper-voices/resolve/main/ja/ja_JP/takumi/medium/ja_JP-takumi-medium.onnx.json"
+                .to_string(),
+            dest_dir: "voices".to_string(),
+            filename: "ja_JP-takumi-medium.onnx.json".to_string(),
         },
     ]
 }

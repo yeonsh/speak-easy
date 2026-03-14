@@ -166,8 +166,9 @@ export function SetupWizard({ onComplete }: SetupWizardProps) {
       component: (
         <TtsStep
           status={status}
-          onOpenFolder={openFolder}
-          onRefresh={checkStatus}
+          models={models.filter((m) => m.id.startsWith("voice"))}
+          downloads={downloads}
+          onDownload={startDownload}
           onNext={() => setStep(4)}
           onBack={() => setStep(2)}
         />
@@ -408,62 +409,128 @@ function LlmStep({
 
 function TtsStep({
   status,
-  onOpenFolder,
-  onRefresh,
+  models,
+  downloads,
+  onDownload,
   onNext,
   onBack,
 }: {
   status: SetupStatus;
-  onOpenFolder: () => void;
-  onRefresh: () => void;
+  models: ModelInfo[];
+  downloads: Record<string, DownloadState>;
+  onDownload: (m: ModelInfo) => void;
   onNext: () => void;
   onBack: () => void;
 }) {
+  // Group voice models by language (pair onnx + json)
+  const voiceLangs = [
+    { code: "en", flag: "🇺🇸", label: "English" },
+    { code: "es", flag: "🇪🇸", label: "Spanish" },
+    { code: "zh", flag: "🇨🇳", label: "Chinese" },
+    { code: "de", flag: "🇩🇪", label: "German" },
+    { code: "ja", flag: "🇯🇵", label: "Japanese" },
+  ];
+
+  const downloadVoicePair = (langCode: string) => {
+    const onnx = models.find((m) => m.id === `voice-${langCode}-onnx`);
+    const json = models.find((m) => m.id === `voice-${langCode}-json`);
+    if (onnx) onDownload(onnx);
+    if (json) onDownload(json);
+  };
+
+  const isVoiceDownloading = (langCode: string) => {
+    const dl = downloads[`voice-${langCode}-onnx`];
+    return dl?.downloading ?? false;
+  };
+
+  const isVoiceComplete = (langCode: string) => {
+    const dlOnnx = downloads[`voice-${langCode}-onnx`];
+    const dlJson = downloads[`voice-${langCode}-json`];
+    return (dlOnnx?.complete && dlJson?.complete) ?? false;
+  };
+
+  const getVoiceProgress = (langCode: string) => {
+    const dl = downloads[`voice-${langCode}-onnx`];
+    if (!dl) return null;
+    return dl;
+  };
+
+  const anyInstalled = status.has_tts || voiceLangs.some((v) => isVoiceComplete(v.code));
+
   return (
     <div className="max-w-lg mx-auto space-y-6">
       <div>
         <h2 className="text-xl font-bold mb-1">Text to Speech</h2>
         <p className="text-sm text-[var(--text-secondary)]">
-          Piper voice models make the AI speak naturally. Place <code className="bg-[var(--bg-elevated)] px-1.5 py-0.5 rounded text-xs">.onnx</code> and <code className="bg-[var(--bg-elevated)] px-1.5 py-0.5 rounded text-xs">.onnx.json</code> files in
-          the voices folder.
+          Download voice packs so the AI can speak to you. Each voice is ~60 MB.
+          Download at least one for the language you want to practice.
         </p>
       </div>
 
-      <StatusItem
-        label="Voice model"
-        ok={status.has_tts}
-        hint={
-          status.has_tts
-            ? "Voice model found"
-            : "Download Piper voices from github.com/rhasspy/piper"
-        }
-      />
+      {status.has_tts && (
+        <div className="flex items-center gap-2 p-3 bg-green-500/10 rounded-lg text-green-400 text-sm">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M20 6L9 17l-5-5" />
+          </svg>
+          Voice model(s) already installed
+        </div>
+      )}
 
-      <div className="flex gap-3">
-        <button
-          onClick={onOpenFolder}
-          className="px-4 py-2 text-sm bg-[var(--bg-elevated)] text-[var(--text-primary)] rounded-lg hover:bg-[var(--border)] transition-colors"
-        >
-          Open Voices Folder
-        </button>
-        <button
-          onClick={onRefresh}
-          className="px-4 py-2 text-sm bg-[var(--bg-elevated)] text-[var(--text-secondary)] rounded-lg hover:text-[var(--text-primary)] transition-colors"
-        >
-          Refresh
-        </button>
+      <div className="space-y-3">
+        {voiceLangs.map((lang) => {
+          const downloading = isVoiceDownloading(lang.code);
+          const complete = isVoiceComplete(lang.code);
+          const progress = getVoiceProgress(lang.code);
+          const onnxModel = models.find((m) => m.id === `voice-${lang.code}-onnx`);
+
+          return (
+            <div
+              key={lang.code}
+              className="p-4 rounded-lg bg-[var(--bg-elevated)] border border-[var(--border)]"
+            >
+              <div className="flex items-center justify-between mb-1">
+                <span className="font-medium text-sm">
+                  {lang.flag} {lang.label}
+                </span>
+                <span className="text-xs text-[var(--text-secondary)]">
+                  {onnxModel ? formatBytes(onnxModel.size_bytes) : "~60 MB"}
+                </span>
+              </div>
+              {downloading && progress && (
+                <div className="mt-2">
+                  <div className="w-full h-2 bg-[var(--bg-main)] rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-[var(--primary)] transition-all duration-300"
+                      style={{
+                        width: `${progress.total ? (progress.progress / progress.total) * 100 : 0}%`,
+                      }}
+                    />
+                  </div>
+                  <span className="text-xs text-[var(--text-secondary)] mt-1">
+                    {formatBytes(progress.progress)} / {formatBytes(progress.total ?? onnxModel?.size_bytes ?? 0)}
+                  </span>
+                </div>
+              )}
+              {progress?.error && (
+                <p className="text-xs text-red-400 mt-1">{progress.error}</p>
+              )}
+              {!downloading && !complete && (
+                <button
+                  onClick={() => downloadVoicePair(lang.code)}
+                  className="mt-2 px-4 py-1.5 text-xs bg-[var(--primary)] text-white rounded hover:bg-[var(--primary-hover)] transition-colors"
+                >
+                  Download
+                </button>
+              )}
+              {complete && (
+                <span className="text-xs text-green-400 mt-2 inline-block">Installed</span>
+              )}
+            </div>
+          );
+        })}
       </div>
 
-      <div className="p-3 bg-[var(--bg-elevated)] rounded-lg text-xs text-[var(--text-secondary)] space-y-1">
-        <p className="font-medium text-[var(--text-primary)]">Each voice needs two files:</p>
-        <p><code>&lt;name&gt;.onnx</code> — the voice model (~60 MB)</p>
-        <p><code>&lt;name&gt;.onnx.json</code> — the voice config</p>
-        <p className="mt-2">
-          Voices dir: <code className="text-[var(--primary)]">{status.voices_dir}</code>
-        </p>
-      </div>
-
-      <NavButtons onBack={onBack} onNext={onNext} nextLabel={status.has_tts ? "Next" : "Skip"} />
+      <NavButtons onBack={onBack} onNext={onNext} nextLabel={anyInstalled ? "Next" : "Skip"} />
     </div>
   );
 }
