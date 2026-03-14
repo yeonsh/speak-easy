@@ -10,13 +10,18 @@ import { useLlm } from "./hooks/useLlm";
 import { useStt } from "./hooks/useStt";
 import { useTts } from "./hooks/useTts";
 import { getSystemPrompt, getScenarioStarters } from "./lib/prompts";
+import { t } from "./lib/i18n";
 import type {
   AppSettings,
   ConversationMode,
   Language,
   Message,
+  NativeLanguage,
 } from "./lib/types";
 import { DEFAULT_SETTINGS } from "./lib/types";
+
+const KOKORO_LANGUAGES: Language[] = ["en", "es", "fr", "zh", "ja"];
+const ALL_LANGUAGES: Language[] = ["en", "es", "fr", "zh", "ja", "de", "ko"];
 
 function App() {
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
@@ -280,6 +285,20 @@ function App() {
         onSettingsChange={setSettings}
         onClearChat={handleClearChat}
         onOpenSetup={() => { setIsSidebarOpen(false); setShowWizard(true); }}
+        onPreviewVoice={(voiceName) => {
+          const samples: Record<Language, string> = {
+            en: "Hello, how are you today?",
+            es: "Hola, ¿cómo estás hoy?",
+            fr: "Bonjour, comment allez-vous ?",
+            zh: "你好，今天过得怎么样？",
+            ja: "こんにちは、今日はいかがですか？",
+            de: "Hallo, wie geht es Ihnen heute?",
+            ko: "안녕하세요, 오늘 어떠세요?",
+          };
+          tts.loadVoice(settings.language, voiceName, settings.ttsEngine).then(() => {
+            tts.speak(samples[settings.language], settings.ttsSpeed, settings.language);
+          });
+        }}
       />
 
       <div className="flex flex-col flex-1 h-full">
@@ -303,30 +322,18 @@ function App() {
           <LanguageBar
             selected={settings.language}
             onChange={handleLanguageChange}
+            availableLanguages={settings.ttsEngine === "kokoro" ? KOKORO_LANGUAGES : ALL_LANGUAGES}
           />
 
           <div className="flex items-center gap-2">
-            <ModeSelector selected={settings.mode} onChange={handleModeChange} />
+            <ModeSelector selected={settings.mode} onChange={handleModeChange} nativeLanguage={settings.nativeLanguage} />
             <CorrectionsToggle
               enabled={settings.correctionsEnabled}
               onChange={(enabled) => setSettings((s) => ({ ...s, correctionsEnabled: enabled }))}
+              nativeLanguage={settings.nativeLanguage}
             />
           </div>
         </header>
-
-        <ServerStatus
-          isLlmRunning={llm.isServerRunning}
-          isLlmStarting={llm.isServerStarting}
-          isWhisperLoaded={stt.isModelLoaded}
-          isTtsLoaded={tts.isLoaded}
-          llmError={llm.serverError}
-          sttError={stt.error}
-          ttsError={tts.error}
-          onStartLlm={() => llm.startServer(undefined, settings.gpuLayers)}
-          onStopLlm={llm.stopServer}
-          onLoadWhisper={() => stt.loadModel(settings.whisperModel)}
-          onLoadTts={() => tts.loadVoice(settings.language, undefined, settings.ttsEngine)}
-        />
 
         <ChatView
           messages={messages}
@@ -334,6 +341,7 @@ function App() {
           revealedText={revealedSentences.join(" ")}
           isStreamingTts={isStreamingTts}
           language={settings.language}
+          nativeLanguage={settings.nativeLanguage}
           scenarios={settings.mode === "scenario" ? getScenarioStarters(settings.language, settings.nativeLanguage) : undefined}
           onScenarioSelect={handleScenarioSelect}
           onReplay={(text) => {
@@ -400,8 +408,24 @@ function App() {
           <TextInput
             disabled={!llm.isServerRunning || llm.isGenerating}
             onSubmit={sendToLlm}
+            nativeLanguage={settings.nativeLanguage}
           />
         </footer>
+
+        <ServerStatus
+          isLlmRunning={llm.isServerRunning}
+          isLlmStarting={llm.isServerStarting}
+          isWhisperLoaded={stt.isModelLoaded}
+          isTtsLoaded={tts.isLoaded}
+          llmError={llm.serverError}
+          sttError={stt.error}
+          ttsError={tts.error}
+          nativeLanguage={settings.nativeLanguage}
+          onStartLlm={() => llm.startServer(undefined, settings.gpuLayers)}
+          onStopLlm={llm.stopServer}
+          onLoadWhisper={() => stt.loadModel(settings.whisperModel)}
+          onLoadTts={() => tts.loadVoice(settings.language, undefined, settings.ttsEngine)}
+        />
       </div>
     </div>
   );
@@ -410,13 +434,15 @@ function App() {
 function ModeSelector({
   selected,
   onChange,
+  nativeLanguage,
 }: {
   selected: ConversationMode;
   onChange: (mode: ConversationMode) => void;
+  nativeLanguage: NativeLanguage;
 }) {
   const modes: { value: ConversationMode; label: string }[] = [
-    { value: "free-talk", label: "Free Talk" },
-    { value: "scenario", label: "Scenario" },
+    { value: "free-talk", label: t("freeTalk", nativeLanguage) },
+    { value: "scenario", label: t("scenario", nativeLanguage) },
   ];
 
   return (
@@ -441,9 +467,11 @@ function ModeSelector({
 function CorrectionsToggle({
   enabled,
   onChange,
+  nativeLanguage,
 }: {
   enabled: boolean;
   onChange: (enabled: boolean) => void;
+  nativeLanguage: NativeLanguage;
 }) {
   return (
     <button
@@ -453,9 +481,9 @@ function CorrectionsToggle({
           ? "bg-amber-500 text-white"
           : "bg-[var(--bg-surface)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
       }`}
-      title={enabled ? "Corrections ON" : "Corrections OFF"}
+      title={enabled ? t("correctionsOn", nativeLanguage) : t("correctionsOff", nativeLanguage)}
     >
-      {enabled ? "ABC" : "ABC"}
+      {t("corrections", nativeLanguage)}
     </button>
   );
 }
@@ -463,9 +491,11 @@ function CorrectionsToggle({
 function TextInput({
   disabled,
   onSubmit,
+  nativeLanguage,
 }: {
   disabled: boolean;
   onSubmit: (text: string) => void;
+  nativeLanguage: NativeLanguage;
 }) {
   const [text, setText] = useState("");
 
@@ -489,7 +519,7 @@ function TextInput({
           }
         }}
         disabled={disabled}
-        placeholder={disabled ? "Start the server first..." : "Type a message..."}
+        placeholder={disabled ? t("startServerFirst", nativeLanguage) : t("typeMessage", nativeLanguage)}
         className="flex-1 bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg px-4 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-secondary)] focus:outline-none focus:border-[var(--primary)] disabled:opacity-50"
       />
       <button
@@ -497,7 +527,7 @@ function TextInput({
         disabled={disabled || !text.trim()}
         className="px-4 py-2 bg-[var(--primary)] text-white rounded-lg text-sm hover:bg-[var(--primary-hover)] disabled:opacity-50 transition-colors"
       >
-        Send
+        {t("send", nativeLanguage)}
       </button>
     </div>
   );

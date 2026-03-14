@@ -9,6 +9,8 @@ const KOKORO_VOICES: Record<Language, string> = {
   fr: "ff_siwis",
   zh: "zf_xiaobei",
   ja: "jf_alpha",
+  de: "", // not supported by Kokoro
+  ko: "", // not supported by Kokoro
 };
 
 const EDGE_VOICES: Record<Language, string> = {
@@ -17,6 +19,8 @@ const EDGE_VOICES: Record<Language, string> = {
   fr: "fr-FR-DeniseNeural",
   zh: "zh-CN-XiaoxiaoNeural",
   ja: "ja-JP-NanamiNeural",
+  de: "de-DE-KatjaNeural",
+  ko: "ko-KR-SunHiNeural",
 };
 
 interface TtsChunkPayload {

@@ -1,4 +1,4 @@
-export type Language = "en" | "es" | "fr" | "zh" | "ja";
+export type Language = "en" | "es" | "fr" | "zh" | "ja" | "de" | "ko";
 
 export type NativeLanguage = "en" | "ko";
 
@@ -42,6 +42,8 @@ export const LANGUAGE_CONFIG: Record<
   fr: { name: "French", flag: "🇫🇷", nativeName: "Français" },
   zh: { name: "Chinese", flag: "🇨🇳", nativeName: "中文" },
   ja: { name: "Japanese", flag: "🇯🇵", nativeName: "日本語" },
+  de: { name: "German", flag: "🇩🇪", nativeName: "Deutsch" },
+  ko: { name: "Korean", flag: "🇰🇷", nativeName: "한국어" },
 };
 
 export const DEFAULT_SETTINGS: AppSettings = {

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { AppSettings, Language, NativeLanguage, TtsEngine } from "../lib/types";
+import { t } from "../lib/i18n";
 
 // Voice name prefix → language mapping
 const VOICE_LANG_PREFIX: Record<string, { lang: Language; label: string }> = {
@@ -40,6 +41,7 @@ interface SidebarProps {
   onSettingsChange: (settings: AppSettings) => void;
   onClearChat: () => void;
   onOpenSetup?: () => void;
+  onPreviewVoice?: (voiceName: string) => void;
 }
 
 export function Sidebar({
@@ -49,6 +51,7 @@ export function Sidebar({
   onSettingsChange,
   onClearChat,
   onOpenSetup,
+  onPreviewVoice,
 }: SidebarProps) {
   const [voices, setVoices] = useState<string[]>([]);
 
@@ -67,6 +70,8 @@ export function Sidebar({
           fr: ["fr-"],
           zh: ["zh-"],
           ja: ["ja-"],
+          de: ["de-"],
+          ko: ["ko-"],
         };
         const prefixes = langMap[settings.language] ?? [];
         return prefixes.some((p) => v.startsWith(p));
@@ -88,7 +93,7 @@ export function Sidebar({
       />
       <div className="fixed left-0 top-0 bottom-0 w-80 bg-[var(--bg-surface)] z-50 p-6 overflow-y-auto border-r border-[var(--border)]">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-lg font-semibold">Settings</h2>
+          <h2 className="text-lg font-semibold">{t("settings", settings.nativeLanguage)}</h2>
           <button
             onClick={onClose}
             className="p-2 rounded-lg hover:bg-[var(--bg-elevated)] transition-colors"
@@ -107,7 +112,7 @@ export function Sidebar({
         </div>
 
         <div className="space-y-6">
-          <SettingGroup label="Native Language">
+          <SettingGroup label={t("nativeLanguage", settings.nativeLanguage)}>
             <select
               value={settings.nativeLanguage}
               onChange={(e) =>
@@ -123,7 +128,7 @@ export function Sidebar({
             </select>
           </SettingGroup>
 
-          <SettingGroup label="LLM Temperature">
+          <SettingGroup label={t("llmTemperature", settings.nativeLanguage)}>
             <input
               type="range"
               min="0"
@@ -143,24 +148,35 @@ export function Sidebar({
             </span>
           </SettingGroup>
 
-          <SettingGroup label="TTS Engine">
+          <SettingGroup label={t("ttsEngine", settings.nativeLanguage)}>
             <select
               value={settings.ttsEngine}
-              onChange={(e) =>
+              onChange={(e) => {
+                const eng = e.target.value as TtsEngine;
+                const kokoroLangs = ["en", "es", "fr", "zh", "ja"];
+                const lang = eng === "kokoro" && !kokoroLangs.includes(settings.language)
+                  ? "en" as Language
+                  : settings.language;
                 onSettingsChange({
                   ...settings,
-                  ttsEngine: e.target.value as TtsEngine,
+                  ttsEngine: eng,
                   ttsVoice: "default",
-                })
-              }
+                  language: lang,
+                });
+              }}
               className="w-full bg-[var(--bg-elevated)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm"
             >
-              <option value="edge">Edge TTS (Online)</option>
-              <option value="kokoro">Kokoro (Offline)</option>
+              <option value="edge">{t("edgeTtsOnline", settings.nativeLanguage)}</option>
+              <option value="kokoro">{t("kokoroOffline", settings.nativeLanguage)}</option>
             </select>
+            <p className="text-xs text-[var(--text-secondary)] mt-1 opacity-60">
+              {settings.ttsEngine === "edge"
+                ? "EN, ES, FR, ZH, JA, DE, KO"
+                : "EN, ES, FR, ZH, JA"}
+            </p>
           </SettingGroup>
 
-          <SettingGroup label="TTS Speed">
+          <SettingGroup label={t("ttsSpeed", settings.nativeLanguage)}>
             <input
               type="range"
               min="0.5"
@@ -181,15 +197,14 @@ export function Sidebar({
           </SettingGroup>
 
           {filteredVoices.length > 0 && (
-            <SettingGroup label="Voice">
+            <SettingGroup label={t("voice", settings.nativeLanguage)}>
               <select
                 value={settings.ttsVoice}
-                onChange={(e) =>
-                  onSettingsChange({
-                    ...settings,
-                    ttsVoice: e.target.value,
-                  })
-                }
+                onChange={(e) => {
+                  const voice = e.target.value;
+                  onSettingsChange({ ...settings, ttsVoice: voice });
+                  onPreviewVoice?.(voice);
+                }}
                 className="w-full bg-[var(--bg-elevated)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm"
               >
                 {filteredVoices.map((v) => (
@@ -201,7 +216,7 @@ export function Sidebar({
             </SettingGroup>
           )}
 
-          <SettingGroup label="Whisper Model">
+          <SettingGroup label={t("whisperModel", settings.nativeLanguage)}>
             <select
               value={settings.whisperModel}
               onChange={(e) =>
@@ -222,24 +237,24 @@ export function Sidebar({
               onClick={onClearChat}
               className="w-full px-4 py-2 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors text-sm"
             >
-              Clear Conversation
+              {t("clearConversation", settings.nativeLanguage)}
             </button>
             {onOpenSetup && (
               <button
                 onClick={onOpenSetup}
                 className="w-full px-4 py-2 rounded-lg bg-[var(--bg-elevated)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--border)] transition-colors text-sm"
               >
-                Setup Wizard
+                {t("setupWizard", settings.nativeLanguage)}
               </button>
             )}
           </div>
 
           <div className="pt-4 border-t border-[var(--border)]">
             <h3 className="text-sm font-medium text-[var(--text-secondary)] mb-2">
-              Model Management
+              {t("modelManagement", settings.nativeLanguage)}
             </h3>
             <p className="text-xs text-[var(--text-secondary)] opacity-60">
-              Model download and management coming in Phase 5.
+              {t("modelManagementHint", settings.nativeLanguage)}
             </p>
           </div>
         </div>

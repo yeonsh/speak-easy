@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import Markdown from "react-markdown";
-import type { Language, Message } from "../lib/types";
+import type { Language, Message, NativeLanguage } from "../lib/types";
 import { LANGUAGE_CONFIG } from "../lib/types";
 import type { ScenarioStarter } from "../lib/prompts";
+import { t } from "../lib/i18n";
 
 const EMPTY_HINTS: Record<Language, string> = {
   en: "Say \"Hello\" to start a conversation",
@@ -10,6 +11,8 @@ const EMPTY_HINTS: Record<Language, string> = {
   fr: "Dites \"Bonjour\" pour commencer",
   zh: '说"你好"开始对话',
   ja: "「こんにちは」と言って始めましょう",
+  de: "Sagen Sie \"Hallo\" um zu starten",
+  ko: "\"안녕하세요\"라고 말해보세요",
 };
 
 interface ChatViewProps {
@@ -18,6 +21,7 @@ interface ChatViewProps {
   revealedText?: string;
   isStreamingTts?: boolean;
   language?: Language;
+  nativeLanguage?: NativeLanguage;
   scenarios?: ScenarioStarter[];
   onScenarioSelect?: (scenario: ScenarioStarter | null) => void;
   onReplay?: (text: string) => void;
@@ -33,6 +37,7 @@ export function ChatView({
   revealedText,
   isStreamingTts,
   language,
+  nativeLanguage = "ko",
   scenarios,
   onScenarioSelect,
   onReplay,
@@ -57,7 +62,7 @@ export function ChatView({
     >
       {messages.length === 0 && !streamingText && scenarios && scenarios.length > 0 && onScenarioSelect ? (
         <div className="flex flex-col h-full">
-          <p className="text-sm text-[var(--text-secondary)] mb-3 text-center">Choose a scenario to practice</p>
+          <p className="text-sm text-[var(--text-secondary)] mb-3 text-center">{t("chooseScenario", nativeLanguage)}</p>
           <div className="flex-1 overflow-y-auto space-y-2">
             {scenarios.map((s, i) => (
               <button
@@ -85,8 +90,8 @@ export function ChatView({
             <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z" />
             <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z" />
           </svg>
-          <p className="text-lg font-medium">Tap the mic to start speaking</p>
-          <p className="text-sm mt-1">or type a message below</p>
+          <p className="text-lg font-medium">{t("tapMicToStart", nativeLanguage)}</p>
+          <p className="text-sm mt-1">{t("orTypeBelow", nativeLanguage)}</p>
           {language && (
             <p className="text-sm mt-3 text-[var(--primary)] opacity-70">
               {LANGUAGE_CONFIG[language].flag} {EMPTY_HINTS[language]}
@@ -101,7 +106,7 @@ export function ChatView({
             onClick={() => onScenarioSelect(null)}
             className="px-3 py-1.5 rounded-lg text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-elevated)] border border-[var(--border)] transition-colors"
           >
-            Change Scenario
+            {t("changeScenario", nativeLanguage)}
           </button>
         </div>
       )}
@@ -116,6 +121,7 @@ export function ChatView({
         <MessageBubble
           key={msg.id}
           message={msg}
+          nativeLanguage={nativeLanguage}
           onReplay={onReplay}
           onExplain={onExplain}
           onSuggest={onSuggest}
@@ -151,6 +157,7 @@ export function ChatView({
 
 function MessageBubble({
   message,
+  nativeLanguage = "ko",
   onReplay,
   onExplain,
   onSuggest,
@@ -158,6 +165,7 @@ function MessageBubble({
   suggestion,
 }: {
   message: Message;
+  nativeLanguage?: NativeLanguage;
   onReplay?: (text: string) => void;
   onExplain?: (msgId: string, text: string) => Promise<string>;
   onSuggest?: (msgId: string, text: string) => Promise<string>;
@@ -203,7 +211,7 @@ function MessageBubble({
             <button
               onClick={() => onReplay(message.content)}
               className="p-1 rounded hover:bg-white/20 transition-colors opacity-40 hover:opacity-80"
-              title="Replay"
+              title={t("replay", nativeLanguage)}
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <polygon points="5 3 19 12 5 21 5 3" />
@@ -217,7 +225,7 @@ function MessageBubble({
               <button
                 onClick={() => onReplay(message.content)}
                 className="p-1 rounded hover:bg-black/10 transition-colors opacity-40 hover:opacity-80"
-                title="Replay"
+                title={t("replay", nativeLanguage)}
               >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <polygon points="5 3 19 12 5 21 5 3" />
@@ -231,7 +239,7 @@ function MessageBubble({
                 className={`p-1 rounded transition-colors ${
                   explanation ? "opacity-80" : "opacity-40 hover:opacity-80 hover:bg-black/10"
                 }`}
-                title={isExplaining ? "Translating..." : explanation ? "Translated" : "Translate to Korean"}
+                title={isExplaining ? t("translating", nativeLanguage) : explanation ? t("translated", nativeLanguage) : t("translate", nativeLanguage)}
               >
                 {isExplaining ? (
                   <div className="w-[14px] h-[14px] border-2 border-current border-t-transparent rounded-full animate-spin" />
@@ -251,7 +259,7 @@ function MessageBubble({
                 className={`p-1 rounded transition-colors ${
                   suggestion ? "opacity-80" : "opacity-40 hover:opacity-80 hover:bg-black/10"
                 }`}
-                title={isSuggesting ? "Loading..." : suggestion ? "Suggestions shown" : "Sample responses"}
+                title={isSuggesting ? t("loading", nativeLanguage) : suggestion ? t("suggestionsShown", nativeLanguage) : t("sampleResponses", nativeLanguage)}
               >
                 {isSuggesting ? (
                   <div className="w-[14px] h-[14px] border-2 border-current border-t-transparent rounded-full animate-spin" />

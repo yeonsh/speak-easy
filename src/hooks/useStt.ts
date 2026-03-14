@@ -9,6 +9,8 @@ const LANGUAGE_WHISPER_CODES: Record<Language, string> = {
   fr: "fr",
   zh: "zh",
   ja: "ja",
+  de: "de",
+  ko: "ko",
 };
 
 interface UseSttReturn {

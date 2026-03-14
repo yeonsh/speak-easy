@@ -12,6 +12,8 @@ pub fn default_voice(lang: &str) -> &'static str {
         "fr" => "fr-FR-DeniseNeural",
         "zh" => "zh-CN-XiaoxiaoNeural",
         "ja" => "ja-JP-NanamiNeural",
+        "de" => "de-DE-KatjaNeural",
+        "ko" => "ko-KR-SunHiNeural",
         _ => "en-US-JennyNeural",
     }
 }

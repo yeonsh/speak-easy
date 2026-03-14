@@ -699,16 +699,21 @@ function TtsStep({
     if (kokoroVoices && !voicesInstalled) onDownload(kokoroVoices);
   };
 
-  const supportedLangs = ["English", "Spanish", "Chinese", "Japanese", "French"];
-
   return (
     <div className="max-w-lg mx-auto space-y-6">
       <div>
         <h2 className="text-xl font-bold mb-1">Text to Speech</h2>
         <p className="text-sm text-[var(--text-secondary)]">
-          Kokoro TTS provides natural-sounding voices for {supportedLangs.join(", ")}.
-          Two files are needed: the model (~325 MB) and voice pack (~28 MB).
+          Two TTS engines are available. You can switch between them in Settings at any time.
         </p>
+        <div className="mt-3 space-y-2 text-xs text-[var(--text-secondary)]">
+          <div className="p-2 rounded bg-[var(--bg-elevated)]">
+            <span className="font-medium text-[var(--text-primary)]">Edge TTS</span> (online) — EN, ES, FR, ZH, JA, DE, KO
+          </div>
+          <div className="p-2 rounded bg-[var(--bg-elevated)]">
+            <span className="font-medium text-[var(--text-primary)]">Kokoro</span> (offline) — EN, ES, FR, ZH, JA — requires the files below (~353 MB)
+          </div>
+        </div>
       </div>
 
       {allInstalled && (

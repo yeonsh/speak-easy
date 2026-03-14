@@ -1,3 +1,6 @@
+import type { NativeLanguage } from "../lib/types";
+import { t } from "../lib/i18n";
+
 interface ServerStatusProps {
   isLlmRunning: boolean;
   isLlmStarting: boolean;
@@ -6,10 +9,19 @@ interface ServerStatusProps {
   llmError: string | null;
   sttError: string | null;
   ttsError: string | null;
+  nativeLanguage: NativeLanguage;
   onStartLlm: () => void;
   onStopLlm: () => void;
   onLoadWhisper: () => void;
   onLoadTts: () => void;
+}
+
+function Dot({ color }: { color: "green" | "yellow" | "red" }) {
+  const cls =
+    color === "green" ? "bg-green-400" :
+    color === "yellow" ? "bg-yellow-400 animate-pulse" :
+    "bg-red-400";
+  return <span className={`inline-block w-1.5 h-1.5 rounded-full ${cls}`} />;
 }
 
 export function ServerStatus({
@@ -20,95 +32,65 @@ export function ServerStatus({
   llmError,
   sttError,
   ttsError,
+  nativeLanguage,
   onStartLlm,
   onStopLlm,
   onLoadWhisper,
   onLoadTts,
 }: ServerStatusProps) {
   const error = llmError || sttError || ttsError;
+  const allOk = isLlmRunning && isWhisperLoaded && isTtsLoaded && !error;
+
+  // When everything is running and no errors, show minimal bar
+  if (allOk) {
+    return (
+      <div className="flex items-center gap-3 px-3 py-1 bg-[var(--bg-main)] border-t border-[var(--border)] text-[10px] text-[var(--text-secondary)]">
+        <span className="flex items-center gap-1"><Dot color="green" /> LLM</span>
+        <span className="flex items-center gap-1"><Dot color="green" /> STT</span>
+        <span className="flex items-center gap-1"><Dot color="green" /> TTS</span>
+      </div>
+    );
+  }
 
   return (
-    <div className="flex items-center gap-4 px-4 py-2 bg-[var(--bg-surface)] border-b border-[var(--border)]">
-      {/* LLM status */}
-      <div className="flex items-center gap-2">
-        <span
-          className={`w-2 h-2 rounded-full ${
-            isLlmRunning
-              ? "bg-green-400"
-              : isLlmStarting
-                ? "bg-yellow-400 animate-pulse"
-                : "bg-red-400"
-          }`}
-        />
-        <span className="text-xs text-[var(--text-secondary)]">
-          {isLlmRunning ? "LLM" : isLlmStarting ? "LLM starting..." : "LLM off"}
-        </span>
-        {!isLlmRunning && !isLlmStarting && (
-          <button
-            onClick={onStartLlm}
-            className="px-2 py-0.5 text-xs bg-[var(--primary)] text-white rounded hover:bg-[var(--primary-hover)] transition-colors"
-          >
-            Start
+    <div className="flex items-center gap-3 px-3 py-1 bg-[var(--bg-main)] border-t border-[var(--border)] text-[10px] text-[var(--text-secondary)]">
+      {/* LLM */}
+      <span className="flex items-center gap-1">
+        <Dot color={isLlmRunning ? "green" : isLlmStarting ? "yellow" : "red"} />
+        {isLlmRunning ? "LLM" : isLlmStarting ? t("llmStarting", nativeLanguage) : (
+          <button onClick={onStartLlm} className="hover:text-[var(--text-primary)] transition-colors underline decoration-dotted">
+            {t("llmOff", nativeLanguage)}
           </button>
         )}
         {isLlmRunning && (
-          <button
-            onClick={onStopLlm}
-            className="px-2 py-0.5 text-xs bg-[var(--bg-elevated)] text-[var(--text-secondary)] rounded hover:text-[var(--text-primary)] transition-colors"
-          >
-            Stop
+          <button onClick={onStopLlm} className="hover:text-[var(--text-primary)] transition-colors opacity-50 hover:opacity-100">
+            {t("stop", nativeLanguage)}
           </button>
         )}
-      </div>
+      </span>
 
-      <div className="w-px h-4 bg-[var(--border)]" />
-
-      {/* Whisper status */}
-      <div className="flex items-center gap-2">
-        <span
-          className={`w-2 h-2 rounded-full ${
-            isWhisperLoaded ? "bg-green-400" : "bg-red-400"
-          }`}
-        />
-        <span className="text-xs text-[var(--text-secondary)]">
-          {isWhisperLoaded ? "STT" : "STT off"}
-        </span>
-        {!isWhisperLoaded && (
-          <button
-            onClick={onLoadWhisper}
-            className="px-2 py-0.5 text-xs bg-[var(--primary)] text-white rounded hover:bg-[var(--primary-hover)] transition-colors"
-          >
-            Load
+      {/* STT */}
+      <span className="flex items-center gap-1">
+        <Dot color={isWhisperLoaded ? "green" : "red"} />
+        {isWhisperLoaded ? "STT" : (
+          <button onClick={onLoadWhisper} className="hover:text-[var(--text-primary)] transition-colors underline decoration-dotted">
+            {t("sttOff", nativeLanguage)}
           </button>
         )}
-      </div>
+      </span>
 
-      <div className="w-px h-4 bg-[var(--border)]" />
-
-      {/* TTS status */}
-      <div className="flex items-center gap-2">
-        <span
-          className={`w-2 h-2 rounded-full ${
-            isTtsLoaded ? "bg-green-400" : "bg-red-400"
-          }`}
-        />
-        <span className="text-xs text-[var(--text-secondary)]">
-          {isTtsLoaded ? "TTS" : "TTS off"}
-        </span>
-        {!isTtsLoaded && (
-          <button
-            onClick={onLoadTts}
-            className="px-2 py-0.5 text-xs bg-[var(--primary)] text-white rounded hover:bg-[var(--primary-hover)] transition-colors"
-          >
-            Load
+      {/* TTS */}
+      <span className="flex items-center gap-1">
+        <Dot color={isTtsLoaded ? "green" : "red"} />
+        {isTtsLoaded ? "TTS" : (
+          <button onClick={onLoadTts} className="hover:text-[var(--text-primary)] transition-colors underline decoration-dotted">
+            {t("ttsOff", nativeLanguage)}
           </button>
         )}
-      </div>
+      </span>
 
       {error && (
-        <span className="text-xs text-red-400 truncate flex-1 ml-2">
-          {error}
-        </span>
+        <span className="text-red-400 truncate ml-auto">{error}</span>
       )}
     </div>
   );

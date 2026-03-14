@@ -6,6 +6,8 @@ const LANGUAGE_NAMES: Record<Language, string> = {
   fr: "French",
   zh: "Chinese (Mandarin)",
   ja: "Japanese",
+  de: "German",
+  ko: "Korean",
 };
 
 // Language-specific tips for correction mode
@@ -48,6 +50,22 @@ const CORRECTION_FOCUS: Record<Language, string> = {
 - Counter words (〜つ, 〜人, 〜枚, 〜本, 〜匹)
 - Sentence-ending particles (ね, よ, か, な)
 - Transitive/intransitive verb pairs (開ける/開く, 消す/消える)`,
+
+  de: `Common areas to watch for:
+- Case system: Nominativ, Akkusativ, Dativ, Genitiv — noun/article/adjective endings change by case
+- Gendered articles (der/die/das) and their case-declined forms (den, dem, des, etc.)
+- Verb placement: V2 rule in main clauses, verb-final in subordinate clauses (weil, dass, wenn)
+- Separable verbs (anfangen, aufstehen, mitkommen) — prefix moves to end in main clauses
+- Adjective declension based on article type (definite, indefinite, no article) and case
+- Preposition case requirements: mit/von/zu + Dativ, für/gegen/ohne + Akkusativ, Wechselpräpositionen (in/auf/an)`,
+
+  ko: `Common areas to watch for:
+- Particle usage: topic (은/는) vs. subject (이/가), object (을/를), location (에/에서)
+- Verb conjugation levels: 해요체 (polite informal), 합쇼체 (formal), 해체 (casual)
+- Honorifics: 시/세요 for elevating the subject, special honorific vocabulary (드시다, 계시다, 주무시다)
+- Sentence endings and connectors (는데, 거든요, 잖아요, 니까)
+- Word order: SOV structure — verb always at the end
+- Counter words: 개 (general items), 명 (people), 마리 (animals), 잔 (cups), 권 (books), 장 (flat objects)`,
 };
 
 // Per-language scenario sets
@@ -171,6 +189,54 @@ const SCENARIOS: Record<Language, string> = {
 - 歯医者: You are a dentist asking about the patient's problem and explaining treatment
 - 旅行代理店: You are a travel agent helping plan a vacation and comparing destinations
 - 落とし物センター: You are a staff member helping locate a missing item`,
+
+  de: `Scenarios to rotate through:
+- Bäckerei: You are a baker, help the user choose bread, pretzels, and pastries, and explain ingredients
+- Markt: You are a vendor at a German weekly market, sell fresh produce, cheese, and sausages
+- Bahnhof: You are a ticket agent at a train station, help with schedules, connections, and seat reservations
+- Arztpraxis: You are a doctor, ask about symptoms and give advice
+- Stammtisch: You are a regular at a Stammtisch gathering, welcome the user and make casual conversation over beer
+- Café: You are a barista at a German café, take orders and chat about the day
+- Hotel: You are a hotel receptionist, handle check-in and suggest things to do nearby
+- Supermarkt: You are an employee helping find products and explaining special offers
+- Fitnessstudio: You are a fitness trainer offering a trial session and explaining membership plans
+- Handy-Reparatur: You are a technician diagnosing a broken phone and explaining repair options
+- Friseur: You are a hairdresser discussing styles and preferences
+- Post: You are a postal clerk helping with shipping options and forms
+- Autovermietung: You are a rental agent going over car choices and insurance
+- Nachbar: You are a neighbor welcoming someone new to the building
+- Bibliothek: You are a librarian helping with book recommendations and library cards
+- Kino: You are a ticket booth attendant selling tickets and recommending films
+- Tierhandlung: You are a pet store employee helping choose a pet and explaining care
+- Bekleidungsgeschäft: You are a sales associate helping find the right size and style
+- Bank: You are a bank teller helping open an account or handle a transaction
+- Zahnarzt: You are a dentist asking about the patient's problem and explaining treatment
+- Reisebüro: You are a travel agent helping plan a vacation and comparing destinations
+- Fundbüro: You are a staff member at a lost-and-found office helping locate a missing item`,
+
+  ko: `Scenarios to rotate through:
+- 카페: You are a barista at a Korean café, take orders and chat casually
+- 식당: You are a waiter at a Korean restaurant, recommend dishes, take orders, handle requests
+- 병원: You are a doctor at a Korean hospital, ask about symptoms and give advice
+- 부동산: You are a real estate agent showing a 원룸 or apartment, discuss 보증금/월세 and nearby amenities
+- 미용실: You are a hairstylist, ask about the desired cut and style
+- 호텔: You are a hotel receptionist, handle check-in and recommend local attractions
+- 마트: You are a store employee helping find products and explaining promotions
+- 헬스장: You are a fitness trainer explaining membership plans and giving a tour
+- 은행: You are a bank teller helping open an account or handle a transaction
+- 우체국: You are a postal clerk helping send packages and explaining shipping options
+- 서점: You are a bookstore employee helping find books and making recommendations
+- 영화관: You are a ticket booth attendant selling tickets and recommending movies
+- 치과: You are a dentist asking about the patient's problem and explaining treatment
+- 여행사: You are a travel agent helping plan a vacation and comparing destinations
+- 분실물센터: You are a staff member at a lost-and-found office helping locate a missing item
+- 지하철: You are a helpful stranger at a subway station, give directions and explain the route
+- 약국: You are a pharmacist, the user has a minor ailment and needs advice on medication
+- 핸드폰매장: You are a phone shop staff diagnosing a problem and explaining repair or upgrade options
+- 이웃: You are a neighbor welcoming someone who just moved in, chat about the neighborhood
+- 세탁소: You are a dry cleaner, take in clothes, explain cleaning options and pickup times
+- 옷가게: You are a sales associate helping find the right size and style
+- 펫샵: You are a pet store employee helping choose a pet and explaining care needs`,
 };
 
 // Per-language free-talk personality
@@ -184,6 +250,10 @@ const FREE_TALK_STYLE: Record<Language, string> = {
   zh: "Be friendly but natural. Use common conversational particles (嗯, 哦, 啊, 是吗). Ask about food, daily routines, travel, or hobbies. Keep sentences short and use common vocabulary. Occasionally introduce a 成语 (idiom) when relevant and briefly explain it.",
 
   ja: "Be polite and warm. Use です/ます form as default. Include natural conversation fillers (えーと, そうですね, なるほど). Ask about food, seasons, hobbies, work, or travel. Adjust keigo level to match the user. When appropriate, mention cultural context (季節の話題, 食文化).",
+
+  de: "Be natural and conversational. Use common German fillers (also, na ja, genau, eigentlich, halt). Ask about hobbies, travel, daily routines, food, or weekend plans. Start with du unless the user uses Sie. Occasionally use colloquial expressions (Das ist ja cool, Ach so, Klar).",
+
+  ko: "Be friendly and natural. Use 해요체 (polite informal) as default. Include common conversational fillers (음, 근데, 그래서, 아, 진짜요?). Ask about food, daily life, hobbies, work, or travel. Adjust formality if the user switches to 반말 or 존댓말. Occasionally use natural expressions (맞아요, 그렇구나, 대박).",
 };
 
 const NATIVE_LANG_NAMES: Record<NativeLanguage, string> = {
@@ -370,6 +440,54 @@ const SCENARIO_DESCRIPTIONS_EN: Record<Language, string[]> = {
     "Plan a vacation at a travel agency. Discuss destinations.",
     "At a lost-and-found office. Describe and look for your missing item.",
   ],
+  de: [
+    "A German bakery (Bäckerei). Choose bread, pretzels, and pastries.",
+    "A German weekly market. Chat with the vendor selling produce and sausages.",
+    "At a train station ticket window. Buy tickets and check connections.",
+    "At a doctor's office. Explain your symptoms and get advice.",
+    "At a Stammtisch gathering. Chat casually with the regulars over beer.",
+    "Order drinks at a German café. Chat with the barista.",
+    "Check in at a hotel. Ask about the room and things to do nearby.",
+    "Looking for items at a supermarket. Ask an employee for help.",
+    "First visit to a gym. The trainer shows you around and explains memberships.",
+    "Your phone is broken. Explain the problem to the repair technician.",
+    "At a hair salon. Describe the style you want.",
+    "Send a package at the post office. Ask about shipping options.",
+    "Rent a car. Ask about car choices and insurance.",
+    "Meet a new neighbor in your building. Introduce yourself.",
+    "At a library looking for books. Ask for recommendations.",
+    "At a movie theater ticket booth. Pick a film and buy tickets.",
+    "Visit a pet shop. Choose a pet and ask about care.",
+    "Shopping at a clothing store. Ask about sizes and styles.",
+    "At a bank. Open an account or make a transfer.",
+    "At the dentist. Explain your symptoms and ask about treatment.",
+    "Plan a vacation at a travel agency. Discuss destinations.",
+    "At a lost-and-found office. Describe and look for your missing item.",
+  ],
+  ko: [
+    "At a Korean café. Order drinks and chat with the barista.",
+    "At a Korean restaurant. Look at the menu and order from the waiter.",
+    "At a hospital. Explain your symptoms to the doctor.",
+    "At a real estate agency looking for a room. Discuss deposit and monthly rent.",
+    "At a hair salon. Describe the style you want.",
+    "Check in at a hotel. Ask about the room and nearby attractions.",
+    "Looking for items at a supermarket. Ask an employee for help.",
+    "First visit to a gym. The trainer shows you around and explains memberships.",
+    "At a bank. Open an account or handle a transaction.",
+    "Send a package at the post office. Ask about shipping methods.",
+    "At a bookstore. Ask for help finding books and recommendations.",
+    "At a movie theater ticket booth. Pick a movie and buy tickets.",
+    "At the dentist. Explain your symptoms and ask about treatment.",
+    "Plan a vacation at a travel agency. Discuss destinations and schedules.",
+    "At a lost-and-found office. Describe and look for your missing item.",
+    "At a subway station. Ask a stranger for directions and route help.",
+    "At a pharmacy. Explain a minor ailment and ask for medication advice.",
+    "At a phone shop. Explain a phone problem and ask about repair or upgrade.",
+    "Meet a new neighbor. Introduce yourself and ask about the neighborhood.",
+    "At a dry cleaner. Drop off clothes and ask about cleaning options.",
+    "Shopping at a clothing store. Ask about sizes and styles.",
+    "Visit a pet shop. Choose a pet and ask about care needs.",
+  ],
 };
 
 export function getScenarioStarters(language: Language, nativeLanguage: NativeLanguage = "ko"): ScenarioStarter[] {
@@ -484,6 +602,54 @@ export function getScenarioStarters(language: Language, nativeLanguage: NativeLa
       "치과에 왔습니다. 증상을 설명하고 치료에 대해 물어보세요.",
       "여행사에서 휴가를 계획합니다. 목적지와 일정을 상담해보세요.",
       "분실물 센터에 왔습니다. 잃어버린 물건을 찾아보세요.",
+    ],
+    de: [
+      "독일 빵집(Bäckerei)입니다. 빵, 프레첼, 페이스트리를 골라보세요.",
+      "독일 주간 시장입니다. 농산물과 소시지를 파는 상인과 대화해보세요.",
+      "기차역 매표소입니다. 표를 사고 환승을 확인해보세요.",
+      "병원에 왔습니다. 의사에게 증상을 설명해보세요.",
+      "슈탐티쉬(Stammtisch) 모임입니다. 맥주를 마시며 사람들과 대화해보세요.",
+      "독일 카페에서 음료를 주문합니다. 바리스타와 대화해보세요.",
+      "호텔에 체크인합니다. 방 상태와 주변 볼거리를 물어보세요.",
+      "슈퍼마켓에서 물건을 찾고 있습니다. 직원에게 물어보세요.",
+      "헬스장에 처음 왔습니다. 트레이너가 시설과 회원권을 안내합니다.",
+      "휴대폰이 고장났습니다. 수리 기사에게 문제를 설명해보세요.",
+      "미용실에 왔습니다. 원하는 스타일을 설명해보세요.",
+      "우체국에서 소포를 보냅니다. 배송 옵션을 확인해보세요.",
+      "렌터카에서 차를 빌립니다. 차종과 보험을 물어보세요.",
+      "새 이웃을 만났습니다. 자기소개를 하고 동네를 물어보세요.",
+      "도서관에서 책을 찾고 있습니다. 사서에게 추천을 부탁해보세요.",
+      "영화관 매표소입니다. 영화를 고르고 표를 사보세요.",
+      "펫샵에 왔습니다. 반려동물을 고르고 관리 방법을 물어보세요.",
+      "옷가게에서 쇼핑 중입니다. 사이즈와 스타일을 물어보세요.",
+      "은행에 왔습니다. 계좌 개설이나 거래를 해보세요.",
+      "치과에 왔습니다. 증상을 설명하고 치료에 대해 물어보세요.",
+      "여행사에서 휴가를 계획합니다. 목적지와 일정을 상담해보세요.",
+      "분실물 센터(Fundbüro)에 왔습니다. 잃어버린 물건을 찾아보세요.",
+    ],
+    ko: [
+      "카페에 왔습니다. 음료를 주문하고 바리스타와 대화해보세요.",
+      "한국 식당에 왔습니다. 메뉴를 보고 주문해보세요.",
+      "병원에 왔습니다. 의사에게 증상을 설명해보세요.",
+      "부동산에서 방을 찾고 있습니다. 보증금과 월세를 상담해보세요.",
+      "미용실에 왔습니다. 원하는 스타일을 설명해보세요.",
+      "호텔에 체크인합니다. 방과 주변 관광지를 물어보세요.",
+      "마트에서 물건을 찾고 있습니다. 직원에게 물어보세요.",
+      "헬스장에 처음 왔습니다. 트레이너가 시설과 회원권을 안내합니다.",
+      "은행에 왔습니다. 계좌 개설이나 거래를 해보세요.",
+      "우체국에서 소포를 보냅니다. 배송 방법을 물어보세요.",
+      "서점에서 책을 찾고 있습니다. 직원에게 추천을 부탁해보세요.",
+      "영화관 매표소입니다. 영화를 고르고 표를 사보세요.",
+      "치과에 왔습니다. 증상을 설명하고 치료에 대해 물어보세요.",
+      "여행사에서 휴가를 계획합니다. 목적지와 일정을 상담해보세요.",
+      "분실물 센터에 왔습니다. 잃어버린 물건을 찾아보세요.",
+      "지하철역에서 길을 모릅니다. 옆 사람에게 노선을 물어보세요.",
+      "약국에 왔습니다. 증상을 설명하고 약을 구매해보세요.",
+      "핸드폰 매장에 왔습니다. 고장 증상을 설명하고 수리를 요청해보세요.",
+      "새 이웃을 만났습니다. 자기소개를 하고 동네에 대해 물어보세요.",
+      "세탁소에 왔습니다. 옷을 맡기고 세탁 옵션을 확인해보세요.",
+      "옷가게에서 쇼핑 중입니다. 사이즈와 스타일을 물어보세요.",
+      "펫샵에 왔습니다. 반려동물을 고르고 관리 방법을 물어보세요.",
     ],
   };
 
@@ -600,6 +766,54 @@ export function getScenarioStarters(language: Language, nativeLanguage: NativeLa
       "お座りください。今日はどうされましたか？どこか痛いところはありますか？",
       "いらっしゃいませ！旅行をお考えですか？行きたい場所はもう決まっていますか？",
       "こんにちは。何かなくされましたか？どんな物か教えていただけますか？",
+    ],
+    de: [
+      "Guten Morgen! Willkommen in der Bäckerei. Was darf es sein? Die Brezeln sind heute ganz frisch.",
+      "Hallo! Willkommen auf dem Markt. Darf ich Ihnen etwas anbieten? Die Tomaten sind heute besonders gut.",
+      "Guten Tag! Wohin möchten Sie fahren? Soll ich mal die Verbindungen nachschauen?",
+      "Guten Tag, nehmen Sie bitte Platz. Was führt Sie heute zu mir? Welche Beschwerden haben Sie?",
+      "Na, setz dich doch! Magst du ein Bier? Wir reden hier gerade über das Fußballspiel gestern.",
+      "Hallo! Willkommen im Café. Was darf ich Ihnen bringen? Wir haben heute einen tollen Cappuccino.",
+      "Guten Abend! Willkommen im Hotel. Haben Sie eine Reservierung?",
+      "Hallo! Kann ich Ihnen helfen? Diese Woche haben wir Sonderangebote bei den Milchprodukten.",
+      "Willkommen im Fitnessstudio! Sind Sie zum ersten Mal hier? Ich zeige Ihnen gerne alles.",
+      "Hallo! Was ist denn mit Ihrem Handy passiert? Seit wann haben Sie das Problem?",
+      "Hallo! Was darf es heute sein? Nur schneiden oder auch Farbe?",
+      "Guten Tag! Möchten Sie ein Paket verschicken? Innerhalb Deutschlands oder ins Ausland?",
+      "Willkommen! Haben Sie eine Reservierung oder möchten Sie sich unsere Fahrzeuge ansehen?",
+      "Oh hallo! Sie sind bestimmt der neue Nachbar. Ich bin Thomas von nebenan. Herzlich willkommen!",
+      "Guten Tag! Suchen Sie etwas Bestimmtes oder darf ich Ihnen etwas empfehlen?",
+      "Hallo! Welchen Film möchten Sie sehen? Diese Woche laufen ein paar richtig gute Filme.",
+      "Willkommen! Suchen Sie ein Haustier? Wir haben gerade süße Kaninchen bekommen.",
+      "Hallo! Kann ich Ihnen helfen? Diese Woche haben wir Jacken im Angebot.",
+      "Guten Tag! Wie kann ich Ihnen helfen? Möchten Sie ein Konto eröffnen oder eine Überweisung machen?",
+      "Bitte nehmen Sie Platz. Was führt Sie heute zu uns? Haben Sie Schmerzen?",
+      "Willkommen! Planen Sie eine Reise? Haben Sie schon ein Reiseziel im Kopf?",
+      "Guten Tag! Haben Sie etwas verloren? Können Sie mir den Gegenstand beschreiben?",
+    ],
+    ko: [
+      "어서오세요! 뭐 드릴까요? 오늘 새로 나온 딸기 라떼 한번 드셔보실래요?",
+      "어서오세요! 몇 분이세요? 메뉴판 여기 있습니다. 오늘 추천 메뉴는 김치찌개예요.",
+      "안녕하세요, 앉으세요. 오늘 어디가 불편하세요? 언제부터 그러셨어요?",
+      "안녕하세요! 어떤 방을 찾고 계세요? 원룸이요, 아니면 투룸이요? 예산은 어느 정도 생각하세요?",
+      "어서오세요! 오늘 어떤 스타일로 해드릴까요? 커트만 하실 건가요?",
+      "안녕하세요! 체크인하시려고요? 성함이 어떻게 되세요?",
+      "어서오세요! 뭐 찾으시는 거 있으세요? 오늘 과일이랑 유제품 할인 중이에요.",
+      "안녕하세요! 처음 오셨어요? 제가 시설 안내해드릴게요. 따라오세요!",
+      "안녕하세요. 어떤 업무 보시러 오셨어요? 계좌 개설이요, 아니면 송금이요?",
+      "안녕하세요! 택배 보내시려고요? 어디로 보내실 건가요?",
+      "어서오세요! 어떤 책 찾으세요? 요즘 인기 있는 책 추천해드릴까요?",
+      "안녕하세요! 어떤 영화 보실 건가요? 이번 주 신작 꽤 괜찮아요.",
+      "앉으세요. 어디가 아프세요? 언제부터 아프셨어요?",
+      "어서오세요! 여행 계획 중이세요? 어디로 가고 싶으세요?",
+      "안녕하세요. 뭘 잃어버리셨어요? 어떤 물건인지 설명해주실 수 있어요?",
+      "저기요, 혹시 이 근처 잘 아세요? 시청역 가려면 몇 호선 타야 해요?",
+      "어서오세요. 어디가 불편하세요? 증상을 말씀해주시면 약을 추천해드릴게요.",
+      "어서오세요! 핸드폰 문제가 있으세요? 어떤 증상인지 말씀해주세요.",
+      "안녕하세요! 옆집에 새로 이사 오셨죠? 저는 옆집 사는 김민수라고 해요. 반가워요!",
+      "어서오세요! 세탁물 맡기시려고요? 어떤 옷이에요? 한번 볼게요.",
+      "어서오세요! 뭐 찾으시는 거 있으세요? 이번 주 겨울 코트 세일 중이에요.",
+      "어서오세요! 반려동물 찾으세요? 이번에 새끼 고양이들이 새로 들어왔어요, 정말 귀여워요.",
     ],
   };
 
