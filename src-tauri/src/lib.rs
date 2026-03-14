@@ -58,6 +58,7 @@ pub fn run() {
             llm::is_llm_running,
             llm::get_llm_port,
             chat::send_chat_message,
+            chat::cancel_generation,
             stt::load_whisper_model,
             stt::is_whisper_loaded,
             stt::transcribe_audio,

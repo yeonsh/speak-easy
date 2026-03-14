@@ -1,11 +1,23 @@
 use crate::llm::{ChatMessage, LlmState};
+use crate::tts::TtsState;
 use serde::{Deserialize, Serialize};
 use std::io::{BufRead, BufReader};
-use tauri::{AppHandle, Emitter};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{mpsc, Arc};
+use tauri::{AppHandle, Emitter, Manager};
 
 #[derive(Debug, Serialize, Clone)]
 struct StreamDelta {
     content: String,
+    done: bool,
+}
+
+#[derive(Debug, Serialize, Clone)]
+struct TtsChunk {
+    samples: Vec<f32>,
+    sample_rate: u32,
+    index: u32,
+    text: String,
     done: bool,
 }
 
@@ -125,6 +137,8 @@ pub fn send_chat_message(
     messages: Vec<ChatMessage>,
     temperature: Option<f32>,
     request_id: String,
+    tts_enabled: Option<bool>,
+    tts_speed: Option<f32>,
 ) -> Result<(), String> {
     let port = *state.port.lock().unwrap();
     if port == 0 {
@@ -142,7 +156,106 @@ pub fn send_chat_message(
     });
 
     let event_name = format!("chat-stream-{}", request_id);
-    let event_name_clone = event_name.clone();
+    let tts_event_name = format!("tts-chunk-{}", request_id);
+    let tts_stop_event = format!("tts-stop-{}", request_id);
+
+    // Create cancel flag
+    let cancel_flag = Arc::new(AtomicBool::new(false));
+    {
+        let mut flags = state.cancel_flags.lock().unwrap();
+        flags.insert(request_id.clone(), cancel_flag.clone());
+    }
+
+    // Set up TTS channel if TTS is enabled
+    let tts_enabled = tts_enabled.unwrap_or(false);
+    let speed = tts_speed.unwrap_or(1.0);
+    let (sentence_tx, sentence_rx) = mpsc::channel::<Option<String>>();
+
+    // Spawn TTS worker thread
+    let tts_app = app.clone();
+    let tts_cancel = cancel_flag.clone();
+    let tts_event = tts_event_name.clone();
+    let tts_stop = tts_stop_event.clone();
+
+    let tts_handle = if tts_enabled {
+        Some(std::thread::spawn(move || {
+            // Access TtsState via the cloned AppHandle inside the thread.
+            // Tauri manages state as Arc<T> internally; AppHandle is Clone + Send + 'static.
+            let tts_state: tauri::State<'_, TtsState> = tts_app.state();
+            let mut index: u32 = 0;
+
+            loop {
+                let msg = match sentence_rx.recv() {
+                    Ok(m) => m,
+                    Err(_) => break, // channel closed
+                };
+
+                // None = sentinel (stream ended)
+                let sentence = match msg {
+                    Some(s) => s,
+                    None => break,
+                };
+
+                if tts_cancel.load(Ordering::Relaxed) {
+                    // Drain remaining messages without synthesizing
+                    while sentence_rx.recv().is_ok() {}
+                    let _ = tts_app.emit(&tts_stop, true);
+                    return;
+                }
+
+                if sentence.trim().is_empty() {
+                    continue;
+                }
+
+                // Synthesize this sentence
+                let result = crate::tts::synthesize_text(&tts_state, &sentence, speed);
+
+                let (samples, sample_rate) = match result {
+                    Ok(tts_result) => (tts_result.samples, tts_result.sample_rate),
+                    Err(e) => {
+                        eprintln!("[tts-worker] Synthesis failed for '{}': {}", sentence, e);
+                        // Emit chunk with empty samples so frontend reveals text anyway
+                        (vec![], 24000)
+                    }
+                };
+
+                let _ = tts_app.emit(
+                    &tts_event,
+                    TtsChunk {
+                        samples,
+                        sample_rate,
+                        index,
+                        text: sentence,
+                        done: false,
+                    },
+                );
+                index += 1;
+            }
+
+            if !tts_cancel.load(Ordering::Relaxed) {
+                // Send final done chunk
+                let _ = tts_app.emit(
+                    &tts_event,
+                    TtsChunk {
+                        samples: vec![],
+                        sample_rate: 24000,
+                        index,
+                        text: String::new(),
+                        done: true,
+                    },
+                );
+            }
+        }))
+    } else {
+        // Drop the receiver so sender doesn't block
+        drop(sentence_rx);
+        None
+    };
+
+    let event_name_err = event_name.clone();
+    let cancel_for_sse = cancel_flag.clone();
+    let request_id_cleanup = request_id.clone();
+    let sse_app = app.clone();
 
     std::thread::spawn(move || {
         let body_str = body.to_string();
@@ -152,11 +265,19 @@ pub fn send_chat_message(
             .header("Content-Type", "application/json")
             .send(body_str.as_bytes());
 
+        let mut sentence_buffer = SentenceBuffer::new();
+
         match result {
             Ok(response) => {
                 eprintln!("[chat] Got response, reading stream...");
                 let reader = BufReader::new(response.into_body().into_reader());
                 for line in reader.lines() {
+                    // Check cancel flag
+                    if cancel_for_sse.load(Ordering::Relaxed) {
+                        eprintln!("[chat] Generation cancelled");
+                        break;
+                    }
+
                     let line = match line {
                         Ok(l) => l,
                         Err(_) => break,
@@ -168,6 +289,16 @@ pub fn send_chat_message(
 
                     let data = &line[6..];
                     if data == "[DONE]" {
+                        // Flush remaining sentence buffer
+                        let remaining = sentence_buffer.flush();
+                        if !remaining.is_empty() && tts_enabled {
+                            let _ = sentence_tx.send(Some(remaining));
+                        }
+                        // Send sentinel to TTS worker
+                        if tts_enabled {
+                            let _ = sentence_tx.send(None);
+                        }
+
                         let _ = app.emit(
                             &event_name,
                             StreamDelta {
@@ -183,6 +314,7 @@ pub fn send_chat_message(
                             if let Some(choice) = choices.first() {
                                 if let Some(ref delta) = choice.delta {
                                     if let Some(ref content) = delta.content {
+                                        // Emit text token (unchanged behavior)
                                         let _ = app.emit(
                                             &event_name,
                                             StreamDelta {
@@ -190,9 +322,25 @@ pub fn send_chat_message(
                                                 done: false,
                                             },
                                         );
+
+                                        // Feed to sentence buffer for TTS
+                                        if tts_enabled {
+                                            if let Some(sentence) = sentence_buffer.feed(content) {
+                                                let _ = sentence_tx.send(Some(sentence));
+                                            }
+                                        }
                                     }
                                 }
                                 if choice.finish_reason.is_some() {
+                                    // Flush remaining sentence buffer
+                                    let remaining = sentence_buffer.flush();
+                                    if !remaining.is_empty() && tts_enabled {
+                                        let _ = sentence_tx.send(Some(remaining));
+                                    }
+                                    if tts_enabled {
+                                        let _ = sentence_tx.send(None);
+                                    }
+
                                     let _ = app.emit(
                                         &event_name,
                                         StreamDelta {
@@ -205,11 +353,19 @@ pub fn send_chat_message(
                         }
                     }
                 }
+
+                // If cancelled, still need to close the TTS channel
+                if cancel_for_sse.load(Ordering::Relaxed) && tts_enabled {
+                    let _ = sentence_tx.send(None);
+                }
             }
             Err(e) => {
                 eprintln!("[chat] Error: {}", e);
+                if tts_enabled {
+                    let _ = sentence_tx.send(None);
+                }
                 let _ = app.emit(
-                    &event_name_clone,
+                    &event_name_err,
                     StreamDelta {
                         content: format!("[Error: {}]", e),
                         done: true,
@@ -217,9 +373,32 @@ pub fn send_chat_message(
                 );
             }
         }
+
+        // Wait for TTS worker to finish
+        if let Some(handle) = tts_handle {
+            let _ = handle.join();
+        }
+
+        // Clean up cancel flag via cloned AppHandle
+        let llm_state: tauri::State<'_, LlmState> = sse_app.state();
+        let _ = llm_state.cancel_flags.lock().map(|mut flags| {
+            flags.remove(&request_id_cleanup);
+        });
     });
 
     Ok(())
+}
+
+#[tauri::command]
+pub fn cancel_generation(
+    state: tauri::State<'_, LlmState>,
+    request_id: String,
+) {
+    let flags = state.cancel_flags.lock().unwrap();
+    if let Some(flag) = flags.get(&request_id) {
+        flag.store(true, Ordering::Relaxed);
+        eprintln!("[chat] Cancelled generation {}", request_id);
+    }
 }
 
 #[cfg(test)]
