@@ -2,7 +2,19 @@
 
 A fully offline desktop app for practicing foreign languages with AI. Speak, listen, and get corrections — all on-device, no cloud services needed.
 
-Supports **English, Spanish, Chinese, German, and Japanese** with three practice modes: Free Talk, Scenario Role-Play, and Correction Focus.
+Supports **English, Spanish, French, Chinese, and Japanese** with two practice modes (Free Talk and Scenario Role-Play) and an optional Corrections toggle.
+
+## Features
+
+- **Free Talk** — open conversation practice in the target language
+- **Scenario Mode** — 20 real-world situations per language (cafe, hotel, dentist, etc.) with Korean descriptions
+- **Corrections Toggle** — enable in either mode to get grammar/meaning feedback in Korean
+- **Replay** — re-listen to any message (yours or the assistant's) via TTS
+- **Translate** — one-tap Korean translation of assistant messages
+- **Sample Responses** — get 2 suggested replies with Korean translations
+- **Streaming TTS** — sentence-by-sentence audio with natural pauses between sentences
+- **Per-language chat history** — conversations saved separately per language and mode
+- **Japanese/Chinese support** — MeCab-based kanji-to-kana conversion, CJK punctuation handling
 
 ## Architecture
 
@@ -73,9 +85,9 @@ src/                          # React frontend
 src-tauri/src/                # Rust backend
   lib.rs                      # Tauri command registration
   llm.rs                      # llama-server lifecycle management
-  chat.rs                     # Streaming chat completions (SSE)
+  chat.rs                     # Streaming chat + TTS pipeline, explain/suggest commands
   stt.rs                      # Whisper transcription
-  tts.rs                      # Kokoro TTS via ONNX runtime
+  tts.rs                      # Kokoro TTS via ONNX runtime, text cleaning, sentence splitting
   downloads.rs                # Model download with progress events
   settings.rs                 # Settings persistence
 ```
