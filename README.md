@@ -12,12 +12,16 @@ Built with [Tauri 2](https://v2.tauri.app/) (Rust backend + React frontend) and 
 |--------|---------|------------|
 | **STT** | Speech-to-text | [whisper.cpp](https://github.com/ggerganov/whisper.cpp) via `whisper-rs` |
 | **LLM** | Conversation | [llama.cpp](https://github.com/ggml-org/llama.cpp) (`llama-server` sidecar) |
-| **TTS** | Text-to-speech | [Piper](https://github.com/rhasspy/piper) via ONNX runtime |
+| **TTS** | Text-to-speech | [Kokoro](https://github.com/thewh1teagle/kokoro-onnx) via ONNX runtime |
 
 ## Prerequisites
 
 - **Rust** (1.70+): https://rustup.rs
 - **Node.js** (18+): https://nodejs.org
+- **espeak-ng** — required for Kokoro TTS phonemization (the setup wizard can install it automatically):
+  - macOS: `brew install espeak-ng`
+  - Windows: downloaded automatically from the [official release](https://github.com/espeak-ng/espeak-ng/releases)
+  - Linux: `sudo apt install espeak-ng` or equivalent
 - **Tauri 2 system dependencies**:
   - macOS: Xcode Command Line Tools (`xcode-select --install`)
   - Linux: See [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/#linux)
@@ -44,7 +48,10 @@ On first launch, the **setup wizard** will guide you through downloading all req
 3. **GGUF language model** — pick one:
    - Qwen3 4B (~2.5 GB) — fast, good for casual practice
    - Qwen3 30B-A3B (~17 GB) — higher quality conversations
-4. **TTS voice packs** (~60 MB each) — one per language you want to practice
+4. **espeak-ng** — phonemizer for TTS (auto-install via Homebrew on macOS or MSI on Windows)
+5. **Kokoro TTS** — two files covering all languages:
+   - Kokoro model (~325 MB) — the neural TTS engine
+   - Voice pack (~28 MB) — 50+ voices across all supported languages
 
 Everything downloads with one click. All files are stored in `~/.speakeasy/`.
 
@@ -68,7 +75,7 @@ src-tauri/src/                # Rust backend
   llm.rs                      # llama-server lifecycle management
   chat.rs                     # Streaming chat completions (SSE)
   stt.rs                      # Whisper transcription
-  tts.rs                      # Piper ONNX inference
+  tts.rs                      # Kokoro TTS via ONNX runtime
   downloads.rs                # Model download with progress events
   settings.rs                 # Settings persistence
 ```
@@ -78,7 +85,7 @@ src-tauri/src/                # Rust backend
 | Path | Contents |
 |------|----------|
 | `~/.speakeasy/models/` | Whisper models (`.bin`) and LLM models (`.gguf`) |
-| `~/.speakeasy/voices/` | Piper TTS voice packs (`.onnx` + `.onnx.json`) |
+| `~/.speakeasy/voices/` | Kokoro TTS model (`kokoro-v1.0.onnx`) and voice pack (`voices-v1.0.bin`) |
 | `~/.speakeasy/bin/` | Downloaded `llama-server` binary |
 | `~/.speakeasy/settings.json` | User preferences |
 
