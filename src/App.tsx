@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { ChatView } from "./components/ChatView";
 import { LanguageBar } from "./components/LanguageBar";
@@ -23,6 +23,10 @@ function App() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [showWizard, setShowWizard] = useState<boolean | null>(null);
+  const [revealedSentences, setRevealedSentences] = useState<string[]>([]);
+  const [isStreamingTts, setIsStreamingTts] = useState(false);
+  const [_pendingFullText, setPendingFullText] = useState<string | null>(null);
+  const currentRequestIdRef = useRef<string | null>(null);
 
   // Check if first launch
   useEffect(() => {
@@ -64,23 +68,50 @@ function App() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settings.ttsVoice]);
 
-  // Wire up completion handler to add assistant message and auto-speak
+  // Wire up TTS chunk completion to reveal sentences
   useEffect(() => {
-    llm.onComplete.current = (fullText: string) => {
-      const msg: Message = {
-        id: crypto.randomUUID(),
-        role: "assistant",
-        content: fullText,
-        timestamp: Date.now(),
-      };
-      setMessages((msgs) => [...msgs, msg]);
-
-      // Auto-speak the response if TTS is loaded
-      if (tts.isLoaded) {
-        tts.speak(fullText, settings.ttsSpeed);
+    tts.onChunkDone.current = (_index: number, text: string, done: boolean) => {
+      if (text) {
+        setRevealedSentences((prev) => [...prev, text]);
+      }
+      if (done) {
+        // All audio finished — finalize message
+        setIsStreamingTts(false);
+        setPendingFullText((fullText) => {
+          if (fullText) {
+            const msg: Message = {
+              id: crypto.randomUUID(),
+              role: "assistant",
+              content: fullText,
+              timestamp: Date.now(),
+            };
+            setMessages((msgs) => [...msgs, msg]);
+          }
+          return null;
+        });
+        setRevealedSentences([]);
       }
     };
-  }, [llm.onComplete, tts, settings.ttsSpeed]);
+  }, [tts.onChunkDone]);
+
+  // Wire up LLM completion
+  useEffect(() => {
+    llm.onComplete.current = (fullText: string) => {
+      if (tts.isLoaded && isStreamingTts) {
+        // TTS is streaming — wait for audio to finish before adding message
+        setPendingFullText(fullText);
+      } else {
+        // No TTS — add message immediately (current behavior)
+        const msg: Message = {
+          id: crypto.randomUUID(),
+          role: "assistant",
+          content: fullText,
+          timestamp: Date.now(),
+        };
+        setMessages((msgs) => [...msgs, msg]);
+      }
+    };
+  }, [llm.onComplete, tts.isLoaded, isStreamingTts]);
 
   // Auto-load TTS voice when language changes
   const handleLanguageChange = useCallback((lang: Language) => {
@@ -109,9 +140,6 @@ function App() {
           timestamp: Date.now(),
         };
         setMessages([msg]);
-        if (tts.isLoaded) {
-          tts.speak(starter, s.ttsSpeed);
-        }
       }
       return newSettings;
     });
@@ -123,6 +151,14 @@ function App() {
 
   const sendToLlm = useCallback(
     async (userText: string) => {
+      // Cancel any previous generation
+      if (currentRequestIdRef.current) {
+        tts.stopStreaming();
+        await invoke("cancel_generation", {
+          requestId: currentRequestIdRef.current,
+        }).catch(() => {});
+      }
+
       const userMsg: Message = {
         id: crypto.randomUUID(),
         role: "user",
@@ -130,6 +166,9 @@ function App() {
         timestamp: Date.now(),
       };
       setMessages((msgs) => [...msgs, userMsg]);
+      setRevealedSentences([]);
+      setIsStreamingTts(false);
+      setPendingFullText(null);
 
       const systemPrompt = getSystemPrompt(settings.language, settings.mode);
       const allMessages = [
@@ -139,7 +178,19 @@ function App() {
       ];
 
       try {
-        await llm.sendMessage(allMessages, settings.llmTemperature);
+        const requestId = await llm.sendMessage(
+          allMessages,
+          settings.llmTemperature,
+          tts.isLoaded,
+          settings.ttsSpeed,
+        );
+        currentRequestIdRef.current = requestId;
+
+        // Start listening for TTS chunks if TTS is loaded
+        if (tts.isLoaded) {
+          setIsStreamingTts(true);
+          await tts.startStreaming(requestId);
+        }
       } catch (e) {
         const errorMsg: Message = {
           id: crypto.randomUUID(),
@@ -150,7 +201,7 @@ function App() {
         setMessages((msgs) => [...msgs, errorMsg]);
       }
     },
-    [messages, settings, llm],
+    [messages, settings, llm, tts],
   );
 
   // Loading state
@@ -219,6 +270,8 @@ function App() {
         <ChatView
           messages={messages}
           streamingText={llm.streamingText}
+          revealedText={revealedSentences.join(" ")}
+          isStreamingTts={isStreamingTts}
           language={settings.language}
         />
 
@@ -228,6 +281,28 @@ function App() {
             isProcessing={stt.isTranscribing || llm.isGenerating}
             onRecordStart={() => stt.startRecording()}
             onRecordStop={async () => {
+              // Interrupt any playing TTS
+              if (tts.isSpeaking && currentRequestIdRef.current) {
+                tts.stopStreaming();
+                await invoke("cancel_generation", {
+                  requestId: currentRequestIdRef.current,
+                }).catch(() => {});
+                // Keep whatever text was already revealed as a truncated message
+                if (revealedSentences.length > 0) {
+                  const msg: Message = {
+                    id: crypto.randomUUID(),
+                    role: "assistant",
+                    content: revealedSentences.join(" "),
+                    timestamp: Date.now(),
+                  };
+                  setMessages((msgs) => [...msgs, msg]);
+                  setRevealedSentences([]);
+                  setIsStreamingTts(false);
+                  setPendingFullText(null);
+                }
+                currentRequestIdRef.current = null;
+              }
+
               const text = await stt.stopAndTranscribe(settings.language);
               if (text) {
                 sendToLlm(text);
