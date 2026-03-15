@@ -131,9 +131,21 @@ pub fn transcribe_audio(
             .and_then(|id| lang_probs.get(id as usize).copied())
             .unwrap_or(0.0);
 
-        if native_prob > target_prob {
+        eprintln!(
+            "[stt] Language detection: target({})={:.3}, native({})={:.3}",
+            target_language, target_prob, native_language, native_prob
+        );
+
+        // Strongly bias toward target language (the language being practiced).
+        // Only switch to native if detection is very confident — native must be
+        // at least 2x the target probability AND above 0.5 absolute threshold.
+        // This prevents short/ambiguous utterances from being mistakenly
+        // "translated" into the native language by Whisper.
+        if native_prob > target_prob * 2.0 && native_prob > 0.5 {
+            eprintln!("[stt] Detected native language: {}", native_language);
             native_language.clone()
         } else {
+            eprintln!("[stt] Using target language: {}", target_language);
             target_language.clone()
         }
     };

@@ -42,8 +42,12 @@ function App() {
   settingsRef.current = settings;
   const explainCacheRef = useRef<Record<string, string>>({});
 
-  // Check if first launch
+  // Load persisted settings + check if first launch
   useEffect(() => {
+    invoke<AppSettings>("get_settings").then((saved) => {
+      setSettings((prev) => ({ ...prev, ...saved }));
+    }).catch(() => {});
+
     invoke<{ has_whisper: boolean; has_llm: boolean; has_llama_server: boolean; has_tts: boolean; has_espeak: boolean }>(
       "check_setup_complete"
     ).then((s) => {
@@ -52,6 +56,17 @@ function App() {
       setShowWizard(false);
     });
   }, []);
+
+  // Persist settings to disk on change
+  const settingsLoaded = useRef(false);
+  useEffect(() => {
+    // Skip the initial render with DEFAULT_SETTINGS
+    if (!settingsLoaded.current) {
+      settingsLoaded.current = true;
+      return;
+    }
+    invoke("save_settings", { newSettings: settings }).catch(() => {});
+  }, [settings]);
 
   const llm = useLlm();
   const stt = useStt();
@@ -108,7 +123,9 @@ function App() {
       apiModel: s.geminiModel,
     }).then((result) => {
       explainCacheRef.current[msgId] = result;
-    }).catch(() => {});
+    }).catch((e) => {
+      console.error("[prefetch] explain_message failed:", e);
+    });
   }, []);
 
   // Wire up TTS chunk completion to reveal sentences
@@ -447,16 +464,22 @@ function App() {
               delete explainCacheRef.current[msgId];
               return cached;
             }
-            const result = await invoke<string>("explain_message", {
-              text,
-              language: settings.language,
-              nativeLanguage: settings.nativeLanguage,
-              provider: settings.llmProvider,
-              apiKey: settings.geminiApiKey,
-              apiModel: settings.geminiModel,
-            });
-            setExplanations((prev) => ({ ...prev, [msgId]: result }));
-            return result;
+            try {
+              const result = await invoke<string>("explain_message", {
+                text,
+                language: settings.language,
+                nativeLanguage: settings.nativeLanguage,
+                provider: settings.llmProvider,
+                apiKey: settings.geminiApiKey,
+                apiModel: settings.geminiModel,
+              });
+              setExplanations((prev) => ({ ...prev, [msgId]: result }));
+              return result;
+            } catch (e) {
+              const errMsg = `[Error: ${e}]`;
+              setExplanations((prev) => ({ ...prev, [msgId]: errMsg }));
+              return errMsg;
+            }
           }}
           onSuggest={async (msgId, text) => {
             const result = await invoke<string>("suggest_responses", {
@@ -470,7 +493,7 @@ function App() {
             setSuggestions((prev) => ({ ...prev, [msgId]: result }));
             return result;
           }}
-          onLookupWord={async (word, sentence) => {
+          onLookupWord={async (word, sentence, forceRefresh) => {
             const result = await invoke<string>("lookup_word", {
               word,
               sentence,
@@ -479,6 +502,7 @@ function App() {
               provider: settings.llmProvider,
               apiKey: settings.geminiApiKey,
               apiModel: settings.geminiModel,
+              forceRefresh: forceRefresh ?? false,
             });
             return result;
           }}

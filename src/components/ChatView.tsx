@@ -52,7 +52,7 @@ interface ChatViewProps {
   onReplay?: (text: string) => void;
   onExplain?: (msgId: string, text: string) => Promise<string>;
   onSuggest?: (msgId: string, text: string) => Promise<string>;
-  onLookupWord?: (word: string, sentence: string) => Promise<string>;
+  onLookupWord?: (word: string, sentence: string, forceRefresh?: boolean) => Promise<string>;
   explanations?: Record<string, string>;
   suggestions?: Record<string, string>;
 }
@@ -77,23 +77,22 @@ export function ChatView({
   const scrollRef = useRef<HTMLDivElement>(null);
   const [wordPopup, setWordPopup] = useState<{
     word: string;
+    sentence: string;
     definition: string | null;
     isLoading: boolean;
     position: { x: number; y: number };
   } | null>(null);
 
-  const handleWordClick = useCallback(async (word: string, sentence: string, rect: DOMRect) => {
+  const handleWordClick = useCallback(async (word: string, sentence: string, rect: DOMRect, forceRefresh?: boolean) => {
     if (!onLookupWord) return;
 
-    // Position popup below the word
     const x = Math.min(rect.left, window.innerWidth - 280);
     const y = rect.bottom + 8;
 
-    setWordPopup({ word, definition: null, isLoading: true, position: { x, y } });
+    setWordPopup({ word, sentence, definition: null, isLoading: true, position: { x, y } });
 
     try {
-      const def = await onLookupWord(word, sentence);
-      console.log("[lookup_word] result:", JSON.stringify(def));
+      const def = await onLookupWord(word, sentence, forceRefresh);
       setWordPopup((prev) => prev ? { ...prev, definition: def || null, isLoading: false } : null);
     } catch (e) {
       console.error("[lookup_word] error:", e);
@@ -228,6 +227,10 @@ export function ChatView({
           position={wordPopup.position}
           onClose={() => setWordPopup(null)}
           onReplay={onReplay}
+          onRefresh={() => {
+            const { word, sentence, position } = wordPopup;
+            handleWordClick(word, sentence, new DOMRect(position.x, position.y - 8, 100, 20), true);
+          }}
           playingText={playingText}
         />
       )}
@@ -384,6 +387,7 @@ function WordPopup({
   position,
   onClose,
   onReplay,
+  onRefresh,
   playingText,
 }: {
   word: string;
@@ -392,6 +396,7 @@ function WordPopup({
   position: { x: number; y: number };
   onClose: () => void;
   onReplay?: (text: string) => void;
+  onRefresh?: () => void;
   playingText?: string | null;
 }) {
   const popupRef = useRef<HTMLDivElement>(null);
@@ -431,6 +436,20 @@ function WordPopup({
                 <polygon points="5 3 19 12 5 21 5 3" />
               </svg>
             )}
+          </button>
+        )}
+        {onRefresh && !isLoading && (
+          <button
+            onClick={onRefresh}
+            className="p-0.5 rounded hover:bg-[var(--primary)]/20 transition-colors"
+            title="Re-translate"
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-[var(--text-secondary)]">
+              <path d="M21 2v6h-6" />
+              <path d="M3 12a9 9 0 0 1 15-6.7L21 8" />
+              <path d="M3 22v-6h6" />
+              <path d="M21 12a9 9 0 0 1-15 6.7L3 16" />
+            </svg>
           </button>
         )}
       </div>

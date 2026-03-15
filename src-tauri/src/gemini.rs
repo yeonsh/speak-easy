@@ -59,11 +59,19 @@ pub fn list_gemini_models(api_key: String) -> Result<Vec<GeminiModelOption>, Str
 // ── Gemini API types ──
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct GeminiThinkingConfig {
+    thinking_budget: u32,
+}
+
+#[derive(Debug, Serialize)]
 struct GeminiRequest {
     contents: Vec<GeminiContent>,
     #[serde(skip_serializing_if = "Option::is_none")]
     system_instruction: Option<GeminiInstruction>,
     generation_config: GeminiGenConfig,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    thinking_config: Option<GeminiThinkingConfig>,
 }
 
 #[derive(Debug, Serialize)]
@@ -109,6 +117,8 @@ struct GeminiContentResp {
 #[derive(Debug, Deserialize)]
 struct GeminiPartResp {
     text: Option<String>,
+    #[serde(default)]
+    thought: bool,
 }
 
 // ── Event types (same shape as chat.rs for frontend compatibility) ──
@@ -188,6 +198,13 @@ pub fn complete_text(
         model, api_key
     );
 
+    // Only include thinkingConfig for models that support it (2.5 series)
+    let thinking_config = if model.contains("2.5") {
+        Some(GeminiThinkingConfig { thinking_budget: 0 })
+    } else {
+        None
+    };
+
     let body = GeminiRequest {
         contents: vec![GeminiContent {
             role: "user".to_string(),
@@ -197,6 +214,7 @@ pub fn complete_text(
             parts: vec![GeminiPart { text: system_prompt.to_string() }],
         }),
         generation_config: GeminiGenConfig { temperature, max_output_tokens: max_tokens },
+        thinking_config,
     };
 
     let body_str = serde_json::to_string(&body).map_err(|e| e.to_string())?;
@@ -216,8 +234,12 @@ pub fn complete_text(
         .and_then(|c| c.into_iter().next())
         .and_then(|c| c.content)
         .and_then(|c| c.parts)
-        .and_then(|p| p.into_iter().next())
-        .and_then(|p| p.text)
+        .and_then(|parts| {
+            // Filter out thinking/thought parts, use only actual response
+            parts.into_iter()
+                .filter(|p| !p.thought)
+                .find_map(|p| p.text)
+        })
         .unwrap_or_default();
 
     Ok(text)
@@ -254,6 +276,7 @@ pub fn send_chat_gemini(
             temperature: temp,
             max_output_tokens: 2048,
         },
+        thinking_config: None,
     };
 
     let url = format!(
@@ -340,8 +363,11 @@ pub fn send_chat_gemini(
                             .and_then(|c| c.into_iter().next())
                             .and_then(|c| c.content)
                             .and_then(|c| c.parts)
-                            .and_then(|p| p.into_iter().next())
-                            .and_then(|p| p.text);
+                            .and_then(|parts| {
+                                parts.into_iter()
+                                    .filter(|p| !p.thought)
+                                    .find_map(|p| p.text)
+                            });
 
                         if let Some(content) = text {
                             let _ = app.emit(&event_name, StreamDelta {

@@ -548,12 +548,15 @@ pub async fn explain_message(
     provider: Option<String>,
     api_key: Option<String>,
     api_model: Option<String>,
+    force_refresh: Option<bool>,
 ) -> Result<String, String> {
     let native_code = native_language.as_deref().unwrap_or("ko");
 
     // Check DB cache
-    if let Some(cached) = db.get("translate", &text, &language, native_code) {
-        return Ok(cached);
+    if !force_refresh.unwrap_or(false) {
+        if let Some(cached) = db.get("translate", &text, &language, native_code) {
+            return Ok(cached);
+        }
     }
 
     let port = *state.port.lock().unwrap();
@@ -561,19 +564,19 @@ pub async fn explain_message(
     let key = api_key.as_deref().unwrap_or("");
     let model = api_model.as_deref().unwrap_or("");
 
-    let native_lang = match native_code {
-        "en" => "English",
-        _ => "Korean (한국어)",
-    };
+    let native_lang = lang_name(native_code);
+    let target_lang = lang_name(&language);
 
     let system_prompt = format!(
         "Translate the following {} sentence into {}. \
          Return ONLY the {} translation, nothing else. \
          No explanations, no original text, no formatting.",
-        language, native_lang, native_lang
+        target_lang, native_lang, native_lang
     );
 
+    eprintln!("[explain_message] provider={}, lang={}, native={}, text_len={}", prov, language, native_code, text.len());
     let result = complete_with_provider(port, prov, key, model, &system_prompt, &text, 0.3, 1024)?;
+    eprintln!("[explain_message] result_len={}", result.len());
     db.put("translate", &text, &language, native_code, &result);
     Ok(result)
 }
@@ -676,11 +679,14 @@ pub async fn lookup_word(
     provider: Option<String>,
     api_key: Option<String>,
     api_model: Option<String>,
+    force_refresh: Option<bool>,
 ) -> Result<String, String> {
     // Check DB cache
-    if let Some(cached) = db.get("word", &word, &target_language, &native_language) {
-        eprintln!("[lookup_word] cache hit: '{}'", word);
-        return Ok(cached);
+    if !force_refresh.unwrap_or(false) {
+        if let Some(cached) = db.get("word", &word, &target_language, &native_language) {
+            eprintln!("[lookup_word] cache hit: '{}'", word);
+            return Ok(cached);
+        }
     }
 
     let port = *state.port.lock().unwrap();
@@ -690,23 +696,42 @@ pub async fn lookup_word(
 
     let target_lang_name = lang_name(&target_language);
     let native_lang_name = lang_name(&native_language);
+    let is_single_word = !word.contains(' ');
 
-    let system_prompt = format!(
-        "You are a {target_lang_name}-{native_lang_name} dictionary. \
-         Explain the meaning of a {target_lang_name} word to a {native_lang_name} speaker. \
-         Respond in {native_lang_name}. Be concise (2-3 lines max). No markdown."
-    );
+    let (system_prompt, user_prompt) = if is_single_word {
+        (
+            format!(
+                "Translate the {target_lang_name} word into {native_lang_name}. \
+                 Return ONLY the translation. No explanations, no formatting."
+            ),
+            word.clone(),
+        )
+    } else {
+        (
+            format!(
+                "You are a {target_lang_name}-{native_lang_name} dictionary. \
+                 Explain the meaning of the {target_lang_name} text to a {native_lang_name} speaker. \
+                 Respond in {native_lang_name}. Be concise (2-3 lines max). No markdown."
+            ),
+            format!(
+                "Text: \"{word}\"\nSentence: \"{sentence}\"\n\n\
+                 1) Meaning in {native_lang_name}\n\
+                 2) Grammar if useful\n\
+                 3) Example sentence if helpful"
+            ),
+        )
+    };
 
-    let user_prompt = format!(
-        "Word: \"{word}\"\nSentence: \"{sentence}\"\n\n\
-         1) Meaning of \"{word}\" in {native_lang_name}\n\
-         2) Grammar (part of speech, conjugation, etc.) if useful\n\
-         3) Example sentence if helpful"
-    );
+    // Use cheaper/faster model for single-word translations with Gemini
+    let effective_model = if is_single_word && prov == "gemini" {
+        "gemini-3.1-flash-lite-preview"
+    } else {
+        model
+    };
 
-    eprintln!("[lookup_word] word='{}' sentence='{}'", word, sentence.chars().take(60).collect::<String>());
+    eprintln!("[lookup_word] word='{}' single={} model={}", word, is_single_word, effective_model);
 
-    let result = complete_with_provider(port, prov, key, model, &system_prompt, &user_prompt, 0.3, 2048)?;
+    let result = complete_with_provider(port, prov, key, effective_model, &system_prompt, &user_prompt, 0.3, 2048)?;
     db.put("word", &word, &target_language, &native_language, &result);
     Ok(result)
 }
