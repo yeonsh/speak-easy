@@ -402,7 +402,7 @@ function App() {
                 currentRequestIdRef.current = null;
               }
 
-              const text = await stt.stopAndTranscribe(settings.language);
+              const text = await stt.stopAndTranscribe();
               if (text) {
                 sendToLlm(text);
               }

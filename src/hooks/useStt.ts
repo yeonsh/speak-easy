@@ -1,26 +1,6 @@
 import { useState, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useAudioRecorder } from "./useAudioRecorder";
-import type { Language } from "../lib/types";
-
-const LANGUAGE_WHISPER_CODES: Record<Language, string> = {
-  en: "en",
-  es: "es",
-  fr: "fr",
-  zh: "zh",
-  ja: "ja",
-  de: "de",
-  ko: "ko",
-  pt: "pt",
-  it: "it",
-  ru: "ru",
-  ar: "ar",
-  hi: "hi",
-  tr: "tr",
-  id: "id",
-  vi: "vi",
-  pl: "pl",
-};
 
 interface UseSttReturn {
   isModelLoaded: boolean;
@@ -29,7 +9,7 @@ interface UseSttReturn {
   error: string | null;
   loadModel: (modelSize?: string) => Promise<void>;
   startRecording: () => Promise<void>;
-  stopAndTranscribe: (language: Language) => Promise<string | null>;
+  stopAndTranscribe: () => Promise<string | null>;
 }
 
 export function useStt(): UseSttReturn {
@@ -57,7 +37,7 @@ export function useStt(): UseSttReturn {
   }, [recorder]);
 
   const stopAndTranscribe = useCallback(
-    async (language: Language): Promise<string | null> => {
+    async (): Promise<string | null> => {
       setError(null);
       setIsTranscribing(true);
 
@@ -85,7 +65,7 @@ export function useStt(): UseSttReturn {
           "transcribe_audio",
           {
             audioData: samples,
-            language: LANGUAGE_WHISPER_CODES[language],
+            language: null, // auto-detect: allows native language fallback (L1 Safety Net)
           },
         );
 
