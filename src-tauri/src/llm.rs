@@ -101,9 +101,11 @@ pub fn start_llm_server(
     model_path: Option<String>,
     gpu_layers: Option<i32>,
 ) -> Result<u16, String> {
-    // Already running?
+    // Already running? Re-emit ready event so frontend can sync state after hot-reload.
     if is_llm_running(state.clone()) {
-        return Ok(*state.port.lock().unwrap());
+        let port = *state.port.lock().unwrap();
+        let _ = app.emit("llm-ready", true);
+        return Ok(port);
     }
 
     let model = match model_path {

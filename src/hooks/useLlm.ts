@@ -30,6 +30,7 @@ export function useLlm(): UseLlmReturn {
   const onComplete = useRef<((fullText: string) => void) | null>(null);
   const unlistenRef = useRef<UnlistenFn | null>(null);
   const currentRequestIdRef = useRef<string | null>(null);
+  const startTimeRef = useRef<number | null>(null);
 
   useEffect(() => {
     // Listen for server ready event
@@ -37,19 +38,46 @@ export function useLlm(): UseLlmReturn {
     listen<boolean>("llm-ready", () => {
       setIsServerRunning(true);
       setIsServerStarting(false);
+      startTimeRef.current = null;
     }).then((u) => {
       unlisten = u;
     });
+
+    // Also check backend state on mount (handles hot-reload where server is already running)
+    invoke<boolean>("is_llm_running").then((running) => {
+      if (running) {
+        setIsServerRunning(true);
+        setIsServerStarting(false);
+      }
+    }).catch(() => {});
 
     return () => {
       unlisten?.();
     };
   }, []);
 
+  // Startup timeout: if still "starting" after 30s, stop and report error
+  useEffect(() => {
+    if (!isServerStarting) return;
+    if (!startTimeRef.current) startTimeRef.current = Date.now();
+
+    const timer = setTimeout(() => {
+      if (isServerStarting && !isServerRunning) {
+        invoke("stop_llm_server").catch(() => {});
+        setIsServerStarting(false);
+        setServerError("LLM server startup timed out. Try restarting.");
+        startTimeRef.current = null;
+      }
+    }, 30000);
+
+    return () => clearTimeout(timer);
+  }, [isServerStarting, isServerRunning]);
+
   const startServer = useCallback(
     async (modelPath?: string, gpuLayers?: number) => {
       setIsServerStarting(true);
       setServerError(null);
+      startTimeRef.current = Date.now();
       try {
         await invoke("start_llm_server", {
           modelPath: modelPath ?? null,
@@ -58,6 +86,7 @@ export function useLlm(): UseLlmReturn {
       } catch (e) {
         setServerError(String(e));
         setIsServerStarting(false);
+        startTimeRef.current = null;
       }
     },
     [],

@@ -32,6 +32,7 @@ export interface AppSettings {
   ttsVoice: string;
   gpuLayers: number;
   whisperModel: "base" | "small";
+  llmModel: string;
 }
 
 export const LANGUAGE_CONFIG: Record<
@@ -67,4 +68,5 @@ export const DEFAULT_SETTINGS: AppSettings = {
   ttsVoice: "default",
   gpuLayers: -1,
   whisperModel: "base",
+  llmModel: "",
 };

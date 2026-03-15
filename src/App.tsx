@@ -36,6 +36,7 @@ function App() {
   const currentRequestIdRef = useRef<string | null>(null);
   const [explanations, setExplanations] = useState<Record<string, string>>({});
   const [suggestions, setSuggestions] = useState<Record<string, string>>({});
+  const [playingText, setPlayingText] = useState<string | null>(null);
 
   // Check if first launch
   useEffect(() => {
@@ -52,12 +53,23 @@ function App() {
   const stt = useStt();
   const tts = useTts();
 
+  // Clear playingText when TTS finishes
+  useEffect(() => {
+    if (!tts.isSpeaking) setPlayingText(null);
+  }, [tts.isSpeaking]);
+
   // Auto-load LLM, STT, TTS when entering main screen
   useEffect(() => {
     if (showWizard !== false) return;
 
     if (!llm.isServerRunning && !llm.isServerStarting) {
-      llm.startServer(undefined, settings.gpuLayers);
+      if (settings.llmModel) {
+        invoke<string>("get_models_dir").then((dir) => {
+          llm.startServer(`${dir}/${settings.llmModel}`, settings.gpuLayers);
+        }).catch(() => llm.startServer(undefined, settings.gpuLayers));
+      } else {
+        llm.startServer(undefined, settings.gpuLayers);
+      }
     }
     if (!stt.isModelLoaded) {
       stt.loadModel(settings.whisperModel);
@@ -334,6 +346,15 @@ function App() {
             tts.speak(samples[settings.language], settings.ttsSpeed, settings.language);
           });
         }}
+        onModelChange={async (filename) => {
+          try {
+            await llm.stopServer();
+            const modelsDir = await invoke<string>("get_models_dir");
+            await llm.startServer(`${modelsDir}/${filename}`, settings.gpuLayers);
+          } catch (e) {
+            console.error("Model switch failed:", e);
+          }
+        }}
       />
 
       <div className="flex flex-col flex-1 h-full">
@@ -379,8 +400,10 @@ function App() {
           nativeLanguage={settings.nativeLanguage}
           scenarios={settings.mode === "scenario" ? getScenarioStarters(settings.language, settings.nativeLanguage) : undefined}
           onScenarioSelect={handleScenarioSelect}
+          playingText={playingText}
           onReplay={(text) => {
             if (tts.isLoaded) {
+              setPlayingText(text);
               tts.speak(text, settings.ttsSpeed, settings.language);
             }
           }}

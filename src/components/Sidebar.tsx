@@ -1,8 +1,29 @@
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import type { AppSettings, Language, NativeLanguage, TtsEngine } from "../lib/types";
 import { LANGUAGE_CONFIG } from "../lib/types";
 import { t } from "../lib/i18n";
+
+interface LocalModel {
+  filename: string;
+  size_bytes: number;
+}
+
+interface ModelInfo {
+  id: string;
+  name: string;
+  size_bytes: number;
+  url: string;
+  dest_dir: string;
+  filename: string;
+}
+
+function formatSize(bytes: number): string {
+  if (bytes >= 1e9) return `${(bytes / 1e9).toFixed(1)}GB`;
+  if (bytes >= 1e6) return `${(bytes / 1e6).toFixed(0)}MB`;
+  return `${(bytes / 1e3).toFixed(0)}KB`;
+}
 
 // Voice name prefix → language mapping
 const VOICE_LANG_PREFIX: Record<string, { lang: Language; label: string }> = {
@@ -43,6 +64,7 @@ interface SidebarProps {
   onClearChat: () => void;
   onOpenSetup?: () => void;
   onPreviewVoice?: (voiceName: string) => void;
+  onModelChange?: (modelPath: string) => void;
 }
 
 export function Sidebar({
@@ -53,14 +75,58 @@ export function Sidebar({
   onClearChat,
   onOpenSetup,
   onPreviewVoice,
+  onModelChange,
 }: SidebarProps) {
   const [voices, setVoices] = useState<string[]>([]);
+  const [localModels, setLocalModels] = useState<LocalModel[]>([]);
+  const [availableModels, setAvailableModels] = useState<ModelInfo[]>([]);
+  const [downloading, setDownloading] = useState<{ id: string; progress: number; total: number | null } | null>(null);
+
+  const refreshModels = () => {
+    invoke<LocalModel[]>("list_llm_models").then(setLocalModels).catch(() => {});
+  };
 
   useEffect(() => {
     if (isOpen) {
       invoke<string[]>("list_voices").then(setVoices).catch(() => {});
+      refreshModels();
+      invoke<ModelInfo[]>("get_available_models").then((all) => {
+        setAvailableModels(all.filter((m) => m.id.startsWith("llm-")));
+      }).catch(() => {});
     }
   }, [isOpen]);
+
+  const downloadModel = async (model: ModelInfo) => {
+    const downloadId = `llm-download-${Date.now()}`;
+    setDownloading({ id: downloadId, progress: 0, total: model.size_bytes });
+
+    const unlisteners: UnlistenFn[] = [];
+    unlisteners.push(await listen<{ downloaded: number; total: number | null }>(`download-progress-${downloadId}`, (e) => {
+      setDownloading((prev) => prev ? { ...prev, progress: e.payload.downloaded, total: e.payload.total ?? prev.total } : null);
+    }));
+    unlisteners.push(await listen<string>(`download-complete-${downloadId}`, () => {
+      setDownloading(null);
+      unlisteners.forEach((u) => u());
+      refreshModels();
+      // Auto-select the downloaded model
+      onSettingsChange({ ...settings, llmModel: model.filename });
+      onModelChange?.(model.filename);
+    }));
+    unlisteners.push(await listen<string>(`download-error-${downloadId}`, () => {
+      setDownloading(null);
+      unlisteners.forEach((u) => u());
+    }));
+
+    invoke("download_file", {
+      url: model.url,
+      destDir: model.dest_dir,
+      filename: model.filename,
+      downloadId,
+    }).catch(() => {
+      setDownloading(null);
+      unlisteners.forEach((u) => u());
+    });
+  };
 
   // Filter voices for the current language
   const filteredVoices = settings.ttsEngine === "edge"
@@ -159,6 +225,64 @@ export function Sidebar({
             <span className="text-sm text-[var(--text-secondary)]">
               {settings.llmTemperature.toFixed(1)}
             </span>
+          </SettingGroup>
+
+          <SettingGroup label={t("llmModel", settings.nativeLanguage)}>
+            {/* Local models */}
+            {localModels.length > 0 && (
+              <select
+                value={settings.llmModel || localModels[0]?.filename || ""}
+                onChange={(e) => {
+                  const filename = e.target.value;
+                  onSettingsChange({ ...settings, llmModel: filename });
+                  onModelChange?.(filename);
+                }}
+                className="w-full bg-[var(--bg-elevated)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm"
+              >
+                {localModels.map((m) => (
+                  <option key={m.filename} value={m.filename}>
+                    {m.filename} ({formatSize(m.size_bytes)})
+                  </option>
+                ))}
+              </select>
+            )}
+            {localModels.length === 0 && !downloading && (
+              <p className="text-xs text-[var(--text-secondary)] italic">{t("noModelsInstalled", settings.nativeLanguage)}</p>
+            )}
+
+            {/* Download progress */}
+            {downloading && (
+              <div className="mt-2">
+                <div className="w-full h-2 bg-[var(--bg-elevated)] rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-[var(--primary)] transition-all duration-300"
+                    style={{ width: `${downloading.total ? (downloading.progress / downloading.total) * 100 : 0}%` }}
+                  />
+                </div>
+                <p className="text-xs text-[var(--text-secondary)] mt-1">
+                  {formatSize(downloading.progress)} / {downloading.total ? formatSize(downloading.total) : "..."}
+                </p>
+              </div>
+            )}
+
+            {/* Downloadable models */}
+            {!downloading && availableModels.filter((m) => !localModels.some((l) => l.filename === m.filename)).length > 0 && (
+              <div className="mt-2 space-y-1.5">
+                <p className="text-xs text-[var(--text-secondary)]">{t("downloadableModels", settings.nativeLanguage)}</p>
+                {availableModels
+                  .filter((m) => !localModels.some((l) => l.filename === m.filename))
+                  .map((m) => (
+                    <button
+                      key={m.id}
+                      onClick={() => downloadModel(m)}
+                      className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-[var(--bg-elevated)] border border-[var(--border)] hover:border-[var(--primary)] transition-colors text-sm"
+                    >
+                      <span className="truncate">{m.name}</span>
+                      <span className="text-xs text-[var(--text-secondary)] shrink-0 ml-2">{formatSize(m.size_bytes)}</span>
+                    </button>
+                  ))}
+              </div>
+            )}
           </SettingGroup>
 
           <SettingGroup label={t("ttsEngine", settings.nativeLanguage)}>
@@ -262,14 +386,6 @@ export function Sidebar({
             )}
           </div>
 
-          <div className="pt-4 border-t border-[var(--border)]">
-            <h3 className="text-sm font-medium text-[var(--text-secondary)] mb-2">
-              {t("modelManagement", settings.nativeLanguage)}
-            </h3>
-            <p className="text-xs text-[var(--text-secondary)] opacity-60">
-              {t("modelManagementHint", settings.nativeLanguage)}
-            </p>
-          </div>
         </div>
       </div>
     </>

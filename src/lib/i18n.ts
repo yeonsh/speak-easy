@@ -100,11 +100,23 @@ const strings = {
     it: "Configurazione guidata", ru: "Мастер настройки", ar: "معالج الإعداد", hi: "सेटअप विज़ार्ड",
     tr: "Kurulum sihirbazı", id: "Panduan pengaturan", vi: "Trình hướng dẫn cài đặt", pl: "Kreator konfiguracji",
   },
-  modelManagement: {
-    en: "Model Management", ko: "모델 관리", es: "Gestión de modelos", fr: "Gestion des modèles",
-    zh: "模型管理", ja: "モデル管理", de: "Modellverwaltung", pt: "Gerenciamento de modelos",
-    it: "Gestione modelli", ru: "Управление моделями", ar: "إدارة النماذج", hi: "मॉडल प्रबंधन",
-    tr: "Model yönetimi", id: "Manajemen model", vi: "Quản lý mô hình", pl: "Zarządzanie modelami",
+  llmModel: {
+    en: "LLM Model", ko: "LLM 모델", es: "Modelo LLM", fr: "Modèle LLM",
+    zh: "LLM 模型", ja: "LLMモデル", de: "LLM-Modell", pt: "Modelo LLM",
+    it: "Modello LLM", ru: "Модель LLM", ar: "نموذج LLM", hi: "LLM मॉडल",
+    tr: "LLM Modeli", id: "Model LLM", vi: "Mô hình LLM", pl: "Model LLM",
+  },
+  noModelsInstalled: {
+    en: "No models installed", ko: "설치된 모델 없음", es: "Sin modelos instalados", fr: "Aucun modèle installé",
+    zh: "未安装模型", ja: "モデル未インストール", de: "Keine Modelle installiert", pt: "Nenhum modelo instalado",
+    it: "Nessun modello installato", ru: "Нет установленных моделей", ar: "لا توجد نماذج مثبتة", hi: "कोई मॉडल इंस्टॉल नहीं",
+    tr: "Yüklü model yok", id: "Tidak ada model terpasang", vi: "Chưa cài mô hình", pl: "Brak zainstalowanych modeli",
+  },
+  downloadableModels: {
+    en: "Download a model:", ko: "모델 다운로드:", es: "Descargar modelo:", fr: "Télécharger un modèle :",
+    zh: "下载模型：", ja: "モデルをダウンロード：", de: "Modell herunterladen:", pt: "Baixar modelo:",
+    it: "Scarica modello:", ru: "Скачать модель:", ar: "تحميل نموذج:", hi: "मॉडल डाउनलोड करें:",
+    tr: "Model indir:", id: "Unduh model:", vi: "Tải mô hình:", pl: "Pobierz model:",
   },
   modelManagementHint: {
     en: "Model download and management coming in Phase 5.",

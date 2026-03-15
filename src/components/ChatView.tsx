@@ -1,9 +1,24 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import Markdown from "react-markdown";
 import type { Language, Message, NativeLanguage } from "../lib/types";
 import { LANGUAGE_CONFIG } from "../lib/types";
 import type { ScenarioStarter } from "../lib/prompts";
 import { t } from "../lib/i18n";
+
+/** Parse numbered suggestion responses like "1. Hola\n(한국어: Hi)\n\n2. Buenos días\n(한국어: Good morning)" */
+function parseSuggestions(text: string): { target: string; translation: string }[] {
+  const items: { target: string; translation: string }[] = [];
+  // Split by numbered prefix: "1. ", "2. ", etc.
+  const parts = text.split(/\d+\.\s+/).filter(Boolean);
+  for (const part of parts) {
+    const lines = part.trim().split("\n").filter(Boolean);
+    const target = lines[0]?.trim() || "";
+    // Translation line is usually in parentheses: (한국어: ...)
+    const transLine = lines.find((l) => /^\(/.test(l.trim()));
+    const translation = transLine?.trim().replace(/^\(|\)$/g, "") || "";
+    if (target) items.push({ target, translation });
+  }
+  return items.length > 0 ? items : [{ target: text, translation: "" }];
+}
 
 const EMPTY_HINTS: Record<Language, string> = {
   en: "Say \"Hello\" to start a conversation",
@@ -33,6 +48,7 @@ interface ChatViewProps {
   nativeLanguage?: NativeLanguage;
   scenarios?: ScenarioStarter[];
   onScenarioSelect?: (scenario: ScenarioStarter | null) => void;
+  playingText?: string | null;
   onReplay?: (text: string) => void;
   onExplain?: (msgId: string, text: string) => Promise<string>;
   onSuggest?: (msgId: string, text: string) => Promise<string>;
@@ -50,6 +66,7 @@ export function ChatView({
   nativeLanguage = "ko",
   scenarios,
   onScenarioSelect,
+  playingText,
   onReplay,
   onExplain,
   onSuggest,
@@ -76,9 +93,11 @@ export function ChatView({
 
     try {
       const def = await onLookupWord(word, sentence);
-      setWordPopup((prev) => prev ? { ...prev, definition: def, isLoading: false } : null);
-    } catch {
-      setWordPopup((prev) => prev ? { ...prev, definition: "...", isLoading: false } : null);
+      console.log("[lookup_word] result:", JSON.stringify(def));
+      setWordPopup((prev) => prev ? { ...prev, definition: def || null, isLoading: false } : null);
+    } catch (e) {
+      console.error("[lookup_word] error:", e);
+      setWordPopup((prev) => prev ? { ...prev, definition: null, isLoading: false } : null);
     }
   }, [onLookupWord]);
 
@@ -152,15 +171,7 @@ export function ChatView({
             <WordClickableText text={msg.content} onWordClick={handleWordClick} />
             {msg.tutorTarget && onReplay && (
               <div className="flex gap-1 mt-1.5">
-                <button
-                  onClick={() => onReplay(msg.tutorTarget!)}
-                  className="p-1 rounded hover:bg-emerald-500/20 transition-colors opacity-60 hover:opacity-100"
-                  title={t("replay", nativeLanguage)}
-                >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <polygon points="5 3 19 12 5 21 5 3" />
-                  </svg>
-                </button>
+                <PlayButton text={msg.tutorTarget} playingText={playingText} onReplay={onReplay} nativeLanguage={nativeLanguage} className="hover:bg-emerald-500/20" />
                 <CopyButton text={msg.content} nativeLanguage={nativeLanguage} />
               </div>
             )}
@@ -177,6 +188,7 @@ export function ChatView({
           key={msg.id}
           message={msg}
           nativeLanguage={nativeLanguage}
+          playingText={playingText}
           onReplay={onReplay}
           onExplain={onExplain}
           onSuggest={onSuggest}
@@ -295,10 +307,40 @@ function WordPopup({
         <div className="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
           <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
         </div>
-      ) : (
+      ) : definition ? (
         <p className="text-sm text-[var(--text-primary)] whitespace-pre-wrap">{definition}</p>
+      ) : (
+        <p className="text-sm text-[var(--text-secondary)] italic">—</p>
       )}
     </div>
+  );
+}
+
+function PlayButton({ text, playingText, onReplay, nativeLanguage, className }: {
+  text: string;
+  playingText?: string | null;
+  onReplay: (text: string) => void;
+  nativeLanguage: NativeLanguage;
+  className?: string;
+}) {
+  const isPlaying = playingText === text;
+  return (
+    <button
+      onClick={() => onReplay(text)}
+      className={`p-1 rounded transition-colors ${className || "hover:bg-black/10"} ${isPlaying ? "opacity-90 text-[var(--primary)]" : "opacity-40 hover:opacity-80"}`}
+      title={t("replay", nativeLanguage)}
+    >
+      {isPlaying ? (
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <rect x="4" y="4" width="6" height="16" rx="1" />
+          <rect x="14" y="4" width="6" height="16" rx="1" />
+        </svg>
+      ) : (
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <polygon points="5 3 19 12 5 21 5 3" />
+        </svg>
+      )}
+    </button>
   );
 }
 
@@ -332,6 +374,7 @@ function CopyButton({ text, nativeLanguage, light }: { text: string; nativeLangu
 function MessageBubble({
   message,
   nativeLanguage = "ko",
+  playingText,
   onReplay,
   onExplain,
   onSuggest,
@@ -341,6 +384,7 @@ function MessageBubble({
 }: {
   message: Message;
   nativeLanguage?: NativeLanguage;
+  playingText?: string | null;
   onReplay?: (text: string) => void;
   onExplain?: (msgId: string, text: string) => Promise<string>;
   onSuggest?: (msgId: string, text: string) => Promise<string>;
@@ -388,30 +432,14 @@ function MessageBubble({
         )}
         {isUser && onReplay && (
           <div className="flex gap-1 mt-1.5">
-            <button
-              onClick={() => onReplay(message.content)}
-              className="p-1 rounded hover:bg-white/20 transition-colors opacity-40 hover:opacity-80"
-              title={t("replay", nativeLanguage)}
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <polygon points="5 3 19 12 5 21 5 3" />
-              </svg>
-            </button>
+            <PlayButton text={message.content} playingText={playingText} onReplay={onReplay} nativeLanguage={nativeLanguage} className="hover:bg-white/20" />
             <CopyButton text={message.content} nativeLanguage={nativeLanguage} light />
           </div>
         )}
         {!isUser && (onReplay || onExplain || onSuggest) && (
           <div className="flex gap-1 mt-1.5">
             {onReplay && (
-              <button
-                onClick={() => onReplay(message.content)}
-                className="p-1 rounded hover:bg-black/10 transition-colors opacity-40 hover:opacity-80"
-                title={t("replay", nativeLanguage)}
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <polygon points="5 3 19 12 5 21 5 3" />
-                </svg>
-              </button>
+              <PlayButton text={message.content} playingText={playingText} onReplay={onReplay} nativeLanguage={nativeLanguage} />
             )}
             {onExplain && (
               <button
@@ -425,10 +453,13 @@ function MessageBubble({
                 {isExplaining ? (
                   <div className="w-[14px] h-[14px] border-2 border-current border-t-transparent rounded-full animate-spin" />
                 ) : (
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <circle cx="12" cy="12" r="10" />
-                    <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
-                    <line x1="12" y1="17" x2="12.01" y2="17" />
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="m5 8 6 6" />
+                    <path d="m4 14 6-6 2-3" />
+                    <path d="M2 5h12" />
+                    <path d="M7 2h1" />
+                    <path d="m22 22-5-10-5 10" />
+                    <path d="M14 18h6" />
                   </svg>
                 )}
               </button>
@@ -473,8 +504,20 @@ function MessageBubble({
         </div>
       )}
       {suggestion && (
-        <div className="max-w-[80%] mt-1 px-4 py-3 rounded-2xl rounded-tl-md bg-[var(--bg-surface)] border border-[var(--border)] text-sm text-[var(--text-primary)] prose prose-sm prose-invert max-w-none">
-          <Markdown>{suggestion}</Markdown>
+        <div className="max-w-[80%] mt-1 px-4 py-3 rounded-2xl rounded-tl-md bg-[var(--bg-surface)] border border-[var(--border)] text-sm text-[var(--text-primary)] space-y-3">
+          {parseSuggestions(suggestion).map((item, i) => (
+            <div key={i}>
+              <div className="flex items-start gap-1.5">
+                {onReplay && (
+                  <PlayButton text={item.target} playingText={playingText} onReplay={onReplay} nativeLanguage={nativeLanguage} className="mt-0.5 !p-0.5 hover:bg-black/10 shrink-0" />
+                )}
+                <span className="font-medium">{item.target}</span>
+              </div>
+              {item.translation && (
+                <p className="text-xs text-[var(--text-secondary)] mt-0.5 ml-5">{item.translation}</p>
+              )}
+            </div>
+          ))}
         </div>
       )}
     </div>

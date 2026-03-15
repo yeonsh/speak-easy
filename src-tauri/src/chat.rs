@@ -470,6 +470,22 @@ struct CompletionChoice {
 #[derive(Debug, Deserialize)]
 struct CompletionMessage {
     content: Option<String>,
+    reasoning_content: Option<String>,
+}
+
+/// Extract the best available text from a completion response.
+/// Prefers `content`; falls back to `reasoning_content` for reasoning models.
+fn extract_completion_text(resp: CompletionResponse) -> String {
+    let msg = resp
+        .choices
+        .and_then(|c| c.into_iter().next())
+        .and_then(|c| c.message);
+    msg.as_ref()
+        .and_then(|m| m.content.as_deref())
+        .filter(|s| !s.is_empty())
+        .or_else(|| msg.as_ref().and_then(|m| m.reasoning_content.as_deref()))
+        .unwrap_or("")
+        .to_string()
 }
 
 #[tauri::command]
@@ -522,12 +538,7 @@ pub async fn explain_message(
                     Ok(body_text) => {
                         match serde_json::from_str::<CompletionResponse>(&body_text) {
                             Ok(parsed) => {
-                                let content = parsed
-                                    .choices
-                                    .and_then(|c| c.into_iter().next())
-                                    .and_then(|c| c.message)
-                                    .and_then(|m| m.content)
-                                    .unwrap_or_default();
+                                let content = extract_completion_text(parsed);
                                 Ok(content)
                             }
                             Err(e) => Err(format!("Parse error: {}", e)),
@@ -583,7 +594,7 @@ pub async fn suggest_responses(
         ],
         "temperature": 0.7,
         "stream": false,
-        "max_tokens": 512,
+        "max_tokens": 2048,
     });
 
     let body_str = body.to_string();
@@ -600,12 +611,7 @@ pub async fn suggest_responses(
                     Ok(body_text) => {
                         match serde_json::from_str::<CompletionResponse>(&body_text) {
                             Ok(parsed) => {
-                                let content = parsed
-                                    .choices
-                                    .and_then(|c| c.into_iter().next())
-                                    .and_then(|c| c.message)
-                                    .and_then(|m| m.content)
-                                    .unwrap_or_default();
+                                let content = extract_completion_text(parsed);
                                 Ok(content)
                             }
                             Err(e) => Err(format!("Parse error: {}", e)),
@@ -676,7 +682,7 @@ pub async fn tutor_translate(
         ],
         "temperature": 0.3,
         "stream": false,
-        "max_tokens": 512,
+        "max_tokens": 2048,
     });
 
     let body_str = body.to_string();
@@ -693,12 +699,7 @@ pub async fn tutor_translate(
                     Ok(body_text) => {
                         match serde_json::from_str::<CompletionResponse>(&body_text) {
                             Ok(parsed) => {
-                                let content = parsed
-                                    .choices
-                                    .and_then(|c| c.into_iter().next())
-                                    .and_then(|c| c.message)
-                                    .and_then(|m| m.content)
-                                    .unwrap_or_default();
+                                let content = extract_completion_text(parsed);
                                 Ok(content)
                             }
                             Err(e) => Err(format!("Parse error: {}", e)),
@@ -734,24 +735,30 @@ pub async fn lookup_word(
     let native_lang_name = lang_name(&native_language);
 
     let system_prompt = format!(
-        "You are a dictionary. The user is learning {target_lang_name}. \
-         They clicked on the word \"{word}\" in the sentence: \"{sentence}\". \
-         Explain the meaning of \"{word}\" briefly in {native_lang_name}. \
-         Include: the word's meaning, and one short example if helpful. \
-         Keep it under 3 lines. No markdown formatting."
+        "You are a {target_lang_name}-{native_lang_name} dictionary. \
+         Explain the meaning of a {target_lang_name} word to a {native_lang_name} speaker. \
+         Respond in {native_lang_name}. Be concise (2-3 lines max). No markdown."
+    );
+
+    let user_prompt = format!(
+        "Word: \"{word}\"\nSentence: \"{sentence}\"\n\n\
+         1) Meaning of \"{word}\" in {native_lang_name}\n\
+         2) Grammar (part of speech, conjugation, etc.) if useful\n\
+         3) Example sentence if helpful"
     );
 
     let body = serde_json::json!({
         "messages": [
             { "role": "system", "content": system_prompt },
-            { "role": "user", "content": word }
+            { "role": "user", "content": user_prompt }
         ],
         "temperature": 0.3,
         "stream": false,
-        "max_tokens": 256,
+        "max_tokens": 2048,
     });
 
     let body_str = body.to_string();
+    eprintln!("[lookup_word] word='{}' sentence='{}'", word, &sentence[..sentence.len().min(60)]);
     let (tx, rx) = mpsc::channel::<Result<String, String>>();
 
     std::thread::spawn(move || {
@@ -763,14 +770,11 @@ pub async fn lookup_word(
             Ok(response) => {
                 match response.into_body().read_to_string() {
                     Ok(body_text) => {
+                        eprintln!("[lookup_word] raw response: {}", body_text.chars().take(200).collect::<String>());
                         match serde_json::from_str::<CompletionResponse>(&body_text) {
                             Ok(parsed) => {
-                                let content = parsed
-                                    .choices
-                                    .and_then(|c| c.into_iter().next())
-                                    .and_then(|c| c.message)
-                                    .and_then(|m| m.content)
-                                    .unwrap_or_default();
+                                let content = extract_completion_text(parsed);
+                                eprintln!("[lookup_word] parsed content: '{}'", content.chars().take(100).collect::<String>());
                                 Ok(content)
                             }
                             Err(e) => Err(format!("Parse error: {}", e)),

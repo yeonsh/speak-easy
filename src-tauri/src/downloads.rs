@@ -103,6 +103,33 @@ pub fn get_available_models() -> Vec<ModelInfo> {
     ]
 }
 
+#[derive(Debug, Serialize, Clone)]
+pub struct LocalModel {
+    pub filename: String,
+    pub size_bytes: u64,
+}
+
+#[tauri::command]
+pub fn list_llm_models() -> Result<Vec<LocalModel>, String> {
+    let mdir = models_dir()?;
+    let mut models = Vec::new();
+    if let Ok(entries) = fs::read_dir(&mdir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.extension().is_some_and(|ext| ext == "gguf") {
+                if let (Some(name), Ok(meta)) = (path.file_name(), fs::metadata(&path)) {
+                    models.push(LocalModel {
+                        filename: name.to_string_lossy().to_string(),
+                        size_bytes: meta.len(),
+                    });
+                }
+            }
+        }
+    }
+    models.sort_by(|a, b| a.filename.cmp(&b.filename));
+    Ok(models)
+}
+
 #[tauri::command]
 pub fn get_installed_models() -> Result<Vec<String>, String> {
     let mut installed = Vec::new();

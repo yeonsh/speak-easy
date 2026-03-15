@@ -75,6 +75,7 @@ pub fn run() {
             tts::samples_to_wav_bytes,
             downloads::get_available_models,
             downloads::get_installed_models,
+            downloads::list_llm_models,
             downloads::check_setup_complete,
             downloads::download_file,
             downloads::delete_model,
