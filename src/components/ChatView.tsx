@@ -165,12 +165,12 @@ export function ChatView({
 
       {messages.map((msg) => msg.role === "tutor" ? (
         <div key={msg.id} className="flex justify-start">
-          <div className="max-w-[80%] px-4 py-3 rounded-2xl rounded-bl-md bg-teal-500/10 border border-teal-500/25 text-[var(--text-primary)]">
-            <p className="text-xs font-medium text-teal-400 mb-1">{t("tutorHint", nativeLanguage)}</p>
+          <div className="max-w-[80%] px-4 py-3 rounded-2xl rounded-bl-md bg-[var(--accent-light)] border border-[var(--accent-border)] text-[var(--text-primary)]">
+            <p className="text-xs font-medium text-[var(--primary)] mb-1">{t("tutorHint", nativeLanguage)}</p>
             <WordClickableText text={msg.content} onWordClick={handleWordClick} onReplay={onReplay} />
             {msg.tutorTarget && onReplay && (
               <div className="flex gap-1 mt-1.5">
-                <PlayButton text={msg.tutorTarget} playingText={playingText} onReplay={onReplay} nativeLanguage={nativeLanguage} className="hover:bg-teal-500/20" />
+                <PlayButton text={msg.tutorTarget} playingText={playingText} onReplay={onReplay} nativeLanguage={nativeLanguage} className="hover:bg-[var(--accent-light)]" />
                 <CopyButton text={msg.content} nativeLanguage={nativeLanguage} />
               </div>
             )}
@@ -200,7 +200,7 @@ export function ChatView({
       {/* Streaming TTS: show revealed text */}
       {isStreamingTts && revealedText && (
         <div className="flex justify-start">
-          <div className="max-w-[80%] px-4 py-3 rounded-2xl rounded-bl-md bg-[var(--bg-elevated)] text-[var(--text-primary)]">
+          <div className="max-w-[80%] px-4 py-3 rounded-2xl rounded-bl-md bg-[var(--bg-bubble-ai)] text-[var(--text-bubble-ai)]">
             <p className="whitespace-pre-wrap">
               {revealedText}
               <span className="inline-block w-1.5 h-4 ml-1 bg-[var(--primary)] animate-pulse rounded-sm" />
@@ -212,7 +212,7 @@ export function ChatView({
       {/* Fallback: streaming text without TTS */}
       {!isStreamingTts && streamingText && (
         <div className="flex justify-start">
-          <div className="max-w-[80%] px-4 py-3 rounded-2xl rounded-bl-md bg-[var(--bg-elevated)] text-[var(--text-primary)]">
+          <div className="max-w-[80%] px-4 py-3 rounded-2xl rounded-bl-md bg-[var(--bg-bubble-ai)] text-[var(--text-bubble-ai)]">
             {streamingText}
             <span className="inline-block w-2 h-4 ml-1 bg-[var(--primary)] animate-pulse" />
           </div>
@@ -416,11 +416,11 @@ function WordPopup({
   return (
     <div
       ref={popupRef}
-      className="fixed z-[100] max-w-xs bg-[var(--bg-surface)] border border-[var(--border)] rounded-xl shadow-lg px-4 py-3"
+      className="fixed z-[100] max-w-xs bg-[var(--bg-tooltip)] border border-[var(--border)] rounded-xl shadow-lg px-4 py-3"
       style={{ left: position.x, top: position.y }}
     >
       <div className="flex items-center gap-1.5 mb-1">
-        <p className="text-xs font-bold text-[var(--primary)]">{word}</p>
+        <p className="text-sm font-bold text-[var(--primary)] brightness-125">{word}</p>
         {onReplay && (
           <button
             onClick={() => onReplay(word)}
@@ -571,8 +571,8 @@ function MessageBubble({
       <div
         className={`max-w-[80%] px-4 py-3 rounded-2xl ${
           isUser
-            ? "bg-[var(--primary)] text-white rounded-br-md"
-            : "bg-[var(--bg-elevated)] text-[var(--text-primary)] rounded-bl-md"
+            ? "bg-[var(--bg-bubble-user)] text-[var(--text-bubble-user)] rounded-br-md"
+            : "bg-[var(--bg-bubble-ai)] text-[var(--text-bubble-ai)] rounded-bl-md"
         }`}
       >
         <WordClickableText text={message.content} onWordClick={onWordClick} onReplay={onReplay} />
@@ -632,7 +632,7 @@ function MessageBubble({
           </div>
         )}
         {message.corrections && message.corrections.length > 0 && (
-          <div className="mt-2 pt-2 border-t border-white/20 space-y-1">
+          <div className="mt-2 pt-2 border-t border-[var(--text-bubble-user)]/20 space-y-1">
             {message.corrections.map((c, i) => (
               <div key={i} className="text-sm opacity-80">
                 <span className="line-through">{c.original}</span>
@@ -645,12 +645,12 @@ function MessageBubble({
         )}
       </div>
       {explanation && (
-        <div className="max-w-[80%] mt-1 px-4 py-3 rounded-2xl rounded-tl-md bg-violet-500/10 border border-violet-500/20 text-sm text-[var(--text-primary)]">
+        <div className="max-w-[80%] mt-1 px-4 py-3 rounded-2xl rounded-tl-md bg-[var(--accent-light)] border border-[var(--accent-border)] text-sm text-[var(--text-primary)]">
           {explanation}
         </div>
       )}
       {suggestion && (
-        <div className="max-w-[80%] mt-1 px-4 py-3 rounded-2xl rounded-tl-md bg-amber-500/10 border border-amber-500/20 text-[var(--text-primary)] space-y-3">
+        <div className="max-w-[80%] mt-1 px-4 py-3 rounded-2xl rounded-tl-md bg-[var(--bg-suggestion)] border border-[var(--border-subtle)] text-[var(--text-primary)] space-y-3">
           {parseSuggestions(suggestion).map((item, i) => (
             <div key={i}>
               <div className="flex items-start gap-1.5">

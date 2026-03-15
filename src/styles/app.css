@@ -2,14 +2,72 @@
 @plugin "@tailwindcss/typography";
 
 :root {
-  --primary: #6366f1;
-  --primary-hover: #4f46e5;
-  --bg-main: #0f172a;
-  --bg-surface: #1e293b;
-  --bg-elevated: #334155;
-  --text-primary: #f1f5f9;
-  --text-secondary: #94a3b8;
-  --border: #475569;
+  /* 배경 */
+  --bg-main:        #f5f3ef;
+  --bg-surface:     #edeae4;
+  --bg-elevated:    #ffffff;
+  --bg-chat:        #f5f3ef;
+  --bg-bubble-ai:   #ffffff;
+  --bg-bubble-user: #3d6b4f;
+  --bg-input:       #ffffff;
+  --bg-suggestion:  #e8f0e8;
+  --bg-tooltip:     #ffffff;
+
+  /* 텍스트 */
+  --text-primary:     #2d2a24;
+  --text-secondary:   #6b6458;
+  --text-muted:       #9e9486;
+  --text-bubble-ai:   #2d2a24;
+  --text-bubble-user: #f0f7f2;
+  --text-suggestion:  #2d5040;
+  --text-link:        #3d6b4f;
+
+  /* 액센트 */
+  --primary:        #3d6b4f;
+  --primary-hover:  #2d5040;
+  --accent-light:   #e8f0e8;
+  --accent-border:  #b8d4c0;
+
+  /* 테두리 */
+  --border:         #d4c9b8;
+  --border-subtle:  #e8e3d8;
+
+  /* 상태 */
+  --status-active:   #3d6b4f;
+  --status-inactive: #c8bfb0;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg-main:        #1a1e1b;
+    --bg-surface:     #141a15;
+    --bg-elevated:    #232b24;
+    --bg-chat:        #1a1e1b;
+    --bg-bubble-ai:   #232b24;
+    --bg-bubble-user: #3d6b4f;
+    --bg-input:       #232b24;
+    --bg-suggestion:  #1e2e20;
+    --bg-tooltip:     #2a3a2c;
+
+    --text-primary:     #e8e4dc;
+    --text-secondary:   #a0a898;
+    --text-muted:       #6a7268;
+    --text-bubble-ai:   #e0dcd4;
+    --text-bubble-user: #f0f7f2;
+    --text-suggestion:  #88c4a0;
+    --text-link:        #88c4a0;
+
+    --primary:        #5a9470;
+    --primary-hover:  #6aaa80;
+    --accent-light:   #1e2e20;
+    --accent-border:  #3a5a44;
+
+    --border:         #2e3830;
+    --border-subtle:  #242e26;
+
+    --status-active:   #5a9470;
+    --status-inactive: #3a4a3c;
+  }
 }
 
 html,

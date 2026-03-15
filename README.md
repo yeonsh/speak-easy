@@ -11,8 +11,11 @@ Supports **16 languages** — English, Spanish, French, Chinese, Japanese, Germa
 - **Native Language** — choose any of the 16 supported languages as your native language; all UI, corrections, translations, and scenario descriptions adapt accordingly
 - **Corrections Toggle** — enable in either mode to get grammar/meaning feedback in your native language
 - **Replay** — re-listen to any message (yours or the assistant's) via TTS
-- **Translate** — one-tap translation of assistant messages into your native language
+- **Translate** — one-tap translation of assistant messages into your native language, pre-fetched during TTS playback for instant display
+- **Word Lookup** — click any target-language word for instant dictionary lookup; select multiple words for contextual explanation with grammar and examples
 - **Sample Responses** — get 2 suggested replies with native language translations
+- **AI Tutor** — speak in your native language to get translations into the target language
+- **External LLM** — use Gemini API as an alternative to local LLM; uses flash-lite for word lookups to minimize cost
 - **Dual TTS Engine** — Edge TTS (online, high quality) or Kokoro (offline, fully private); switchable in settings
 - **Streaming TTS** — sentence-by-sentence audio with natural pauses between sentences
 - **Voice Preview** — hear a sample phrase when selecting a voice in settings
@@ -26,9 +29,10 @@ Built with [Tauri 2](https://v2.tauri.app/) (Rust backend + React frontend) and 
 
 | Engine | Purpose | Technology |
 |--------|---------|------------|
-| **STT** | Speech-to-text | [whisper.cpp](https://github.com/ggerganov/whisper.cpp) via `whisper-rs` |
-| **LLM** | Conversation | [llama.cpp](https://github.com/ggml-org/llama.cpp) (`llama-server` sidecar) |
+| **STT** | Speech-to-text | [whisper.cpp](https://github.com/ggerganov/whisper.cpp) via `whisper-rs` (bilingual detection) |
+| **LLM** | Conversation | [llama.cpp](https://github.com/ggml-org/llama.cpp) (`llama-server` sidecar) or [Gemini API](https://ai.google.dev/) |
 | **TTS** | Text-to-speech | [Edge TTS](https://github.com/BreakingOnTheEdge/msedge-tts) (online) or [Kokoro](https://github.com/thewh1teagle/kokoro-onnx) (offline) |
+| **Dictionary** | Word lookup cache | SQLite via `rusqlite` |
 
 ## Prerequisites
 
@@ -89,8 +93,10 @@ src/                          # React frontend
 src-tauri/src/                # Rust backend
   lib.rs                      # Tauri command registration
   llm.rs                      # llama-server lifecycle management
-  chat.rs                     # Streaming chat + TTS pipeline, explain/suggest commands
-  stt.rs                      # Whisper transcription
+  chat.rs                     # Streaming chat + TTS pipeline, explain/suggest/lookup commands
+  gemini.rs                   # Gemini API integration (streaming + non-streaming)
+  dictionary.rs               # SQLite dictionary cache for word lookups
+  stt.rs                      # Whisper transcription with bilingual detection
   tts.rs                      # TTS engine dispatch (Kokoro/Edge), text cleaning, sentence splitting
   edge_tts.rs                 # Edge TTS via msedge-tts (online)
   downloads.rs                # Model download with progress events
@@ -104,7 +110,8 @@ src-tauri/src/                # Rust backend
 | `~/.speakeasy/models/` | Whisper models (`.bin`) and LLM models (`.gguf`) |
 | `~/.speakeasy/voices/` | Kokoro TTS model (`kokoro-v1.0.onnx`) and voice pack (`voices-v1.0.bin`) |
 | `~/.speakeasy/bin/` | Downloaded `llama-server` binary |
-| `~/.speakeasy/settings.json` | User preferences |
+| `~/.speakeasy/settings.json` | User preferences (persisted across sessions) |
+| `~/.speakeasy/dictionary.db` | SQLite cache for word lookups and translations |
 
 ## License
 

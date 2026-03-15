@@ -696,40 +696,27 @@ pub async fn lookup_word(
 
     let target_lang_name = lang_name(&target_language);
     let native_lang_name = lang_name(&native_language);
-    let is_single_word = !word.contains(' ');
 
-    let (system_prompt, user_prompt) = if is_single_word {
-        (
-            format!(
-                "Translate the {target_lang_name} word into {native_lang_name}. \
-                 Return ONLY the translation. No explanations, no formatting."
-            ),
-            word.clone(),
-        )
-    } else {
-        (
-            format!(
-                "You are a {target_lang_name}-{native_lang_name} dictionary. \
-                 Explain the meaning of the {target_lang_name} text to a {native_lang_name} speaker. \
-                 Respond in {native_lang_name}. Be concise (2-3 lines max). No markdown."
-            ),
-            format!(
-                "Text: \"{word}\"\nSentence: \"{sentence}\"\n\n\
-                 1) Meaning in {native_lang_name}\n\
-                 2) Grammar if useful\n\
-                 3) Example sentence if helpful"
-            ),
-        )
-    };
+    let system_prompt = format!(
+        "You are a {target_lang_name}-{native_lang_name} dictionary. \
+         Explain the meaning of the {target_lang_name} text to a {native_lang_name} speaker. \
+         Respond in {native_lang_name}. Be concise (2-3 lines max). No markdown."
+    );
+    let user_prompt = format!(
+        "Text: \"{word}\"\nSentence: \"{sentence}\"\n\n\
+         1) Meaning in {native_lang_name}\n\
+         2) Grammar if useful\n\
+         3) Example sentence if helpful"
+    );
 
-    // Use cheaper/faster model for single-word translations with Gemini
-    let effective_model = if is_single_word && prov == "gemini" {
+    // Use cheaper/faster model for word lookups with Gemini
+    let effective_model = if prov == "gemini" {
         "gemini-3.1-flash-lite-preview"
     } else {
         model
     };
 
-    eprintln!("[lookup_word] word='{}' single={} model={}", word, is_single_word, effective_model);
+    eprintln!("[lookup_word] word='{}' model={}", word, effective_model);
 
     let result = complete_with_provider(port, prov, key, effective_model, &system_prompt, &user_prompt, 0.3, 2048)?;
     db.put("word", &word, &target_language, &native_language, &result);

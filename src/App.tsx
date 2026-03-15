@@ -597,7 +597,7 @@ function ModeSelector({
           onClick={() => onChange(mode.value)}
           className={`px-3 py-1 rounded-md text-sm transition-colors ${
             selected === mode.value
-              ? "bg-[var(--primary)] text-white"
+              ? "bg-[var(--primary)] text-[var(--text-bubble-user)]"
               : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
           }`}
         >
@@ -622,7 +622,7 @@ function CorrectionsToggle({
       onClick={() => onChange(!enabled)}
       className={`px-3 py-1 rounded-md text-sm transition-colors ${
         enabled
-          ? "bg-amber-500 text-white"
+          ? "bg-[var(--primary)] text-[var(--text-bubble-user)]"
           : "bg-[var(--bg-surface)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
       }`}
       title={enabled ? t("correctionsOn", nativeLanguage) : t("correctionsOff", nativeLanguage)}
@@ -664,12 +664,12 @@ function TextInput({
         }}
         disabled={disabled}
         placeholder={disabled ? t("startServerFirst", nativeLanguage) : t("typeMessage", nativeLanguage)}
-        className="flex-1 bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg px-4 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-secondary)] focus:outline-none focus:border-[var(--primary)] disabled:opacity-50"
+        className="flex-1 bg-[var(--bg-input)] border border-[var(--border)] rounded-lg px-4 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-secondary)] focus:outline-none focus:border-[var(--primary)] disabled:opacity-50"
       />
       <button
         onClick={handleSubmit}
         disabled={disabled || !text.trim()}
-        className="px-4 py-2 bg-[var(--primary)] text-white rounded-lg text-sm hover:bg-[var(--primary-hover)] disabled:opacity-50 transition-colors"
+        className="px-4 py-2 bg-[var(--primary)] text-[var(--text-bubble-user)] rounded-lg text-sm hover:bg-[var(--primary-hover)] disabled:opacity-50 transition-colors"
       >
         {t("send", nativeLanguage)}
       </button>

@@ -32,7 +32,7 @@ export function MicButton({
             ? "bg-red-500 scale-110 shadow-lg shadow-red-500/30"
             : isProcessing
               ? "bg-[var(--bg-elevated)] cursor-wait opacity-60"
-              : "bg-[var(--primary)] hover:bg-[var(--primary-hover)] hover:scale-105 active:scale-95"
+              : "bg-[var(--primary)] text-[var(--text-bubble-user)] hover:bg-[var(--primary-hover)] hover:scale-105 active:scale-95"
         }
       `}
     >
