@@ -575,7 +575,7 @@ pub async fn explain_message(
     );
 
     eprintln!("[explain_message] provider={}, lang={}, native={}, text_len={}", prov, language, native_code, text.len());
-    let result = complete_with_provider(port, prov, key, model, &system_prompt, &text, 0.3, 1024)?;
+    let result = complete_with_provider(port, prov, key, model, &system_prompt, &text, 0.3, 2048)?;
     eprintln!("[explain_message] result_len={}", result.len());
     db.put("translate", &text, &language, native_code, &result);
     Ok(result)

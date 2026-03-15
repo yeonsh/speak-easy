@@ -105,7 +105,7 @@ export function ChatView({
       top: scrollRef.current.scrollHeight,
       behavior: "smooth",
     });
-  }, [messages, streamingText, revealedText]);
+  }, [messages, streamingText, revealedText, explanations, suggestions]);
 
   return (
     <div
@@ -299,7 +299,10 @@ function WordClickableText({
     if (onWordClick) {
       const rect = (e.target as HTMLElement).getBoundingClientRect();
       const cleanWord = token.replace(/^[.,;:!?¿¡。、！？，；：\u201c\u201d\u2018\u2019「」『』（）\-\u2014…]+|[.,;:!?¿¡。、！？，；：\u201c\u201d\u2018\u2019「」『』（）\-\u2014…]+$/g, "");
-      if (cleanWord) onWordClick(cleanWord, text, rect);
+      if (cleanWord) {
+        onWordClick(cleanWord, text, rect);
+        onReplay?.(cleanWord);
+      }
     }
   };
 
@@ -349,6 +352,7 @@ function WordClickableText({
                 const rect = el ? el.getBoundingClientRect() : new DOMRect(selectionPopup.position.x, selectionPopup.position.y + 36, 100, 20);
                 onWordClick(selectionPopup.text, text, rect);
               }
+              onReplay?.(selectionPopup.text);
               setSelectionPopup(null);
               window.getSelection()?.removeAllRanges();
             }}
