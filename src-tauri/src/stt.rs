@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::os::raw::c_int;
 use std::path::PathBuf;
 use std::sync::Mutex;
 use whisper_rs::{FullParams, SamplingStrategy, WhisperContext, WhisperContextParameters};
@@ -95,26 +96,10 @@ pub fn is_whisper_loaded(state: tauri::State<'_, SttState>) -> bool {
     state.context.lock().unwrap().is_some()
 }
 
-#[tauri::command]
-pub fn transcribe_audio(
-    state: tauri::State<'_, SttState>,
-    audio_data: Vec<f32>,
-    language: Option<String>,
-) -> Result<TranscriptionResult, String> {
-    let ctx_guard = state.context.lock().unwrap();
-    let ctx = ctx_guard
-        .as_ref()
-        .ok_or("Whisper model not loaded. Call load_whisper_model first.")?;
-
+/// Transcribe audio forced to a specific language, returning text and average token probability.
+fn transcribe_forced(ctx: &WhisperContext, audio_data: &[f32], lang: &str) -> Result<(String, f32), String> {
     let mut params = FullParams::new(SamplingStrategy::Greedy { best_of: 1 });
-
-    // Set language hint if provided, otherwise auto-detect
-    if let Some(ref lang) = language {
-        params.set_language(Some(lang));
-    } else {
-        params.set_language(None); // auto-detect
-    }
-
+    params.set_language(Some(lang));
     params.set_print_special(false);
     params.set_print_progress(false);
     params.set_print_realtime(false);
@@ -123,28 +108,70 @@ pub fn transcribe_audio(
     params.set_single_segment(false);
     params.set_no_context(true);
 
-    // Create state and run inference
     let mut state = ctx.create_state().map_err(|e| format!("Failed to create whisper state: {}", e))?;
-    state
-        .full(params, &audio_data)
-        .map_err(|e| format!("Transcription failed: {}", e))?;
+    state.full(params, audio_data).map_err(|e| format!("Transcription failed: {}", e))?;
 
-    // Collect segments
     let num_segments = state.full_n_segments().map_err(|e| format!("Failed to get segments: {}", e))?;
     let mut text = String::new();
+    let mut total_prob = 0.0f32;
+    let mut token_count = 0u32;
 
     for i in 0..num_segments {
         if let Ok(segment) = state.full_get_segment_text(i) {
             text.push_str(&segment);
         }
+        if let Ok(n_tokens) = state.full_n_tokens(i) {
+            for t in 0..n_tokens {
+                if let Ok(p) = state.full_get_token_prob(i as c_int, t as c_int) {
+                    total_prob += p;
+                    token_count += 1;
+                }
+            }
+        }
     }
 
-    let text = text.trim().to_string();
+    let avg_prob = if token_count > 0 { total_prob / token_count as f32 } else { 0.0 };
+    Ok((text.trim().to_string(), avg_prob))
+}
 
-    Ok(TranscriptionResult {
-        text,
-        language: language.or(None),
-    })
+#[tauri::command]
+pub fn transcribe_audio(
+    state: tauri::State<'_, SttState>,
+    audio_data: Vec<f32>,
+    target_language: String,
+    native_language: String,
+) -> Result<TranscriptionResult, String> {
+    let ctx_guard = state.context.lock().unwrap();
+    let ctx = ctx_guard
+        .as_ref()
+        .ok_or("Whisper model not loaded. Call load_whisper_model first.")?;
+
+    // Pass 1: transcribe forced to target language
+    let (target_text, target_prob) = transcribe_forced(ctx, &audio_data, &target_language)?;
+
+    // If target == native, no need for a second pass
+    if target_language == native_language {
+        return Ok(TranscriptionResult {
+            text: target_text,
+            language: Some(target_language),
+        });
+    }
+
+    // Pass 2: transcribe forced to native language
+    let (native_text, native_prob) = transcribe_forced(ctx, &audio_data, &native_language)?;
+
+    // Pick the transcription with higher average token probability
+    if native_prob > target_prob {
+        Ok(TranscriptionResult {
+            text: native_text,
+            language: Some(native_language),
+        })
+    } else {
+        Ok(TranscriptionResult {
+            text: target_text,
+            language: Some(target_language),
+        })
+    }
 }
 
 /// Convert WAV bytes (from frontend) to f32 samples at 16kHz mono
