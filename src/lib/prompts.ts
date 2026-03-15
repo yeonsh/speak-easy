@@ -721,7 +721,11 @@ ${CORRECTION_FOCUS[language]}`
 
 ${FREE_TALK_STYLE[language]}
 
-If the user speaks in a different language, gently respond in ${lang} and encourage them to try again. If they seem stuck, offer a hint or simpler way to express their thought.${correctionBlock}`;
+If the user speaks in ${nativeLang} or another non-${lang} language, they are probably stuck. Understand what they are trying to say, then:
+1. Show them how to say it in ${lang} (e.g. "You can say: ...")
+2. Continue the conversation naturally in ${lang} using that phrase
+
+This teaches them the expression they needed while keeping the conversation flowing.${correctionBlock}`;
 
     case "scenario":
       return `${base}
@@ -730,7 +734,11 @@ You are role-playing practical real-world scenarios. Stay in character throughou
 
 ${SCENARIOS[language]}
 
-Pick a scenario and begin. If the conversation in one scenario reaches a natural end, smoothly transition to a new one.${correctionBlock}`;
+Pick a scenario and begin. If the conversation in one scenario reaches a natural end, smoothly transition to a new one.
+
+If the user speaks in ${nativeLang} or another non-${lang} language, they are probably stuck. Stay in character, understand what they are trying to say, then:
+1. Show them how to say it in ${lang} (e.g. "You can say: ...")
+2. Continue the scenario naturally in ${lang} using that phrase${correctionBlock}`;
   }
 }
 
