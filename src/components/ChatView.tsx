@@ -242,32 +242,114 @@ function WordClickableText({
   onWordClick?: (word: string, sentence: string, rect: DOMRect) => void;
   className?: string;
 }) {
+  const containerRef = useRef<HTMLParagraphElement>(null);
+  const mouseDownPos = useRef<{ x: number; y: number } | null>(null);
+  const [selectionPopup, setSelectionPopup] = useState<{
+    text: string;
+    position: { x: number; y: number };
+  } | null>(null);
+
   // Split text into tokens: CJK characters individually, other words by spaces
   const tokens = text.match(/[\u4e00-\u9fff\u3040-\u309f\u30a0-\u30ff]|[^\s\u4e00-\u9fff\u3040-\u309f\u30a0-\u30ff]+|\s+/g) || [text];
 
+  const handleMouseDown = (e: React.MouseEvent) => {
+    mouseDownPos.current = { x: e.clientX, y: e.clientY };
+    setSelectionPopup(null);
+  };
+
+  const handleMouseUp = () => {
+    const sel = window.getSelection();
+    const selectedText = sel?.toString().trim();
+    if (selectedText && selectedText.length > 0 && sel && !sel.isCollapsed) {
+      // It's a drag selection — show lookup button
+      const range = sel.getRangeAt(0);
+      const rect = range.getBoundingClientRect();
+      setSelectionPopup({
+        text: selectedText,
+        position: {
+          x: Math.min(rect.left + rect.width / 2 - 14, window.innerWidth - 40),
+          y: rect.top - 36,
+        },
+      });
+      mouseDownPos.current = null;
+      return;
+    }
+    mouseDownPos.current = null;
+  };
+
+  const handleWordMouseUp = (e: React.MouseEvent, token: string) => {
+    // Only fire single-word lookup if it was a click (not a drag)
+    const sel = window.getSelection();
+    const selectedText = sel?.toString().trim();
+    if (selectedText && selectedText.length > 1) return; // drag selection, handled by container
+
+    const down = mouseDownPos.current;
+    if (!down) return;
+    const dx = Math.abs(e.clientX - down.x);
+    const dy = Math.abs(e.clientY - down.y);
+    if (dx > 5 || dy > 5) return; // dragged
+
+    if (onWordClick) {
+      const rect = (e.target as HTMLElement).getBoundingClientRect();
+      const cleanWord = token.replace(/^[.,;:!?¿¡。、！？，；：\u201c\u201d\u2018\u2019「」『』（）\-\u2014…]+|[.,;:!?¿¡。、！？，；：\u201c\u201d\u2018\u2019「」『』（）\-\u2014…]+$/g, "");
+      if (cleanWord) onWordClick(cleanWord, text, rect);
+    }
+  };
+
+  // Dismiss selection popup on click outside
+  useEffect(() => {
+    if (!selectionPopup) return;
+    const dismiss = () => setSelectionPopup(null);
+    document.addEventListener("mousedown", dismiss);
+    return () => document.removeEventListener("mousedown", dismiss);
+  }, [selectionPopup]);
+
   return (
-    <p className={`whitespace-pre-wrap ${className || ""}`}>
-      {tokens.map((token, i) => {
-        if (/^\s+$/.test(token) || /^[.,;:!?¿¡。、！？，；：\u201c\u201d\u2018\u2019「」『』（）\-\u2014…]+$/.test(token)) {
-          return <span key={i}>{token}</span>;
-        }
-        return (
-          <span
-            key={i}
-            onClick={(e) => {
-              if (onWordClick) {
-                const rect = (e.target as HTMLElement).getBoundingClientRect();
-                const cleanWord = token.replace(/^[.,;:!?¿¡。、！？，；：\u201c\u201d\u2018\u2019「」『』（）\-\u2014…]+|[.,;:!?¿¡。、！？，；：\u201c\u201d\u2018\u2019「」『』（）\-\u2014…]+$/g, "");
-                if (cleanWord) onWordClick(cleanWord, text, rect);
-              }
-            }}
-            className="cursor-pointer hover:bg-[var(--primary)]/20 hover:rounded px-[1px] transition-colors"
-          >
-            {token}
-          </span>
-        );
-      })}
-    </p>
+    <div className="relative">
+      <p
+        ref={containerRef}
+        className={`whitespace-pre-wrap select-text ${className || ""}`}
+        onMouseDown={handleMouseDown}
+        onMouseUp={handleMouseUp}
+      >
+        {tokens.map((token, i) => {
+          if (/^\s+$/.test(token) || /^[.,;:!?¿¡。、！？，；：\u201c\u201d\u2018\u2019「」『』（）\-\u2014…]+$/.test(token)) {
+            return <span key={i}>{token}</span>;
+          }
+          return (
+            <span
+              key={i}
+              onMouseUp={(e) => { e.stopPropagation(); handleWordMouseUp(e, token); handleMouseUp(); }}
+              className="cursor-pointer hover:bg-[var(--primary)]/20 hover:rounded px-[1px] transition-colors"
+            >
+              {token}
+            </span>
+          );
+        })}
+      </p>
+      {selectionPopup && (
+        <button
+          className="fixed z-[101] bg-[var(--primary)] text-white rounded-full w-7 h-7 flex items-center justify-center shadow-lg hover:scale-110 transition-transform"
+          style={{ left: selectionPopup.position.x, top: selectionPopup.position.y }}
+          onMouseDown={(e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            if (onWordClick) {
+              const el = containerRef.current;
+              const rect = el ? el.getBoundingClientRect() : new DOMRect(selectionPopup.position.x, selectionPopup.position.y + 36, 100, 20);
+              onWordClick(selectionPopup.text, text, rect);
+            }
+            setSelectionPopup(null);
+            window.getSelection()?.removeAllRanges();
+          }}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="11" cy="11" r="8" />
+            <path d="m21 21-4.3-4.3" />
+          </svg>
+        </button>
+      )}
+    </div>
   );
 }
 
