@@ -179,6 +179,38 @@ function App() {
     }
   }, [tts, settings.ttsSpeed, settings.language]);
 
+  const handleTutorFlow = useCallback(async (nativeText: string) => {
+    // Show user's native language message
+    const userMsg: Message = {
+      id: crypto.randomUUID(),
+      role: "user",
+      content: nativeText,
+      timestamp: Date.now(),
+    };
+    setMessages((msgs) => [...msgs, userMsg]);
+
+    // Get translation from LLM
+    try {
+      const translation = await invoke<string>("tutor_translate", {
+        text: nativeText,
+        nativeLanguage: settings.nativeLanguage,
+        targetLanguage: settings.language,
+      });
+
+      const tutorMsg: Message = {
+        id: crypto.randomUUID(),
+        role: "tutor",
+        content: translation,
+        tutorTarget: translation,
+        timestamp: Date.now(),
+      };
+      setMessages((msgs) => [...msgs, tutorMsg]);
+    } catch (e) {
+      // If translation fails, just show a generic tutor message
+      console.error("Tutor translate failed:", e);
+    }
+  }, [settings.nativeLanguage, settings.language]);
+
   const sendToLlm = useCallback(
     async (userText: string) => {
       // Cancel any previous generation and preserve revealed text
@@ -218,7 +250,7 @@ function App() {
       const systemPrompt = getSystemPrompt(settings.language, settings.mode, settings.correctionsEnabled, settings.nativeLanguage);
       const allMessages = [
         { role: "system", content: systemPrompt },
-        ...messages.filter((m) => m.role !== "system").map((m) => ({ role: m.role, content: m.content })),
+        ...messages.filter((m) => m.role !== "system" && m.role !== "tutor").map((m) => ({ role: m.role, content: m.content })),
         { role: "user", content: userText },
       ];
 
@@ -402,9 +434,14 @@ function App() {
                 currentRequestIdRef.current = null;
               }
 
-              const text = await stt.stopAndTranscribe(settings.language, settings.nativeLanguage);
-              if (text) {
-                sendToLlm(text);
+              const result = await stt.stopAndTranscribe(settings.language, settings.nativeLanguage);
+              if (result) {
+                if (result.language !== settings.language && result.language === settings.nativeLanguage) {
+                  // User spoke in native language — trigger tutor flow
+                  handleTutorFlow(result.text);
+                } else {
+                  sendToLlm(result.text);
+                }
               }
             }}
           />

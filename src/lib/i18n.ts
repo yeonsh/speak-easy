@@ -266,6 +266,13 @@ const strings = {
     it: "Suggerimenti mostrati", ru: "Подсказки показаны", ar: "تم عرض الاقتراحات", hi: "सुझाव दिखाए गए",
     tr: "Öneriler gösterildi", id: "Saran ditampilkan", vi: "Gợi ý đã hiển thị", pl: "Sugestie wyświetlone",
   },
+  // Tutor
+  tutorHint: {
+    en: "Try saying:", ko: "이렇게 말해보세요:", es: "Intenta decir:", fr: "Essayez de dire :",
+    zh: "试着说：", ja: "こう言ってみましょう：", de: "Versuchen Sie zu sagen:", pt: "Tente dizer:",
+    it: "Prova a dire:", ru: "Попробуйте сказать:", ar: "حاول أن تقول:", hi: "ऐसे कहने की कोशिश करें:",
+    tr: "Şöyle söylemeyi deneyin:", id: "Coba katakan:", vi: "Hãy thử nói:", pl: "Spróbuj powiedzieć:",
+  },
 } satisfies Record<string, Record<NativeLanguage, string>>;
 
 export type I18nKey = keyof typeof strings;

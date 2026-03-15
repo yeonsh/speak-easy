@@ -10,7 +10,7 @@ interface UseSttReturn {
   error: string | null;
   loadModel: (modelSize?: string) => Promise<void>;
   startRecording: () => Promise<void>;
-  stopAndTranscribe: (targetLanguage: Language, nativeLanguage: Language) => Promise<string | null>;
+  stopAndTranscribe: (targetLanguage: Language, nativeLanguage: Language) => Promise<{ text: string; language: string } | null>;
 }
 
 export function useStt(): UseSttReturn {
@@ -38,7 +38,7 @@ export function useStt(): UseSttReturn {
   }, [recorder]);
 
   const stopAndTranscribe = useCallback(
-    async (targetLanguage: Language, nativeLanguage: Language): Promise<string | null> => {
+    async (targetLanguage: Language, nativeLanguage: Language): Promise<{ text: string; language: string } | null> => {
       setError(null);
       setIsTranscribing(true);
 
@@ -72,7 +72,7 @@ export function useStt(): UseSttReturn {
         );
 
         setIsTranscribing(false);
-        return result.text || null;
+        return result.text ? { text: result.text, language: result.language ?? targetLanguage } : null;
       } catch (e) {
         setError(`Transcription failed: ${e}`);
         setIsTranscribing(false);

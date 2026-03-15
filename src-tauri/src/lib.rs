@@ -62,6 +62,7 @@ pub fn run() {
             chat::cancel_generation,
             chat::explain_message,
             chat::suggest_responses,
+            chat::tutor_translate,
             stt::load_whisper_model,
             stt::is_whisper_loaded,
             stt::transcribe_audio,

@@ -622,6 +622,99 @@ pub async fn suggest_responses(
     rx.recv().map_err(|e| format!("Channel error: {}", e))?
 }
 
+fn lang_name(code: &str) -> &str {
+    match code {
+        "en" => "English",
+        "es" => "Spanish",
+        "fr" => "French",
+        "zh" => "Chinese",
+        "ja" => "Japanese",
+        "de" => "German",
+        "ko" => "Korean",
+        "pt" => "Portuguese",
+        "it" => "Italian",
+        "ru" => "Russian",
+        "ar" => "Arabic",
+        "hi" => "Hindi",
+        "tr" => "Turkish",
+        "id" => "Indonesian",
+        "vi" => "Vietnamese",
+        "pl" => "Polish",
+        _ => "English",
+    }
+}
+
+#[tauri::command]
+pub async fn tutor_translate(
+    state: tauri::State<'_, LlmState>,
+    text: String,
+    native_language: String,
+    target_language: String,
+) -> Result<String, String> {
+    let port = *state.port.lock().unwrap();
+    if port == 0 {
+        return Err("LLM server is not running".to_string());
+    }
+
+    let url = format!("http://127.0.0.1:{}/v1/chat/completions", port);
+
+    let native_lang = lang_name(&native_language);
+    let target_lang = lang_name(&target_language);
+
+    let system_prompt = format!(
+        "The user is practicing {} and said something in {} because they didn't know how to say it. \
+         Translate their message into natural {}. \
+         Return ONLY the {} translation, nothing else. \
+         No explanations, no original text, no quotation marks, no formatting.",
+        target_lang, native_lang, target_lang, target_lang
+    );
+
+    let body = serde_json::json!({
+        "messages": [
+            { "role": "system", "content": system_prompt },
+            { "role": "user", "content": text }
+        ],
+        "temperature": 0.3,
+        "stream": false,
+        "max_tokens": 512,
+    });
+
+    let body_str = body.to_string();
+    let (tx, rx) = mpsc::channel::<Result<String, String>>();
+
+    std::thread::spawn(move || {
+        let result = ureq::post(&url)
+            .header("Content-Type", "application/json")
+            .send(body_str.as_bytes());
+
+        let reply = match result {
+            Ok(response) => {
+                match response.into_body().read_to_string() {
+                    Ok(body_text) => {
+                        match serde_json::from_str::<CompletionResponse>(&body_text) {
+                            Ok(parsed) => {
+                                let content = parsed
+                                    .choices
+                                    .and_then(|c| c.into_iter().next())
+                                    .and_then(|c| c.message)
+                                    .and_then(|m| m.content)
+                                    .unwrap_or_default();
+                                Ok(content)
+                            }
+                            Err(e) => Err(format!("Parse error: {}", e)),
+                        }
+                    }
+                    Err(e) => Err(format!("Read error: {}", e)),
+                }
+            }
+            Err(e) => Err(format!("LLM request failed: {}", e)),
+        };
+        let _ = tx.send(reply);
+    });
+
+    rx.recv().map_err(|e| format!("Channel error: {}", e))?
+}
+
 #[cfg(test)]
 mod tests {
     use super::SentenceBuffer;

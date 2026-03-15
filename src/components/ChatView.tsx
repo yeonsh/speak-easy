@@ -120,7 +120,27 @@ export function ChatView({
         </div>
       )}
 
-      {messages.map((msg) => msg.role === "system" ? (
+      {messages.map((msg) => msg.role === "tutor" ? (
+        <div key={msg.id} className="flex justify-start">
+          <div className="max-w-[80%] px-4 py-3 rounded-2xl rounded-bl-md bg-emerald-500/10 border border-emerald-500/30 text-[var(--text-primary)]">
+            <p className="text-xs font-medium text-emerald-400 mb-1">{t("tutorHint", nativeLanguage)}</p>
+            <p className="whitespace-pre-wrap select-text">{msg.content}</p>
+            {msg.tutorTarget && onReplay && (
+              <div className="flex gap-1 mt-1.5">
+                <button
+                  onClick={() => onReplay(msg.tutorTarget!)}
+                  className="p-1 rounded hover:bg-emerald-500/20 transition-colors opacity-60 hover:opacity-100"
+                  title={t("replay", nativeLanguage)}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <polygon points="5 3 19 12 5 21 5 3" />
+                  </svg>
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      ) : msg.role === "system" ? (
         <div key={msg.id} className="flex justify-center">
           <div className="px-4 py-2 rounded-lg bg-[var(--bg-surface)] border border-[var(--border)] text-sm text-[var(--text-secondary)] text-center max-w-[85%]">
             {msg.content}

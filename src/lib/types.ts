@@ -8,10 +8,11 @@ export type ConversationMode = "free-talk" | "scenario";
 
 export interface Message {
   id: string;
-  role: "user" | "assistant" | "system";
+  role: "user" | "assistant" | "system" | "tutor";
   content: string;
   timestamp: number;
   corrections?: Correction[];
+  tutorTarget?: string;
 }
 
 export interface Correction {
