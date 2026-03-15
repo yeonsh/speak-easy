@@ -38,13 +38,13 @@ struct SseResponse {
 }
 
 /// Accumulates LLM tokens and detects sentence boundaries.
-struct SentenceBuffer {
+pub(crate) struct SentenceBuffer {
     pub buffer: String,
     max_len: usize,
 }
 
 impl SentenceBuffer {
-    fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             buffer: String::new(),
             max_len: 200,
@@ -52,7 +52,7 @@ impl SentenceBuffer {
     }
 
     /// Feed a token into the buffer. Returns a completed sentence if a boundary is detected.
-    fn feed(&mut self, token: &str) -> Option<String> {
+    pub(crate) fn feed(&mut self, token: &str) -> Option<String> {
         self.buffer.push_str(token);
 
         // Check for sentence-ending punctuation followed by space/uppercase
@@ -69,7 +69,7 @@ impl SentenceBuffer {
     }
 
     /// Flush any remaining text (call when LLM stream ends).
-    fn flush(&mut self) -> String {
+    pub(crate) fn flush(&mut self) -> String {
         let text = self.buffer.trim().to_string();
         self.buffer.clear();
         text
@@ -488,22 +488,81 @@ fn extract_completion_text(resp: CompletionResponse) -> String {
         .to_string()
 }
 
+/// Provider-aware completion: routes to local llama-server or external API.
+pub(crate) fn complete_with_provider(
+    port: u16,
+    provider: &str,
+    api_key: &str,
+    api_model: &str,
+    system_prompt: &str,
+    user_prompt: &str,
+    temperature: f32,
+    max_tokens: u32,
+) -> Result<String, String> {
+    match provider {
+        "gemini" => crate::gemini::complete_text(api_key, api_model, system_prompt, user_prompt, temperature, max_tokens),
+        _ => {
+            if port == 0 {
+                return Err("LLM server is not running".to_string());
+            }
+            let url = format!("http://127.0.0.1:{}/v1/chat/completions", port);
+            let body = serde_json::json!({
+                "messages": [
+                    { "role": "system", "content": system_prompt },
+                    { "role": "user", "content": user_prompt }
+                ],
+                "temperature": temperature,
+                "stream": false,
+                "max_tokens": max_tokens,
+            });
+            let body_str = body.to_string();
+            let (tx, rx) = std::sync::mpsc::channel::<Result<String, String>>();
+            std::thread::spawn(move || {
+                let reply = match ureq::post(&url)
+                    .header("Content-Type", "application/json")
+                    .send(body_str.as_bytes())
+                {
+                    Ok(response) => match response.into_body().read_to_string() {
+                        Ok(body_text) => match serde_json::from_str::<CompletionResponse>(&body_text) {
+                            Ok(parsed) => Ok(extract_completion_text(parsed)),
+                            Err(e) => Err(format!("Parse error: {}", e)),
+                        },
+                        Err(e) => Err(format!("Read error: {}", e)),
+                    },
+                    Err(e) => Err(format!("LLM request failed: {}", e)),
+                };
+                let _ = tx.send(reply);
+            });
+            rx.recv().map_err(|e| format!("Channel error: {}", e))?
+        }
+    }
+}
+
 #[tauri::command]
 pub async fn explain_message(
     state: tauri::State<'_, LlmState>,
+    db: tauri::State<'_, crate::dictionary::DictionaryDb>,
     text: String,
     language: String,
     native_language: Option<String>,
+    provider: Option<String>,
+    api_key: Option<String>,
+    api_model: Option<String>,
 ) -> Result<String, String> {
-    let port = *state.port.lock().unwrap();
-    if port == 0 {
-        return Err("LLM server is not running".to_string());
+    let native_code = native_language.as_deref().unwrap_or("ko");
+
+    // Check DB cache
+    if let Some(cached) = db.get("translate", &text, &language, native_code) {
+        return Ok(cached);
     }
 
-    let url = format!("http://127.0.0.1:{}/v1/chat/completions", port);
+    let port = *state.port.lock().unwrap();
+    let prov = provider.as_deref().unwrap_or("local");
+    let key = api_key.as_deref().unwrap_or("");
+    let model = api_model.as_deref().unwrap_or("");
 
-    let native_lang = match native_language.as_deref() {
-        Some("en") => "English",
+    let native_lang = match native_code {
+        "en" => "English",
         _ => "Korean (한국어)",
     };
 
@@ -514,45 +573,9 @@ pub async fn explain_message(
         language, native_lang, native_lang
     );
 
-    let body = serde_json::json!({
-        "messages": [
-            { "role": "system", "content": system_prompt },
-            { "role": "user", "content": text }
-        ],
-        "temperature": 0.3,
-        "stream": false,
-        "max_tokens": 1024,
-    });
-
-    let body_str = body.to_string();
-    let (tx, rx) = mpsc::channel::<Result<String, String>>();
-
-    std::thread::spawn(move || {
-        let result = ureq::post(&url)
-            .header("Content-Type", "application/json")
-            .send(body_str.as_bytes());
-
-        let reply = match result {
-            Ok(response) => {
-                match response.into_body().read_to_string() {
-                    Ok(body_text) => {
-                        match serde_json::from_str::<CompletionResponse>(&body_text) {
-                            Ok(parsed) => {
-                                let content = extract_completion_text(parsed);
-                                Ok(content)
-                            }
-                            Err(e) => Err(format!("Parse error: {}", e)),
-                        }
-                    }
-                    Err(e) => Err(format!("Read error: {}", e)),
-                }
-            }
-            Err(e) => Err(format!("LLM request failed: {}", e)),
-        };
-        let _ = tx.send(reply);
-    });
-
-    rx.recv().map_err(|e| format!("Channel error: {}", e))?
+    let result = complete_with_provider(port, prov, key, model, &system_prompt, &text, 0.3, 1024)?;
+    db.put("translate", &text, &language, native_code, &result);
+    Ok(result)
 }
 
 #[tauri::command]
@@ -561,13 +584,14 @@ pub async fn suggest_responses(
     text: String,
     language: String,
     native_language: Option<String>,
+    provider: Option<String>,
+    api_key: Option<String>,
+    api_model: Option<String>,
 ) -> Result<String, String> {
     let port = *state.port.lock().unwrap();
-    if port == 0 {
-        return Err("LLM server is not running".to_string());
-    }
-
-    let url = format!("http://127.0.0.1:{}/v1/chat/completions", port);
+    let prov = provider.as_deref().unwrap_or("local");
+    let key = api_key.as_deref().unwrap_or("");
+    let model = api_model.as_deref().unwrap_or("");
 
     let (native_lang, native_label) = match native_language.as_deref() {
         Some("en") => ("English", "English"),
@@ -587,45 +611,7 @@ pub async fn suggest_responses(
         language, native_label, native_lang
     );
 
-    let body = serde_json::json!({
-        "messages": [
-            { "role": "system", "content": system_prompt },
-            { "role": "user", "content": text }
-        ],
-        "temperature": 0.7,
-        "stream": false,
-        "max_tokens": 2048,
-    });
-
-    let body_str = body.to_string();
-    let (tx, rx) = mpsc::channel::<Result<String, String>>();
-
-    std::thread::spawn(move || {
-        let result = ureq::post(&url)
-            .header("Content-Type", "application/json")
-            .send(body_str.as_bytes());
-
-        let reply = match result {
-            Ok(response) => {
-                match response.into_body().read_to_string() {
-                    Ok(body_text) => {
-                        match serde_json::from_str::<CompletionResponse>(&body_text) {
-                            Ok(parsed) => {
-                                let content = extract_completion_text(parsed);
-                                Ok(content)
-                            }
-                            Err(e) => Err(format!("Parse error: {}", e)),
-                        }
-                    }
-                    Err(e) => Err(format!("Read error: {}", e)),
-                }
-            }
-            Err(e) => Err(format!("LLM request failed: {}", e)),
-        };
-        let _ = tx.send(reply);
-    });
-
-    rx.recv().map_err(|e| format!("Channel error: {}", e))?
+    complete_with_provider(port, prov, key, model, &system_prompt, &text, 0.7, 2048)
 }
 
 fn lang_name(code: &str) -> &str {
@@ -656,13 +642,14 @@ pub async fn tutor_translate(
     text: String,
     native_language: String,
     target_language: String,
+    provider: Option<String>,
+    api_key: Option<String>,
+    api_model: Option<String>,
 ) -> Result<String, String> {
     let port = *state.port.lock().unwrap();
-    if port == 0 {
-        return Err("LLM server is not running".to_string());
-    }
-
-    let url = format!("http://127.0.0.1:{}/v1/chat/completions", port);
+    let prov = provider.as_deref().unwrap_or("local");
+    let key = api_key.as_deref().unwrap_or("");
+    let model = api_model.as_deref().unwrap_or("");
 
     let native_lang = lang_name(&native_language);
     let target_lang = lang_name(&target_language);
@@ -675,61 +662,31 @@ pub async fn tutor_translate(
         target_lang, native_lang, target_lang, target_lang
     );
 
-    let body = serde_json::json!({
-        "messages": [
-            { "role": "system", "content": system_prompt },
-            { "role": "user", "content": text }
-        ],
-        "temperature": 0.3,
-        "stream": false,
-        "max_tokens": 2048,
-    });
-
-    let body_str = body.to_string();
-    let (tx, rx) = mpsc::channel::<Result<String, String>>();
-
-    std::thread::spawn(move || {
-        let result = ureq::post(&url)
-            .header("Content-Type", "application/json")
-            .send(body_str.as_bytes());
-
-        let reply = match result {
-            Ok(response) => {
-                match response.into_body().read_to_string() {
-                    Ok(body_text) => {
-                        match serde_json::from_str::<CompletionResponse>(&body_text) {
-                            Ok(parsed) => {
-                                let content = extract_completion_text(parsed);
-                                Ok(content)
-                            }
-                            Err(e) => Err(format!("Parse error: {}", e)),
-                        }
-                    }
-                    Err(e) => Err(format!("Read error: {}", e)),
-                }
-            }
-            Err(e) => Err(format!("LLM request failed: {}", e)),
-        };
-        let _ = tx.send(reply);
-    });
-
-    rx.recv().map_err(|e| format!("Channel error: {}", e))?
+    complete_with_provider(port, prov, key, model, &system_prompt, &text, 0.3, 2048)
 }
 
 #[tauri::command]
 pub async fn lookup_word(
     state: tauri::State<'_, LlmState>,
+    db: tauri::State<'_, crate::dictionary::DictionaryDb>,
     word: String,
     sentence: String,
     target_language: String,
     native_language: String,
+    provider: Option<String>,
+    api_key: Option<String>,
+    api_model: Option<String>,
 ) -> Result<String, String> {
-    let port = *state.port.lock().unwrap();
-    if port == 0 {
-        return Err("LLM server is not running".to_string());
+    // Check DB cache
+    if let Some(cached) = db.get("word", &word, &target_language, &native_language) {
+        eprintln!("[lookup_word] cache hit: '{}'", word);
+        return Ok(cached);
     }
 
-    let url = format!("http://127.0.0.1:{}/v1/chat/completions", port);
+    let port = *state.port.lock().unwrap();
+    let prov = provider.as_deref().unwrap_or("local");
+    let key = api_key.as_deref().unwrap_or("");
+    let model = api_model.as_deref().unwrap_or("");
 
     let target_lang_name = lang_name(&target_language);
     let native_lang_name = lang_name(&native_language);
@@ -747,48 +704,11 @@ pub async fn lookup_word(
          3) Example sentence if helpful"
     );
 
-    let body = serde_json::json!({
-        "messages": [
-            { "role": "system", "content": system_prompt },
-            { "role": "user", "content": user_prompt }
-        ],
-        "temperature": 0.3,
-        "stream": false,
-        "max_tokens": 2048,
-    });
+    eprintln!("[lookup_word] word='{}' sentence='{}'", word, sentence.chars().take(60).collect::<String>());
 
-    let body_str = body.to_string();
-    eprintln!("[lookup_word] word='{}' sentence='{}'", word, &sentence[..sentence.len().min(60)]);
-    let (tx, rx) = mpsc::channel::<Result<String, String>>();
-
-    std::thread::spawn(move || {
-        let result = ureq::post(&url)
-            .header("Content-Type", "application/json")
-            .send(body_str.as_bytes());
-
-        let reply = match result {
-            Ok(response) => {
-                match response.into_body().read_to_string() {
-                    Ok(body_text) => {
-                        eprintln!("[lookup_word] raw response: {}", body_text.chars().take(200).collect::<String>());
-                        match serde_json::from_str::<CompletionResponse>(&body_text) {
-                            Ok(parsed) => {
-                                let content = extract_completion_text(parsed);
-                                eprintln!("[lookup_word] parsed content: '{}'", content.chars().take(100).collect::<String>());
-                                Ok(content)
-                            }
-                            Err(e) => Err(format!("Parse error: {}", e)),
-                        }
-                    }
-                    Err(e) => Err(format!("Read error: {}", e)),
-                }
-            }
-            Err(e) => Err(format!("LLM request failed: {}", e)),
-        };
-        let _ = tx.send(reply);
-    });
-
-    rx.recv().map_err(|e| format!("Channel error: {}", e))?
+    let result = complete_with_provider(port, prov, key, model, &system_prompt, &user_prompt, 0.3, 2048)?;
+    db.put("word", &word, &target_language, &native_language, &result);
+    Ok(result)
 }
 
 #[cfg(test)]

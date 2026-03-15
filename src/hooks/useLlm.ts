@@ -15,6 +15,9 @@ interface UseLlmReturn {
     ttsSpeed?: number,
     language?: string,
     requestId?: string,
+    provider?: string,
+    apiKey?: string,
+    apiModel?: string,
   ) => Promise<string>;  // returns requestId
   streamingText: string;
   isGenerating: boolean;
@@ -109,6 +112,9 @@ export function useLlm(): UseLlmReturn {
       ttsSpeed?: number,
       language?: string,
       externalRequestId?: string,
+      provider?: string,
+      apiKey?: string,
+      apiModel?: string,
     ) => {
       // Clean up previous listener
       if (unlistenRef.current) {
@@ -143,14 +149,27 @@ export function useLlm(): UseLlmReturn {
       unlistenRef.current = unlisten;
 
       try {
-        await invoke("send_chat_message", {
-          messages,
-          temperature: temperature ?? null,
-          requestId,
-          ttsEnabled: ttsEnabled ?? false,
-          ttsSpeed: ttsSpeed ?? null,
-          language: language ?? null,
-        });
+        if (provider === "gemini" && apiKey) {
+          await invoke("send_chat_gemini", {
+            messages,
+            temperature: temperature ?? null,
+            requestId,
+            ttsEnabled: ttsEnabled ?? false,
+            ttsSpeed: ttsSpeed ?? null,
+            language: language ?? null,
+            apiKey,
+            model: apiModel ?? null,
+          });
+        } else {
+          await invoke("send_chat_message", {
+            messages,
+            temperature: temperature ?? null,
+            requestId,
+            ttsEnabled: ttsEnabled ?? false,
+            ttsSpeed: ttsSpeed ?? null,
+            language: language ?? null,
+          });
+        }
       } catch (e) {
         currentRequestIdRef.current = null;
         setIsGenerating(false);

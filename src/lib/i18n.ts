@@ -118,6 +118,18 @@ const strings = {
     it: "Scarica modello:", ru: "Скачать модель:", ar: "تحميل نموذج:", hi: "मॉडल डाउनलोड करें:",
     tr: "Model indir:", id: "Unduh model:", vi: "Tải mô hình:", pl: "Pobierz model:",
   },
+  llmProvider: {
+    en: "LLM Provider", ko: "LLM 제공자", es: "Proveedor de LLM", fr: "Fournisseur de LLM",
+    zh: "LLM 提供商", ja: "LLM プロバイダー", de: "LLM-Anbieter", pt: "Provedor de LLM",
+    it: "Provider LLM", ru: "Поставщик LLM", ar: "مزود LLM", hi: "LLM प्रदाता",
+    tr: "LLM Sağlayıcı", id: "Penyedia LLM", vi: "Nhà cung cấp LLM", pl: "Dostawca LLM",
+  },
+  localLlm: {
+    en: "Local (Built-in)", ko: "로컬 (내장)", es: "Local (integrado)", fr: "Local (intégré)",
+    zh: "本地（内置）", ja: "ローカル（内蔵）", de: "Lokal (integriert)", pt: "Local (integrado)",
+    it: "Locale (integrato)", ru: "Локальный (встроенный)", ar: "محلي (مدمج)", hi: "स्थानीय (अंतर्निहित)",
+    tr: "Yerel (dahili)", id: "Lokal (bawaan)", vi: "Cục bộ (tích hợp)", pl: "Lokalny (wbudowany)",
+  },
   modelManagementHint: {
     en: "Model download and management coming in Phase 5.",
     ko: "모델 다운로드 및 관리 기능은 Phase 5에서 추가됩니다.",

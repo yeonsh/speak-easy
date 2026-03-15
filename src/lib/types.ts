@@ -4,6 +4,8 @@ export type NativeLanguage = Language;
 
 export type TtsEngine = "kokoro" | "edge";
 
+export type LlmProvider = "local" | "gemini";
+
 export type ConversationMode = "free-talk" | "scenario";
 
 export interface Message {
@@ -33,6 +35,9 @@ export interface AppSettings {
   gpuLayers: number;
   whisperModel: "base" | "small";
   llmModel: string;
+  llmProvider: LlmProvider;
+  geminiApiKey: string;
+  geminiModel: string;
 }
 
 export const LANGUAGE_CONFIG: Record<
@@ -69,4 +74,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   gpuLayers: -1,
   whisperModel: "base",
   llmModel: "",
+  llmProvider: "local",
+  geminiApiKey: "",
+  geminiModel: "gemini-2.5-flash",
 };

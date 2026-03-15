@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-import type { AppSettings, Language, NativeLanguage, TtsEngine } from "../lib/types";
+import type { AppSettings, Language, LlmProvider, NativeLanguage, TtsEngine } from "../lib/types";
 import { LANGUAGE_CONFIG } from "../lib/types";
 import { t } from "../lib/i18n";
 
@@ -81,6 +81,8 @@ export function Sidebar({
   const [localModels, setLocalModels] = useState<LocalModel[]>([]);
   const [availableModels, setAvailableModels] = useState<ModelInfo[]>([]);
   const [downloading, setDownloading] = useState<{ id: string; progress: number; total: number | null } | null>(null);
+  const [geminiModels, setGeminiModels] = useState<{ id: string; name: string }[]>([]);
+  const [geminiModelsLoading, setGeminiModelsLoading] = useState(false);
 
   const refreshModels = () => {
     invoke<LocalModel[]>("list_llm_models").then(setLocalModels).catch(() => {});
@@ -95,6 +97,16 @@ export function Sidebar({
       }).catch(() => {});
     }
   }, [isOpen]);
+
+  useEffect(() => {
+    if (isOpen && settings.llmProvider === "gemini" && settings.geminiApiKey) {
+      setGeminiModelsLoading(true);
+      invoke<{ id: string; name: string }[]>("list_gemini_models", { apiKey: settings.geminiApiKey })
+        .then(setGeminiModels)
+        .catch(() => setGeminiModels([]))
+        .finally(() => setGeminiModelsLoading(false));
+    }
+  }, [isOpen, settings.llmProvider, settings.geminiApiKey]);
 
   const downloadModel = async (model: ModelInfo) => {
     const downloadId = `llm-download-${Date.now()}`;
@@ -281,6 +293,52 @@ export function Sidebar({
                       <span className="text-xs text-[var(--text-secondary)] shrink-0 ml-2">{formatSize(m.size_bytes)}</span>
                     </button>
                   ))}
+              </div>
+            )}
+          </SettingGroup>
+
+          <SettingGroup label={t("llmProvider", settings.nativeLanguage)}>
+            <select
+              value={settings.llmProvider}
+              onChange={(e) =>
+                onSettingsChange({
+                  ...settings,
+                  llmProvider: e.target.value as LlmProvider,
+                })
+              }
+              className="w-full bg-[var(--bg-elevated)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm"
+            >
+              <option value="local">{t("localLlm", settings.nativeLanguage)}</option>
+              <option value="gemini">Gemini</option>
+            </select>
+
+            {settings.llmProvider === "gemini" && (
+              <div className="mt-2 space-y-2">
+                <input
+                  type="password"
+                  value={settings.geminiApiKey}
+                  onChange={(e) =>
+                    onSettingsChange({ ...settings, geminiApiKey: e.target.value })
+                  }
+                  placeholder="Gemini API Key"
+                  className="w-full bg-[var(--bg-elevated)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm"
+                />
+                <select
+                  value={settings.geminiModel}
+                  onChange={(e) =>
+                    onSettingsChange({ ...settings, geminiModel: e.target.value })
+                  }
+                  className="w-full bg-[var(--bg-elevated)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm"
+                  disabled={geminiModelsLoading}
+                >
+                  {geminiModels.length > 0 ? (
+                    geminiModels.map((m) => (
+                      <option key={m.id} value={m.id}>{m.name}</option>
+                    ))
+                  ) : (
+                    <option value={settings.geminiModel}>{settings.geminiModel}</option>
+                  )}
+                </select>
               </div>
             )}
           </SettingGroup>

@@ -10,6 +10,16 @@ pub struct Settings {
     pub tts_voice: String,
     pub gpu_layers: i32,
     pub whisper_model: String,
+    #[serde(default)]
+    pub llm_provider: String,
+    #[serde(default)]
+    pub gemini_api_key: String,
+    #[serde(default = "default_gemini_model")]
+    pub gemini_model: String,
+}
+
+fn default_gemini_model() -> String {
+    "gemini-2.5-flash".to_string()
 }
 
 impl Default for Settings {
@@ -22,6 +32,9 @@ impl Default for Settings {
             tts_voice: "default".to_string(),
             gpu_layers: -1,
             whisper_model: "base".to_string(),
+            llm_provider: "local".to_string(),
+            gemini_api_key: String::new(),
+            gemini_model: "gemini-2.5-flash".to_string(),
         }
     }
 }

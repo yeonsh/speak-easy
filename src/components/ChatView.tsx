@@ -166,12 +166,12 @@ export function ChatView({
 
       {messages.map((msg) => msg.role === "tutor" ? (
         <div key={msg.id} className="flex justify-start">
-          <div className="max-w-[80%] px-4 py-3 rounded-2xl rounded-bl-md bg-emerald-500/10 border border-emerald-500/30 text-[var(--text-primary)]">
-            <p className="text-xs font-medium text-emerald-400 mb-1">{t("tutorHint", nativeLanguage)}</p>
-            <WordClickableText text={msg.content} onWordClick={handleWordClick} />
+          <div className="max-w-[80%] px-4 py-3 rounded-2xl rounded-bl-md bg-teal-500/10 border border-teal-500/25 text-[var(--text-primary)]">
+            <p className="text-xs font-medium text-teal-400 mb-1">{t("tutorHint", nativeLanguage)}</p>
+            <WordClickableText text={msg.content} onWordClick={handleWordClick} onReplay={onReplay} />
             {msg.tutorTarget && onReplay && (
               <div className="flex gap-1 mt-1.5">
-                <PlayButton text={msg.tutorTarget} playingText={playingText} onReplay={onReplay} nativeLanguage={nativeLanguage} className="hover:bg-emerald-500/20" />
+                <PlayButton text={msg.tutorTarget} playingText={playingText} onReplay={onReplay} nativeLanguage={nativeLanguage} className="hover:bg-teal-500/20" />
                 <CopyButton text={msg.content} nativeLanguage={nativeLanguage} />
               </div>
             )}
@@ -227,6 +227,8 @@ export function ChatView({
           isLoading={wordPopup.isLoading}
           position={wordPopup.position}
           onClose={() => setWordPopup(null)}
+          onReplay={onReplay}
+          playingText={playingText}
         />
       )}
     </div>
@@ -237,10 +239,12 @@ function WordClickableText({
   text,
   onWordClick,
   className,
+  onReplay,
 }: {
   text: string;
   onWordClick?: (word: string, sentence: string, rect: DOMRect) => void;
   className?: string;
+  onReplay?: (text: string) => void;
 }) {
   const containerRef = useRef<HTMLParagraphElement>(null);
   const mouseDownPos = useRef<{ x: number; y: number } | null>(null);
@@ -328,26 +332,46 @@ function WordClickableText({
         })}
       </p>
       {selectionPopup && (
-        <button
-          className="fixed z-[101] bg-[var(--primary)] text-white rounded-full w-7 h-7 flex items-center justify-center shadow-lg hover:scale-110 transition-transform"
+        <div
+          className="fixed z-[101] flex gap-1"
           style={{ left: selectionPopup.position.x, top: selectionPopup.position.y }}
-          onMouseDown={(e) => {
-            e.stopPropagation();
-            e.preventDefault();
-            if (onWordClick) {
-              const el = containerRef.current;
-              const rect = el ? el.getBoundingClientRect() : new DOMRect(selectionPopup.position.x, selectionPopup.position.y + 36, 100, 20);
-              onWordClick(selectionPopup.text, text, rect);
-            }
-            setSelectionPopup(null);
-            window.getSelection()?.removeAllRanges();
-          }}
         >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="11" cy="11" r="8" />
-            <path d="m21 21-4.3-4.3" />
-          </svg>
-        </button>
+          <button
+            className="bg-[var(--primary)] text-white rounded-full w-7 h-7 flex items-center justify-center shadow-lg hover:scale-110 transition-transform"
+            onMouseDown={(e) => {
+              e.stopPropagation();
+              e.preventDefault();
+              if (onWordClick) {
+                const el = containerRef.current;
+                const rect = el ? el.getBoundingClientRect() : new DOMRect(selectionPopup.position.x, selectionPopup.position.y + 36, 100, 20);
+                onWordClick(selectionPopup.text, text, rect);
+              }
+              setSelectionPopup(null);
+              window.getSelection()?.removeAllRanges();
+            }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="11" cy="11" r="8" />
+              <path d="m21 21-4.3-4.3" />
+            </svg>
+          </button>
+          {onReplay && (
+            <button
+              className="bg-[var(--primary)] text-white rounded-full w-7 h-7 flex items-center justify-center shadow-lg hover:scale-110 transition-transform"
+              onMouseDown={(e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                onReplay(selectionPopup.text);
+                setSelectionPopup(null);
+                window.getSelection()?.removeAllRanges();
+              }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polygon points="5 3 19 12 5 21 5 3" />
+              </svg>
+            </button>
+          )}
+        </div>
       )}
     </div>
   );
@@ -359,12 +383,16 @@ function WordPopup({
   isLoading,
   position,
   onClose,
+  onReplay,
+  playingText,
 }: {
   word: string;
   definition: string | null;
   isLoading: boolean;
   position: { x: number; y: number };
   onClose: () => void;
+  onReplay?: (text: string) => void;
+  playingText?: string | null;
 }) {
   const popupRef = useRef<HTMLDivElement>(null);
 
@@ -378,13 +406,34 @@ function WordPopup({
     return () => document.removeEventListener("mousedown", handleClick);
   }, [onClose]);
 
+  const isPlaying = playingText === word;
+
   return (
     <div
       ref={popupRef}
       className="fixed z-[100] max-w-xs bg-[var(--bg-surface)] border border-[var(--border)] rounded-xl shadow-lg px-4 py-3"
       style={{ left: position.x, top: position.y }}
     >
-      <p className="text-xs font-bold text-[var(--primary)] mb-1">{word}</p>
+      <div className="flex items-center gap-1.5 mb-1">
+        <p className="text-xs font-bold text-[var(--primary)]">{word}</p>
+        {onReplay && (
+          <button
+            onClick={() => onReplay(word)}
+            className="p-0.5 rounded hover:bg-[var(--primary)]/20 transition-colors"
+          >
+            {isPlaying ? (
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" className="text-[var(--primary)]">
+                <rect x="6" y="4" width="4" height="16" rx="1" />
+                <rect x="14" y="4" width="4" height="16" rx="1" />
+              </svg>
+            ) : (
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-[var(--primary)]">
+                <polygon points="5 3 19 12 5 21 5 3" />
+              </svg>
+            )}
+          </button>
+        )}
+      </div>
       {isLoading ? (
         <div className="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
           <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
@@ -507,11 +556,7 @@ function MessageBubble({
             : "bg-[var(--bg-elevated)] text-[var(--text-primary)] rounded-bl-md"
         }`}
       >
-        {isUser ? (
-          <p className="whitespace-pre-wrap">{message.content}</p>
-        ) : (
-          <WordClickableText text={message.content} onWordClick={onWordClick} />
-        )}
+        <WordClickableText text={message.content} onWordClick={onWordClick} onReplay={onReplay} />
         {isUser && onReplay && (
           <div className="flex gap-1 mt-1.5">
             <PlayButton text={message.content} playingText={playingText} onReplay={onReplay} nativeLanguage={nativeLanguage} className="hover:bg-white/20" />
@@ -581,19 +626,19 @@ function MessageBubble({
         )}
       </div>
       {explanation && (
-        <div className="max-w-[80%] mt-1 px-4 py-3 rounded-2xl rounded-tl-md bg-[var(--bg-surface)] border border-[var(--border)] text-sm text-[var(--text-primary)]">
+        <div className="max-w-[80%] mt-1 px-4 py-3 rounded-2xl rounded-tl-md bg-violet-500/10 border border-violet-500/20 text-sm text-[var(--text-primary)]">
           {explanation}
         </div>
       )}
       {suggestion && (
-        <div className="max-w-[80%] mt-1 px-4 py-3 rounded-2xl rounded-tl-md bg-[var(--bg-surface)] border border-[var(--border)] text-sm text-[var(--text-primary)] space-y-3">
+        <div className="max-w-[80%] mt-1 px-4 py-3 rounded-2xl rounded-tl-md bg-amber-500/10 border border-amber-500/20 text-[var(--text-primary)] space-y-3">
           {parseSuggestions(suggestion).map((item, i) => (
             <div key={i}>
               <div className="flex items-start gap-1.5">
                 {onReplay && (
                   <PlayButton text={item.target} playingText={playingText} onReplay={onReplay} nativeLanguage={nativeLanguage} className="mt-0.5 !p-0.5 hover:bg-black/10 shrink-0" />
                 )}
-                <span className="font-medium">{item.target}</span>
+                <WordClickableText text={item.target} onWordClick={onWordClick} onReplay={onReplay} className="font-medium" />
               </div>
               {item.translation && (
                 <p className="text-xs text-[var(--text-secondary)] mt-0.5 ml-5">{item.translation}</p>

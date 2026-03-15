@@ -2,8 +2,10 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
 mod chat;
+mod dictionary;
 mod downloads;
 mod edge_tts;
+mod gemini;
 mod llm;
 mod settings;
 mod stt;
@@ -49,6 +51,7 @@ pub fn run() {
         .manage(llm::LlmState::new())
         .manage(stt::SttState::new())
         .manage(tts::TtsState::new())
+        .manage(dictionary::DictionaryDb::open().expect("Failed to open dictionary DB"))
         .invoke_handler(tauri::generate_handler![
             get_models_dir,
             check_model_exists,
@@ -85,6 +88,8 @@ pub fn run() {
             downloads::get_llama_server_path,
             downloads::is_espeak_installed,
             downloads::install_espeak,
+            gemini::send_chat_gemini,
+            gemini::list_gemini_models,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

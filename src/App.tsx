@@ -33,10 +33,14 @@ function App() {
   const [isStreamingTts, setIsStreamingTts] = useState(false);
   const isStreamingTtsRef = useRef(false);
   const pendingFullTextRef = useRef<string | null>(null);
+  const pendingMsgIdRef = useRef<string | null>(null);
   const currentRequestIdRef = useRef<string | null>(null);
   const [explanations, setExplanations] = useState<Record<string, string>>({});
   const [suggestions, setSuggestions] = useState<Record<string, string>>({});
   const [playingText, setPlayingText] = useState<string | null>(null);
+  const settingsRef = useRef(settings);
+  settingsRef.current = settings;
+  const explainCacheRef = useRef<Record<string, string>>({});
 
   // Check if first launch
   useEffect(() => {
@@ -62,7 +66,7 @@ function App() {
   useEffect(() => {
     if (showWizard !== false) return;
 
-    if (!llm.isServerRunning && !llm.isServerStarting) {
+    if (settings.llmProvider === "local" && !llm.isServerRunning && !llm.isServerStarting) {
       if (settings.llmModel) {
         invoke<string>("get_models_dir").then((dir) => {
           llm.startServer(`${dir}/${settings.llmModel}`, settings.gpuLayers);
@@ -92,6 +96,21 @@ function App() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settings.ttsVoice, settings.ttsEngine]);
 
+  // Pre-fetch translation for an assistant message (cache only, don't display)
+  const prefetchExplanation = useCallback((msgId: string, text: string) => {
+    const s = settingsRef.current;
+    invoke<string>("explain_message", {
+      text,
+      language: s.language,
+      nativeLanguage: s.nativeLanguage,
+      provider: s.llmProvider,
+      apiKey: s.geminiApiKey,
+      apiModel: s.geminiModel,
+    }).then((result) => {
+      explainCacheRef.current[msgId] = result;
+    }).catch(() => {});
+  }, []);
+
   // Wire up TTS chunk completion to reveal sentences
   useEffect(() => {
     tts.onChunkDone.current = (_index: number, text: string, done: boolean) => {
@@ -104,38 +123,45 @@ function App() {
         isStreamingTtsRef.current = false;
         const fullText = pendingFullTextRef.current;
         if (fullText) {
+          const msgId = pendingMsgIdRef.current ?? crypto.randomUUID();
           const msg: Message = {
-            id: crypto.randomUUID(),
+            id: msgId,
             role: "assistant",
             content: fullText,
             timestamp: Date.now(),
           };
           setMessages((msgs) => [...msgs, msg]);
           pendingFullTextRef.current = null;
+          pendingMsgIdRef.current = null;
         }
         setRevealedSentences([]);
       }
     };
-  }, [tts.onChunkDone]);
+  }, [tts.onChunkDone, prefetchExplanation]);
 
   // Wire up LLM completion
   useEffect(() => {
     llm.onComplete.current = (fullText: string) => {
       if (tts.isLoaded && isStreamingTtsRef.current) {
-        // TTS is streaming — wait for audio to finish before adding message
+        // TTS is streaming — pre-fetch translation now, add message when TTS finishes
+        const msgId = crypto.randomUUID();
         pendingFullTextRef.current = fullText;
+        pendingMsgIdRef.current = msgId;
+        prefetchExplanation(msgId, fullText);
       } else {
-        // No TTS — add message immediately (current behavior)
+        // No TTS — add message immediately
+        const msgId = crypto.randomUUID();
         const msg: Message = {
-          id: crypto.randomUUID(),
+          id: msgId,
           role: "assistant",
           content: fullText,
           timestamp: Date.now(),
         };
         setMessages((msgs) => [...msgs, msg]);
+        prefetchExplanation(msgId, fullText);
       }
     };
-  }, [llm.onComplete, tts.isLoaded]);
+  }, [llm.onComplete, tts.isLoaded, prefetchExplanation]);
 
   // Auto-load TTS voice when language changes — reset conversation
   const handleLanguageChange = useCallback((lang: Language) => {
@@ -207,6 +233,9 @@ function App() {
         text: nativeText,
         nativeLanguage: settings.nativeLanguage,
         targetLanguage: settings.language,
+        provider: settings.llmProvider,
+        apiKey: settings.geminiApiKey,
+        apiModel: settings.geminiModel,
       });
 
       const tutorMsg: Message = {
@@ -287,6 +316,9 @@ function App() {
           settings.ttsSpeed,
           settings.language,
           requestId,
+          settings.llmProvider,
+          settings.geminiApiKey,
+          settings.geminiModel,
         );
       } catch (e) {
         const errorMsg: Message = {
@@ -408,10 +440,20 @@ function App() {
             }
           }}
           onExplain={async (msgId, text) => {
+            if (explanations[msgId]) return explanations[msgId];
+            const cached = explainCacheRef.current[msgId];
+            if (cached) {
+              setExplanations((prev) => ({ ...prev, [msgId]: cached }));
+              delete explainCacheRef.current[msgId];
+              return cached;
+            }
             const result = await invoke<string>("explain_message", {
               text,
               language: settings.language,
               nativeLanguage: settings.nativeLanguage,
+              provider: settings.llmProvider,
+              apiKey: settings.geminiApiKey,
+              apiModel: settings.geminiModel,
             });
             setExplanations((prev) => ({ ...prev, [msgId]: result }));
             return result;
@@ -421,6 +463,9 @@ function App() {
               text,
               language: settings.language,
               nativeLanguage: settings.nativeLanguage,
+              provider: settings.llmProvider,
+              apiKey: settings.geminiApiKey,
+              apiModel: settings.geminiModel,
             });
             setSuggestions((prev) => ({ ...prev, [msgId]: result }));
             return result;
@@ -431,6 +476,9 @@ function App() {
               sentence,
               targetLanguage: settings.language,
               nativeLanguage: settings.nativeLanguage,
+              provider: settings.llmProvider,
+              apiKey: settings.geminiApiKey,
+              apiModel: settings.geminiModel,
             });
             return result;
           }}
@@ -478,15 +526,15 @@ function App() {
             }}
           />
           <TextInput
-            disabled={!llm.isServerRunning || llm.isGenerating}
+            disabled={(settings.llmProvider === "local" ? !llm.isServerRunning : !settings.geminiApiKey) || llm.isGenerating}
             onSubmit={sendToLlm}
             nativeLanguage={settings.nativeLanguage}
           />
         </footer>
 
         <ServerStatus
-          isLlmRunning={llm.isServerRunning}
-          isLlmStarting={llm.isServerStarting}
+          isLlmRunning={settings.llmProvider !== "local" || llm.isServerRunning}
+          isLlmStarting={settings.llmProvider === "local" && llm.isServerStarting}
           isWhisperLoaded={stt.isModelLoaded}
           isTtsLoaded={tts.isLoaded}
           llmError={llm.serverError}
