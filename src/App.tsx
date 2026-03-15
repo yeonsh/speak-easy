@@ -402,6 +402,15 @@ function App() {
             setSuggestions((prev) => ({ ...prev, [msgId]: result }));
             return result;
           }}
+          onLookupWord={async (word, sentence) => {
+            const result = await invoke<string>("lookup_word", {
+              word,
+              sentence,
+              targetLanguage: settings.language,
+              nativeLanguage: settings.nativeLanguage,
+            });
+            return result;
+          }}
           explanations={explanations}
           suggestions={suggestions}
         />

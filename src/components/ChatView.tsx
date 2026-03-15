@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Markdown from "react-markdown";
 import type { Language, Message, NativeLanguage } from "../lib/types";
 import { LANGUAGE_CONFIG } from "../lib/types";
@@ -36,6 +36,7 @@ interface ChatViewProps {
   onReplay?: (text: string) => void;
   onExplain?: (msgId: string, text: string) => Promise<string>;
   onSuggest?: (msgId: string, text: string) => Promise<string>;
+  onLookupWord?: (word: string, sentence: string) => Promise<string>;
   explanations?: Record<string, string>;
   suggestions?: Record<string, string>;
 }
@@ -52,10 +53,34 @@ export function ChatView({
   onReplay,
   onExplain,
   onSuggest,
+  onLookupWord,
   explanations,
   suggestions,
 }: ChatViewProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [wordPopup, setWordPopup] = useState<{
+    word: string;
+    definition: string | null;
+    isLoading: boolean;
+    position: { x: number; y: number };
+  } | null>(null);
+
+  const handleWordClick = useCallback(async (word: string, sentence: string, rect: DOMRect) => {
+    if (!onLookupWord) return;
+
+    // Position popup below the word
+    const x = Math.min(rect.left, window.innerWidth - 280);
+    const y = rect.bottom + 8;
+
+    setWordPopup({ word, definition: null, isLoading: true, position: { x, y } });
+
+    try {
+      const def = await onLookupWord(word, sentence);
+      setWordPopup((prev) => prev ? { ...prev, definition: def, isLoading: false } : null);
+    } catch {
+      setWordPopup((prev) => prev ? { ...prev, definition: "...", isLoading: false } : null);
+    }
+  }, [onLookupWord]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({
@@ -124,7 +149,7 @@ export function ChatView({
         <div key={msg.id} className="flex justify-start">
           <div className="max-w-[80%] px-4 py-3 rounded-2xl rounded-bl-md bg-emerald-500/10 border border-emerald-500/30 text-[var(--text-primary)]">
             <p className="text-xs font-medium text-emerald-400 mb-1">{t("tutorHint", nativeLanguage)}</p>
-            <p className="whitespace-pre-wrap select-text">{msg.content}</p>
+            <WordClickableText text={msg.content} onWordClick={handleWordClick} />
             {msg.tutorTarget && onReplay && (
               <div className="flex gap-1 mt-1.5">
                 <button
@@ -136,6 +161,7 @@ export function ChatView({
                     <polygon points="5 3 19 12 5 21 5 3" />
                   </svg>
                 </button>
+                <CopyButton text={msg.content} nativeLanguage={nativeLanguage} />
               </div>
             )}
           </div>
@@ -154,6 +180,7 @@ export function ChatView({
           onReplay={onReplay}
           onExplain={onExplain}
           onSuggest={onSuggest}
+          onWordClick={handleWordClick}
           explanation={explanations?.[msg.id]}
           suggestion={suggestions?.[msg.id]}
         />
@@ -163,7 +190,7 @@ export function ChatView({
       {isStreamingTts && revealedText && (
         <div className="flex justify-start">
           <div className="max-w-[80%] px-4 py-3 rounded-2xl rounded-bl-md bg-[var(--bg-elevated)] text-[var(--text-primary)]">
-            <p className="whitespace-pre-wrap select-text">
+            <p className="whitespace-pre-wrap">
               {revealedText}
               <span className="inline-block w-1.5 h-4 ml-1 bg-[var(--primary)] animate-pulse rounded-sm" />
             </p>
@@ -180,7 +207,125 @@ export function ChatView({
           </div>
         </div>
       )}
+
+      {wordPopup && (
+        <WordPopup
+          word={wordPopup.word}
+          definition={wordPopup.definition}
+          isLoading={wordPopup.isLoading}
+          position={wordPopup.position}
+          onClose={() => setWordPopup(null)}
+        />
+      )}
     </div>
+  );
+}
+
+function WordClickableText({
+  text,
+  onWordClick,
+  className,
+}: {
+  text: string;
+  onWordClick?: (word: string, sentence: string, rect: DOMRect) => void;
+  className?: string;
+}) {
+  // Split text into tokens: CJK characters individually, other words by spaces
+  const tokens = text.match(/[\u4e00-\u9fff\u3040-\u309f\u30a0-\u30ff]|[^\s\u4e00-\u9fff\u3040-\u309f\u30a0-\u30ff]+|\s+/g) || [text];
+
+  return (
+    <p className={`whitespace-pre-wrap ${className || ""}`}>
+      {tokens.map((token, i) => {
+        if (/^\s+$/.test(token) || /^[.,;:!?¿¡。、！？，；：\u201c\u201d\u2018\u2019「」『』（）\-\u2014…]+$/.test(token)) {
+          return <span key={i}>{token}</span>;
+        }
+        return (
+          <span
+            key={i}
+            onClick={(e) => {
+              if (onWordClick) {
+                const rect = (e.target as HTMLElement).getBoundingClientRect();
+                const cleanWord = token.replace(/^[.,;:!?¿¡。、！？，；：\u201c\u201d\u2018\u2019「」『』（）\-\u2014…]+|[.,;:!?¿¡。、！？，；：\u201c\u201d\u2018\u2019「」『』（）\-\u2014…]+$/g, "");
+                if (cleanWord) onWordClick(cleanWord, text, rect);
+              }
+            }}
+            className="cursor-pointer hover:bg-[var(--primary)]/20 hover:rounded px-[1px] transition-colors"
+          >
+            {token}
+          </span>
+        );
+      })}
+    </p>
+  );
+}
+
+function WordPopup({
+  word,
+  definition,
+  isLoading,
+  position,
+  onClose,
+}: {
+  word: string;
+  definition: string | null;
+  isLoading: boolean;
+  position: { x: number; y: number };
+  onClose: () => void;
+}) {
+  const popupRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (popupRef.current && !popupRef.current.contains(e.target as Node)) {
+        onClose();
+      }
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [onClose]);
+
+  return (
+    <div
+      ref={popupRef}
+      className="fixed z-[100] max-w-xs bg-[var(--bg-surface)] border border-[var(--border)] rounded-xl shadow-lg px-4 py-3"
+      style={{ left: position.x, top: position.y }}
+    >
+      <p className="text-xs font-bold text-[var(--primary)] mb-1">{word}</p>
+      {isLoading ? (
+        <div className="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
+          <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
+        </div>
+      ) : (
+        <p className="text-sm text-[var(--text-primary)] whitespace-pre-wrap">{definition}</p>
+      )}
+    </div>
+  );
+}
+
+function CopyButton({ text, nativeLanguage, light }: { text: string; nativeLanguage: NativeLanguage; light?: boolean }) {
+  const [copied, setCopied] = useState(false);
+  const handleCopy = () => {
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
+  return (
+    <button
+      onClick={handleCopy}
+      className={`p-1 rounded transition-colors ${light ? "hover:bg-white/20" : "hover:bg-black/10"} opacity-40 hover:opacity-80`}
+      title={copied ? t("copied", nativeLanguage) : t("copy", nativeLanguage)}
+    >
+      {copied ? (
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <polyline points="20 6 9 17 4 12" />
+        </svg>
+      ) : (
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+        </svg>
+      )}
+    </button>
   );
 }
 
@@ -190,6 +335,7 @@ function MessageBubble({
   onReplay,
   onExplain,
   onSuggest,
+  onWordClick,
   explanation,
   suggestion,
 }: {
@@ -198,6 +344,7 @@ function MessageBubble({
   onReplay?: (text: string) => void;
   onExplain?: (msgId: string, text: string) => Promise<string>;
   onSuggest?: (msgId: string, text: string) => Promise<string>;
+  onWordClick?: (word: string, sentence: string, rect: DOMRect) => void;
   explanation?: string;
   suggestion?: string;
 }) {
@@ -234,7 +381,11 @@ function MessageBubble({
             : "bg-[var(--bg-elevated)] text-[var(--text-primary)] rounded-bl-md"
         }`}
       >
-        <p className="whitespace-pre-wrap select-text">{message.content}</p>
+        {isUser ? (
+          <p className="whitespace-pre-wrap">{message.content}</p>
+        ) : (
+          <WordClickableText text={message.content} onWordClick={onWordClick} />
+        )}
         {isUser && onReplay && (
           <div className="flex gap-1 mt-1.5">
             <button
@@ -246,6 +397,7 @@ function MessageBubble({
                 <polygon points="5 3 19 12 5 21 5 3" />
               </svg>
             </button>
+            <CopyButton text={message.content} nativeLanguage={nativeLanguage} light />
           </div>
         )}
         {!isUser && (onReplay || onExplain || onSuggest) && (
@@ -299,6 +451,7 @@ function MessageBubble({
                 )}
               </button>
             )}
+            <CopyButton text={message.content} nativeLanguage={nativeLanguage} />
           </div>
         )}
         {message.corrections && message.corrections.length > 0 && (
@@ -315,12 +468,12 @@ function MessageBubble({
         )}
       </div>
       {explanation && (
-        <div className="max-w-[80%] mt-1 px-4 py-3 rounded-2xl rounded-tl-md bg-[var(--bg-surface)] border border-[var(--border)] text-sm text-[var(--text-primary)] select-text">
+        <div className="max-w-[80%] mt-1 px-4 py-3 rounded-2xl rounded-tl-md bg-[var(--bg-surface)] border border-[var(--border)] text-sm text-[var(--text-primary)]">
           {explanation}
         </div>
       )}
       {suggestion && (
-        <div className="max-w-[80%] mt-1 px-4 py-3 rounded-2xl rounded-tl-md bg-[var(--bg-surface)] border border-[var(--border)] text-sm text-[var(--text-primary)] prose prose-sm prose-invert max-w-none select-text">
+        <div className="max-w-[80%] mt-1 px-4 py-3 rounded-2xl rounded-tl-md bg-[var(--bg-surface)] border border-[var(--border)] text-sm text-[var(--text-primary)] prose prose-sm prose-invert max-w-none">
           <Markdown>{suggestion}</Markdown>
         </div>
       )}

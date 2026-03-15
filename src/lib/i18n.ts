@@ -266,6 +266,20 @@ const strings = {
     it: "Suggerimenti mostrati", ru: "Подсказки показаны", ar: "تم عرض الاقتراحات", hi: "सुझाव दिखाए गए",
     tr: "Öneriler gösterildi", id: "Saran ditampilkan", vi: "Gợi ý đã hiển thị", pl: "Sugestie wyświetlone",
   },
+  // Copy
+  copy: {
+    en: "Copy", ko: "복사", es: "Copiar", fr: "Copier",
+    zh: "复制", ja: "コピー", de: "Kopieren", pt: "Copiar",
+    it: "Copia", ru: "Копировать", ar: "نسخ", hi: "कॉपी",
+    tr: "Kopyala", id: "Salin", vi: "Sao chép", pl: "Kopiuj",
+  },
+  copied: {
+    en: "Copied!", ko: "복사됨!", es: "¡Copiado!", fr: "Copié !",
+    zh: "已复制！", ja: "コピーしました！", de: "Kopiert!", pt: "Copiado!",
+    it: "Copiato!", ru: "Скопировано!", ar: "تم النسخ!", hi: "कॉपी हो गया!",
+    tr: "Kopyalandı!", id: "Disalin!", vi: "Đã sao chép!", pl: "Skopiowano!",
+  },
+
   // Tutor
   tutorHint: {
     en: "Try saying:", ko: "이렇게 말해보세요:", es: "Intenta decir:", fr: "Essayez de dire :",

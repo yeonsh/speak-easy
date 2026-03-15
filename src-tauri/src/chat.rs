@@ -715,6 +715,78 @@ pub async fn tutor_translate(
     rx.recv().map_err(|e| format!("Channel error: {}", e))?
 }
 
+#[tauri::command]
+pub async fn lookup_word(
+    state: tauri::State<'_, LlmState>,
+    word: String,
+    sentence: String,
+    target_language: String,
+    native_language: String,
+) -> Result<String, String> {
+    let port = *state.port.lock().unwrap();
+    if port == 0 {
+        return Err("LLM server is not running".to_string());
+    }
+
+    let url = format!("http://127.0.0.1:{}/v1/chat/completions", port);
+
+    let target_lang_name = lang_name(&target_language);
+    let native_lang_name = lang_name(&native_language);
+
+    let system_prompt = format!(
+        "You are a dictionary. The user is learning {target_lang_name}. \
+         They clicked on the word \"{word}\" in the sentence: \"{sentence}\". \
+         Explain the meaning of \"{word}\" briefly in {native_lang_name}. \
+         Include: the word's meaning, and one short example if helpful. \
+         Keep it under 3 lines. No markdown formatting."
+    );
+
+    let body = serde_json::json!({
+        "messages": [
+            { "role": "system", "content": system_prompt },
+            { "role": "user", "content": word }
+        ],
+        "temperature": 0.3,
+        "stream": false,
+        "max_tokens": 256,
+    });
+
+    let body_str = body.to_string();
+    let (tx, rx) = mpsc::channel::<Result<String, String>>();
+
+    std::thread::spawn(move || {
+        let result = ureq::post(&url)
+            .header("Content-Type", "application/json")
+            .send(body_str.as_bytes());
+
+        let reply = match result {
+            Ok(response) => {
+                match response.into_body().read_to_string() {
+                    Ok(body_text) => {
+                        match serde_json::from_str::<CompletionResponse>(&body_text) {
+                            Ok(parsed) => {
+                                let content = parsed
+                                    .choices
+                                    .and_then(|c| c.into_iter().next())
+                                    .and_then(|c| c.message)
+                                    .and_then(|m| m.content)
+                                    .unwrap_or_default();
+                                Ok(content)
+                            }
+                            Err(e) => Err(format!("Parse error: {}", e)),
+                        }
+                    }
+                    Err(e) => Err(format!("Read error: {}", e)),
+                }
+            }
+            Err(e) => Err(format!("LLM request failed: {}", e)),
+        };
+        let _ = tx.send(reply);
+    });
+
+    rx.recv().map_err(|e| format!("Channel error: {}", e))?
+}
+
 #[cfg(test)]
 mod tests {
     use super::SentenceBuffer;

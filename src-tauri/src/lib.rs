@@ -63,6 +63,7 @@ pub fn run() {
             chat::explain_message,
             chat::suggest_responses,
             chat::tutor_translate,
+            chat::lookup_word,
             stt::load_whisper_model,
             stt::is_whisper_loaded,
             stt::transcribe_audio,
