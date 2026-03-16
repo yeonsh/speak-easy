@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { ChatView } from "./components/ChatView";
 import { LanguageBar } from "./components/LanguageBar";
 import { MicButton } from "./components/MicButton";
@@ -40,7 +41,34 @@ function App() {
   const [playingText, setPlayingText] = useState<string | null>(null);
   const settingsRef = useRef(settings);
   settingsRef.current = settings;
+  const messagesRef = useRef(messages);
+  messagesRef.current = messages;
+  const sessionIdRef = useRef(crypto.randomUUID());
+  const scenarioContextRef = useRef<string | null>(null);
   const explainCacheRef = useRef<Record<string, string>>({});
+
+  const saveCurrentSession = useCallback(async () => {
+    const msgs = messagesRef.current;
+    const userMsgs = msgs.filter((m) => m.role === "user");
+    if (userMsgs.length < 2) return;
+
+    const s = settingsRef.current;
+    const savedMessages = msgs
+      .filter((m) => m.role === "user" || m.role === "assistant")
+      .map((m, i) => ({ role: m.role, content: m.content, seq: i }));
+
+    try {
+      await invoke("save_session", {
+        sessionId: sessionIdRef.current,
+        language: s.language,
+        mode: s.mode,
+        scenarioContext: scenarioContextRef.current,
+        messages: savedMessages,
+      });
+    } catch (e) {
+      console.error("Failed to save session:", e);
+    }
+  }, []);
 
   // Load persisted settings + check if first launch
   useEffect(() => {
@@ -182,6 +210,10 @@ function App() {
 
   // Auto-load TTS voice when language changes — reset conversation
   const handleLanguageChange = useCallback((lang: Language) => {
+    saveCurrentSession();
+    sessionIdRef.current = crypto.randomUUID();
+    scenarioContextRef.current = null;
+
     tts.stop();
     setMessages([]);
     setExplanations({});
@@ -194,15 +226,17 @@ function App() {
       tts.loadVoice(lang, undefined, settings.ttsEngine);
     }
     setSettings((s) => ({ ...s, language: lang, ttsVoice: "default" }));
-  }, [tts, settings.ttsEngine]);
+  }, [tts, settings.ttsEngine, saveCurrentSession]);
 
   const handleModeChange = useCallback((mode: ConversationMode) => {
-    setSettings((s) => {
-      // Save current messages under old key
-      const oldKey = `${s.language}:${s.mode}`;
-      messagesByLangRef.current[oldKey] = messages;
+    saveCurrentSession();
+    sessionIdRef.current = crypto.randomUUID();
+    scenarioContextRef.current = null;
 
-      // Restore saved messages for new mode, or start fresh
+    setSettings((s) => {
+      const oldKey = `${s.language}:${s.mode}`;
+      messagesByLangRef.current[oldKey] = messagesRef.current;
+
       const newKey = `${s.language}:${mode}`;
       const saved = messagesByLangRef.current[newKey];
       if (saved && saved.length > 0) {
@@ -213,18 +247,26 @@ function App() {
 
       return { ...s, mode };
     });
-  }, [messages]);
+  }, [saveCurrentSession]);
 
-  const handleClearChat = useCallback(() => {
+  const handleClearChat = useCallback(async () => {
+    await saveCurrentSession();
+    sessionIdRef.current = crypto.randomUUID();
+    scenarioContextRef.current = null;
     setMessages([]);
-  }, []);
+  }, [saveCurrentSession]);
 
   const handleScenarioSelect = useCallback((scenario: { description: string; opening: string } | null) => {
+    saveCurrentSession();
+    sessionIdRef.current = crypto.randomUUID();
+
     if (!scenario) {
+      scenarioContextRef.current = null;
       tts.stop();
       setMessages([]);
       return;
     }
+    scenarioContextRef.current = scenario.description;
     setMessages([
       { id: crypto.randomUUID(), role: "system", content: scenario.description, timestamp: Date.now() },
       { id: crypto.randomUUID(), role: "assistant", content: scenario.opening, timestamp: Date.now() },
@@ -232,7 +274,14 @@ function App() {
     if (tts.isLoaded) {
       tts.speak(scenario.opening, settings.ttsSpeed, settings.language);
     }
-  }, [tts, settings.ttsSpeed, settings.language]);
+  }, [tts, settings.ttsSpeed, settings.language, saveCurrentSession]);
+
+  useEffect(() => {
+    const unlisten = getCurrentWindow().onCloseRequested(async () => {
+      await saveCurrentSession();
+    });
+    return () => { unlisten.then((f) => f()); };
+  }, [saveCurrentSession]);
 
   const handleTutorFlow = useCallback(async (nativeText: string) => {
     // Show user's native language message

@@ -304,6 +304,74 @@ const strings = {
     tr: "Kopyalandı!", id: "Disalin!", vi: "Đã sao chép!", pl: "Skopiowano!",
   },
 
+  // Session Replay
+  pastSessions: {
+    en: "Past Sessions", ko: "지난 대화", es: "Sesiones anteriores", fr: "Sessions passées",
+    zh: "历史会话", ja: "過去のセッション", de: "Vergangene Sitzungen", pt: "Sessões anteriores",
+    it: "Sessioni passate", ru: "Прошлые сессии", ar: "الجلسات السابقة", hi: "पिछले सत्र",
+    tr: "Geçmiş oturumlar", id: "Sesi sebelumnya", vi: "Phiên trước", pl: "Poprzednie sesje",
+  },
+  noSessions: {
+    en: "No sessions yet", ko: "저장된 대화가 없습니다", es: "Aún no hay sesiones", fr: "Pas encore de sessions",
+    zh: "暂无会话", ja: "セッションなし", de: "Noch keine Sitzungen", pt: "Nenhuma sessão ainda",
+    it: "Nessuna sessione", ru: "Сессий пока нет", ar: "لا توجد جلسات بعد", hi: "अभी तक कोई सत्र नहीं",
+    tr: "Henüz oturum yok", id: "Belum ada sesi", vi: "Chưa có phiên nào", pl: "Brak sesji",
+  },
+  wellDone: {
+    en: "Well done!", ko: "잘 말했어요!", es: "¡Bien hecho!", fr: "Bien dit !",
+    zh: "说得好！", ja: "よく言えました！", de: "Gut gemacht!", pt: "Bem feito!",
+    it: "Ben fatto!", ru: "Хорошо сказано!", ar: "أحسنت!", hi: "बहुत अच्छा!",
+    tr: "Aferin!", id: "Bagus!", vi: "Giỏi lắm!", pl: "Dobrze powiedziane!",
+  },
+  generating: {
+    en: "Generating...", ko: "생성 중...", es: "Generando...", fr: "Génération...",
+    zh: "生成中...", ja: "生成中...", de: "Wird generiert...", pt: "Gerando...",
+    it: "Generazione...", ru: "Генерация...", ar: "جارٍ الإنشاء...", hi: "उत्पन्न हो रहा है...",
+    tr: "Oluşturuluyor...", id: "Menghasilkan...", vi: "Đang tạo...", pl: "Generowanie...",
+  },
+  reviewFailed: {
+    en: "Failed to generate notes", ko: "교정 노트 생성 실패", es: "Error al generar notas", fr: "Échec de la génération",
+    zh: "生成笔记失败", ja: "ノート生成に失敗", de: "Generierung fehlgeschlagen", pt: "Falha ao gerar notas",
+    it: "Generazione fallita", ru: "Не удалось сгенерировать", ar: "فشل في إنشاء الملاحظات", hi: "नोट्स बनाने में विफल",
+    tr: "Notlar oluşturulamadı", id: "Gagal membuat catatan", vi: "Tạo ghi chú thất bại", pl: "Nie udało się wygenerować",
+  },
+  retry: {
+    en: "Retry", ko: "재시도", es: "Reintentar", fr: "Réessayer",
+    zh: "重试", ja: "再試行", de: "Erneut versuchen", pt: "Tentar novamente",
+    it: "Riprova", ru: "Повторить", ar: "إعادة المحاولة", hi: "पुनः प्रयास करें",
+    tr: "Tekrar dene", id: "Coba lagi", vi: "Thử lại", pl: "Ponów",
+  },
+  deleteSession: {
+    en: "Delete", ko: "삭제", es: "Eliminar", fr: "Supprimer",
+    zh: "删除", ja: "削除", de: "Löschen", pt: "Excluir",
+    it: "Elimina", ru: "Удалить", ar: "حذف", hi: "हटाएं",
+    tr: "Sil", id: "Hapus", vi: "Xóa", pl: "Usuń",
+  },
+  errorGrammar: {
+    en: "Grammar", ko: "문법", es: "Gramática", fr: "Grammaire",
+    zh: "语法", ja: "文法", de: "Grammatik", pt: "Gramática",
+    it: "Grammatica", ru: "Грамматика", ar: "قواعد", hi: "व्याकरण",
+    tr: "Dilbilgisi", id: "Tata bahasa", vi: "Ngữ pháp", pl: "Gramatyka",
+  },
+  errorVocab: {
+    en: "Vocabulary", ko: "어휘", es: "Vocabulario", fr: "Vocabulaire",
+    zh: "词汇", ja: "語彙", de: "Wortschatz", pt: "Vocabulário",
+    it: "Vocabolario", ru: "Словарь", ar: "مفردات", hi: "शब्दावली",
+    tr: "Kelime", id: "Kosakata", vi: "Từ vựng", pl: "Słownictwo",
+  },
+  errorNaturalness: {
+    en: "Naturalness", ko: "자연스러움", es: "Naturalidad", fr: "Naturel",
+    zh: "自然度", ja: "自然さ", de: "Natürlichkeit", pt: "Naturalidade",
+    it: "Naturalezza", ru: "Естественность", ar: "طبيعية", hi: "स्वाभाविकता",
+    tr: "Doğallık", id: "Kealamian", vi: "Tự nhiên", pl: "Naturalność",
+  },
+  errorSituation: {
+    en: "Situation", ko: "상황 적합성", es: "Situación", fr: "Situation",
+    zh: "情境", ja: "状況", de: "Situation", pt: "Situação",
+    it: "Situazione", ru: "Ситуация", ar: "الموقف", hi: "स्थिति",
+    tr: "Durum", id: "Situasi", vi: "Tình huống", pl: "Sytuacja",
+  },
+
   // Tutor
   tutorHint: {
     en: "Try saying:", ko: "이렇게 말해보세요:", es: "Intenta decir:", fr: "Essayez de dire :",

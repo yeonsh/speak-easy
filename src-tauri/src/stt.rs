@@ -102,6 +102,19 @@ pub fn transcribe_audio(
     target_language: String,
     native_language: String,
 ) -> Result<TranscriptionResult, String> {
+    // Pad with silence to at least 1.1s (17600 samples at 16kHz)
+    // Whisper's mel spectrogram trims edges, so 16000 samples still reports <1000ms
+    let min_samples = 17600;
+    let audio_data = if audio_data.len() < min_samples {
+        eprintln!("[stt] Padding audio from {} to {} samples", audio_data.len(), min_samples);
+        let mut padded = audio_data;
+        padded.resize(min_samples, 0.0);
+        padded
+    } else {
+        audio_data
+    };
+    eprintln!("[stt] transcribe_audio: {} samples ({}ms)", audio_data.len(), audio_data.len() * 1000 / 16000);
+
     let ctx_guard = state.context.lock().unwrap();
     let ctx = ctx_guard
         .as_ref()

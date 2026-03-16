@@ -9,6 +9,7 @@ mod gemini;
 mod llm;
 mod settings;
 mod stt;
+mod session;
 mod tts;
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -90,6 +91,11 @@ pub fn run() {
             downloads::install_espeak,
             gemini::send_chat_gemini,
             gemini::list_gemini_models,
+            session::save_session,
+            session::list_sessions,
+            session::load_session_messages,
+            session::delete_session,
+            session::generate_review,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

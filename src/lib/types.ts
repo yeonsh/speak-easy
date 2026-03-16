@@ -40,6 +40,36 @@ export interface AppSettings {
   geminiModel: string;
 }
 
+export interface SessionSummary {
+  id: string;
+  language: string;
+  mode: "free-talk" | "scenario";
+  scenario_title: string | null;
+  started_at: number;
+  msg_count: number;
+  has_review: boolean;
+}
+
+export interface SavedMessage {
+  role: string;
+  content: string;
+  seq: number;
+}
+
+export interface ReviewItem {
+  seq: number;
+  original: string;
+  corrected: string | null;
+  note: string | null;
+  errorType: "grammar" | "vocab" | "naturalness" | "situation" | "none";
+}
+
+export interface LoadedMessage {
+  role: string;
+  content: string;
+  seq: number;
+}
+
 export const LANGUAGE_CONFIG: Record<
   Language,
   { name: string; flag: string; nativeName: string }

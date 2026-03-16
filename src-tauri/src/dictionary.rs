@@ -16,6 +16,8 @@ impl DictionaryDb {
 
         let conn = Connection::open(&db_path).map_err(|e| e.to_string())?;
 
+        conn.execute_batch("PRAGMA foreign_keys = ON;").map_err(|e| e.to_string())?;
+
         conn.execute_batch(
             "CREATE TABLE IF NOT EXISTS lookups (
                 kind TEXT NOT NULL,
@@ -28,7 +30,17 @@ impl DictionaryDb {
             );"
         ).map_err(|e| e.to_string())?;
 
+        crate::session::init_tables(&conn)?;
+
         Ok(Self { conn: Mutex::new(conn) })
+    }
+
+    pub fn with_conn<F, T>(&self, f: F) -> Result<T, String>
+    where
+        F: FnOnce(&Connection) -> Result<T, String>,
+    {
+        let conn = self.conn.lock().map_err(|e| e.to_string())?;
+        f(&conn)
     }
 
     pub fn get(&self, kind: &str, key: &str, target_lang: &str, native_lang: &str) -> Option<String> {

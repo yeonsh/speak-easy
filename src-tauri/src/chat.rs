@@ -617,7 +617,7 @@ pub async fn suggest_responses(
     complete_with_provider(port, prov, key, model, &system_prompt, &text, 0.7, 2048)
 }
 
-fn lang_name(code: &str) -> &str {
+pub(crate) fn lang_name(code: &str) -> &str {
     match code {
         "en" => "English",
         "es" => "Spanish",

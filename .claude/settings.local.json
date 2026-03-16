@@ -47,7 +47,9 @@
       "Bash(echo \"こんにちは世界。今日はいい天気ですね。\" | mecab -Oyomi 2>&1 && echo \"---\" && echo \"こんにちは世界。今日はいい天気ですね。\" | mecab -Oyomi 2>&1 | espeak-ng --ipa=2 -q -v ja --stdin 2>&1)",
       "Bash(ls /Users/ysh/.speakeasy/voices/*.pt 2>/dev/null | xargs -I{} basename {} | grep -i \"^k\" | head -10)",
       "Bash(echo \"こんにちは、どうぞよろしくお願いします。\" | mecab 2>&1)",
-      "Bash(echo \"欢迎光临，请问几位？今天有几道特价菜。\" | espeak-ng --ipa=2 -q -v cmn --stdin 2>&1)"
+      "Bash(echo \"欢迎光临，请问几位？今天有几道特价菜。\" | espeak-ng --ipa=2 -q -v cmn --stdin 2>&1)",
+      "WebSearch",
+      "Bash(grep -r \"full_n_tokens\\\\|full_get_token_p\\\\|full_get_token_data\" ~/.cargo/registry/src/*/whisper-rs-0.14*/src/ 2>/dev/null | head -10)"
     ],
     "deny": [
       "Bash(rm -rf *)"
