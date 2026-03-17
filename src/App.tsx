@@ -7,6 +7,8 @@ import { MicButton } from "./components/MicButton";
 import { Sidebar } from "./components/Sidebar";
 import { ServerStatus } from "./components/ServerStatus";
 import { SetupWizard } from "./components/SetupWizard";
+import { SessionHistoryPanel } from "./components/SessionHistoryPanel";
+import { ReviewPanel } from "./components/ReviewPanel";
 import { useLlm } from "./hooks/useLlm";
 import { useStt } from "./hooks/useStt";
 import { useTts } from "./hooks/useTts";
@@ -18,6 +20,7 @@ import type {
   Language,
   Message,
   NativeLanguage,
+  SessionSummary,
 } from "./lib/types";
 import { DEFAULT_SETTINGS } from "./lib/types";
 
@@ -29,6 +32,8 @@ function App() {
   const [messages, setMessages] = useState<Message[]>([]);
   const messagesByLangRef = useRef<Record<string, Message[]>>({});
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [selectedSession, setSelectedSession] = useState<SessionSummary | null>(null);
   const [showWizard, setShowWizard] = useState<boolean | null>(null);
   const [revealedSentences, setRevealedSentences] = useState<string[]>([]);
   const [isStreamingTts, setIsStreamingTts] = useState(false);
@@ -486,80 +491,115 @@ function App() {
               onChange={(enabled) => setSettings((s) => ({ ...s, correctionsEnabled: enabled }))}
               nativeLanguage={settings.nativeLanguage}
             />
+            <button
+              onClick={() => setIsHistoryOpen(true)}
+              className={`p-2 rounded-lg transition-colors ${
+                selectedSession
+                  ? "bg-[var(--primary)] text-[var(--text-bubble-user)]"
+                  : "hover:bg-[var(--bg-elevated)] text-[var(--text-secondary)]"
+              }`}
+              title={t("pastSessions", settings.nativeLanguage)}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="10" />
+                <polyline points="12 6 12 12 8 14" />
+              </svg>
+            </button>
           </div>
         </header>
 
-        <ChatView
-          messages={messages}
-          streamingText={llm.streamingText}
-          revealedText={revealedSentences.join(" ")}
-          isStreamingTts={isStreamingTts}
-          language={settings.language}
-          nativeLanguage={settings.nativeLanguage}
-          scenarios={settings.mode === "scenario" ? getScenarioStarters(settings.language, settings.nativeLanguage) : undefined}
-          onScenarioSelect={handleScenarioSelect}
-          playingText={playingText}
-          onReplay={(text) => {
-            if (tts.isLoaded) {
-              setPlayingText(text);
-              tts.speak(text, settings.ttsSpeed, settings.language);
-            }
-          }}
-          onExplain={async (msgId, text) => {
-            if (explanations[msgId]) return explanations[msgId];
-            const cached = explainCacheRef.current[msgId];
-            if (cached) {
-              setExplanations((prev) => ({ ...prev, [msgId]: cached }));
-              delete explainCacheRef.current[msgId];
-              return cached;
-            }
-            try {
-              const result = await invoke<string>("explain_message", {
-                text,
-                language: settings.language,
-                nativeLanguage: settings.nativeLanguage,
-                provider: settings.llmProvider,
-                apiKey: settings.geminiApiKey,
-                apiModel: settings.geminiModel,
-              });
-              setExplanations((prev) => ({ ...prev, [msgId]: result }));
-              return result;
-            } catch (e) {
-              const errMsg = `[Error: ${e}]`;
-              setExplanations((prev) => ({ ...prev, [msgId]: errMsg }));
-              return errMsg;
-            }
-          }}
-          onSuggest={async (msgId, text) => {
-            const result = await invoke<string>("suggest_responses", {
-              text,
-              language: settings.language,
-              nativeLanguage: settings.nativeLanguage,
-              provider: settings.llmProvider,
-              apiKey: settings.geminiApiKey,
-              apiModel: settings.geminiModel,
-            });
-            setSuggestions((prev) => ({ ...prev, [msgId]: result }));
-            return result;
-          }}
-          onLookupWord={async (word, sentence, forceRefresh) => {
-            const result = await invoke<string>("lookup_word", {
-              word,
-              sentence,
-              targetLanguage: settings.language,
-              nativeLanguage: settings.nativeLanguage,
-              provider: settings.llmProvider,
-              apiKey: settings.geminiApiKey,
-              apiModel: settings.geminiModel,
-              forceRefresh: forceRefresh ?? false,
-            });
-            return result;
-          }}
-          explanations={explanations}
-          suggestions={suggestions}
-        />
+        {selectedSession ? (
+          <ReviewPanel
+            session={selectedSession}
+            nativeLanguage={settings.nativeLanguage}
+            settings={{
+              llmProvider: settings.llmProvider,
+              geminiApiKey: settings.geminiApiKey,
+              geminiModel: settings.geminiModel,
+            }}
+            onBack={() => setSelectedSession(null)}
+            onDelete={async (id) => {
+              try {
+                await invoke("delete_session", { sessionId: id });
+              } catch (e) {
+                console.error("Failed to delete session:", e);
+              }
+              setSelectedSession(null);
+            }}
+          />
+        ) : (
+          <>
+            <ChatView
+              messages={messages}
+              streamingText={llm.streamingText}
+              revealedText={revealedSentences.join(" ")}
+              isStreamingTts={isStreamingTts}
+              language={settings.language}
+              nativeLanguage={settings.nativeLanguage}
+              scenarios={settings.mode === "scenario" ? getScenarioStarters(settings.language, settings.nativeLanguage) : undefined}
+              onScenarioSelect={handleScenarioSelect}
+              playingText={playingText}
+              onReplay={(text) => {
+                if (tts.isLoaded) {
+                  setPlayingText(text);
+                  tts.speak(text, settings.ttsSpeed, settings.language);
+                }
+              }}
+              onExplain={async (msgId, text) => {
+                if (explanations[msgId]) return explanations[msgId];
+                const cached = explainCacheRef.current[msgId];
+                if (cached) {
+                  setExplanations((prev) => ({ ...prev, [msgId]: cached }));
+                  delete explainCacheRef.current[msgId];
+                  return cached;
+                }
+                try {
+                  const result = await invoke<string>("explain_message", {
+                    text,
+                    language: settings.language,
+                    nativeLanguage: settings.nativeLanguage,
+                    provider: settings.llmProvider,
+                    apiKey: settings.geminiApiKey,
+                    apiModel: settings.geminiModel,
+                  });
+                  setExplanations((prev) => ({ ...prev, [msgId]: result }));
+                  return result;
+                } catch (e) {
+                  const errMsg = `[Error: ${e}]`;
+                  setExplanations((prev) => ({ ...prev, [msgId]: errMsg }));
+                  return errMsg;
+                }
+              }}
+              onSuggest={async (msgId, text) => {
+                const result = await invoke<string>("suggest_responses", {
+                  text,
+                  language: settings.language,
+                  nativeLanguage: settings.nativeLanguage,
+                  provider: settings.llmProvider,
+                  apiKey: settings.geminiApiKey,
+                  apiModel: settings.geminiModel,
+                });
+                setSuggestions((prev) => ({ ...prev, [msgId]: result }));
+                return result;
+              }}
+              onLookupWord={async (word, sentence, forceRefresh) => {
+                const result = await invoke<string>("lookup_word", {
+                  word,
+                  sentence,
+                  targetLanguage: settings.language,
+                  nativeLanguage: settings.nativeLanguage,
+                  provider: settings.llmProvider,
+                  apiKey: settings.geminiApiKey,
+                  apiModel: settings.geminiModel,
+                  forceRefresh: forceRefresh ?? false,
+                });
+                return result;
+              }}
+              explanations={explanations}
+              suggestions={suggestions}
+            />
 
-        <footer className="flex items-center justify-center gap-4 p-6 border-t border-[var(--border)]">
+            <footer className="flex items-center justify-center gap-4 p-6 border-t border-[var(--border)]">
           <MicButton
             isRecording={stt.isRecording}
             isProcessing={stt.isTranscribing || llm.isGenerating}
@@ -619,7 +659,20 @@ function App() {
           onLoadWhisper={() => stt.loadModel(settings.whisperModel)}
           onLoadTts={() => tts.loadVoice(settings.language, undefined, settings.ttsEngine)}
         />
+          </>
+        )}
       </div>
+
+      <SessionHistoryPanel
+        isOpen={isHistoryOpen}
+        onClose={() => setIsHistoryOpen(false)}
+        onSelectSession={(session) => {
+          setSelectedSession(session);
+          setIsHistoryOpen(false);
+        }}
+        language={settings.language}
+        nativeLanguage={settings.nativeLanguage}
+      />
     </div>
   );
 }

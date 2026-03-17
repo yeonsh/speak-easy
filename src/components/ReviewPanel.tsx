@@ -70,36 +70,46 @@ export function ReviewPanel({ session, nativeLanguage, settings, onBack, onDelet
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header */}
-      <div className="flex items-center justify-between px-3 py-2 border-b border-[var(--border)]">
+      {/* Header bar */}
+      <div className="flex items-center justify-between px-6 py-3 border-b border-[var(--border)] bg-[var(--bg-surface)]">
         <button
           onClick={onBack}
-          className="p-1 rounded hover:bg-[var(--bg-elevated)] transition-colors"
+          className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-[var(--bg-elevated)] transition-colors text-sm text-[var(--text-secondary)]"
         >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M15 18l-6-6 6-6" />
           </svg>
         </button>
-        <span className="text-xs text-[var(--text-secondary)]">{dateStr} {timeStr}</span>
+        <div className="flex items-center gap-3 text-sm">
+          <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+            session.mode === "scenario"
+              ? "bg-purple-400/20 text-purple-300"
+              : "bg-blue-400/20 text-blue-300"
+          }`}>
+            {session.mode === "scenario" ? "Scenario" : "Free Talk"}
+          </span>
+          <span className="text-[var(--text-secondary)]">{dateStr} {timeStr}</span>
+          <span className="text-[var(--text-secondary)]">{session.msg_count} msgs</span>
+        </div>
         <button
           onClick={() => onDelete(session.id)}
-          className="text-xs text-red-400 hover:text-red-300 transition-colors"
+          className="text-xs px-2 py-1 rounded text-red-400 hover:text-red-300 hover:bg-red-400/10 transition-colors"
         >
           {t("deleteSession", nativeLanguage)}
         </button>
       </div>
 
-      {/* Conversation Replay + Inline Notes */}
-      <div className="flex-1 overflow-y-auto px-3 py-2 space-y-2">
+      {/* Conversation replay */}
+      <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3">
         {messages.map((msg) => {
           const isUser = msg.role === "user";
           const reviewItem = isUser ? reviewBySeq.get(msg.seq) : undefined;
           const colorClass = reviewItem ? ERROR_COLORS[reviewItem.errorType] : "";
 
           return (
-            <div key={msg.seq} className={`text-sm ${isUser ? "text-right" : "text-left"}`}>
+            <div key={msg.seq} className={`flex flex-col ${isUser ? "items-end" : "items-start"}`}>
               <div
-                className={`inline-block max-w-[85%] rounded-lg px-3 py-2 ${
+                className={`max-w-[70%] rounded-2xl px-4 py-2.5 text-sm ${
                   isUser
                     ? `bg-[var(--accent)]/20 text-[var(--text-primary)] ${reviewItem && reviewItem.errorType !== "none" ? `border-l-2 ${colorClass}` : ""}`
                     : "bg-[var(--bg-elevated)] text-[var(--text-secondary)]"
@@ -109,7 +119,7 @@ export function ReviewPanel({ session, nativeLanguage, settings, onBack, onDelet
               </div>
 
               {reviewItem && reviewItem.errorType !== "none" && (
-                <div className={`inline-block max-w-[85%] mt-1 rounded px-3 py-1.5 text-xs border-l-2 ${colorClass}`}>
+                <div className={`max-w-[70%] mt-1.5 rounded-lg px-4 py-2 text-xs border-l-2 ${colorClass}`}>
                   <span className="font-medium">
                     {t(ERROR_LABEL_KEYS[reviewItem.errorType] as any, nativeLanguage)}
                   </span>
@@ -117,13 +127,13 @@ export function ReviewPanel({ session, nativeLanguage, settings, onBack, onDelet
                     <span className="ml-2 text-[var(--accent)]">{reviewItem.corrected}</span>
                   )}
                   {reviewItem.note && (
-                    <p className="mt-0.5 text-[var(--text-secondary)]">{reviewItem.note}</p>
+                    <p className="mt-1 text-[var(--text-secondary)]">{reviewItem.note}</p>
                   )}
                 </div>
               )}
 
               {reviewItem && reviewItem.errorType === "none" && (
-                <div className={`inline-block max-w-[85%] mt-1 rounded px-3 py-1 text-xs border-l-2 ${ERROR_COLORS.none}`}>
+                <div className={`max-w-[70%] mt-1.5 rounded-lg px-4 py-1.5 text-xs border-l-2 ${ERROR_COLORS.none}`}>
                   {t("wellDone", nativeLanguage)}
                 </div>
               )}
@@ -132,17 +142,17 @@ export function ReviewPanel({ session, nativeLanguage, settings, onBack, onDelet
         })}
 
         {reviewLoading && (
-          <div className="text-center py-4">
-            <div className="inline-block w-5 h-5 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin" />
-            <p className="text-xs text-[var(--text-secondary)] mt-2">{t("generating", nativeLanguage)}</p>
+          <div className="text-center py-8">
+            <div className="inline-block w-6 h-6 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin" />
+            <p className="text-sm text-[var(--text-secondary)] mt-3">{t("generating", nativeLanguage)}</p>
           </div>
         )}
         {reviewError && (
-          <div className="text-center py-4 space-y-2">
-            <p className="text-xs text-red-400">{t("reviewFailed", nativeLanguage)}</p>
+          <div className="text-center py-8 space-y-3">
+            <p className="text-sm text-red-400">{t("reviewFailed", nativeLanguage)}</p>
             <button
               onClick={loadReview}
-              className="text-xs px-3 py-1 rounded bg-[var(--bg-elevated)] hover:bg-[var(--border)] transition-colors"
+              className="text-sm px-4 py-1.5 rounded-lg bg-[var(--bg-elevated)] hover:bg-[var(--border)] transition-colors"
             >
               {t("retry", nativeLanguage)}
             </button>

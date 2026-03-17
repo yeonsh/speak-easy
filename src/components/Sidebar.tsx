@@ -1,10 +1,9 @@
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-import type { AppSettings, Language, LlmProvider, NativeLanguage, SessionSummary, TtsEngine } from "../lib/types";
+import type { AppSettings, Language, LlmProvider, NativeLanguage, TtsEngine } from "../lib/types";
 import { LANGUAGE_CONFIG } from "../lib/types";
 import { t } from "../lib/i18n";
-import { ReviewPanel } from "./ReviewPanel";
 
 interface LocalModel {
   filename: string;
@@ -84,18 +83,9 @@ export function Sidebar({
   const [downloading, setDownloading] = useState<{ id: string; progress: number; total: number | null } | null>(null);
   const [geminiModels, setGeminiModels] = useState<{ id: string; name: string }[]>([]);
   const [geminiModelsLoading, setGeminiModelsLoading] = useState(false);
-  const [sessions, setSessions] = useState<SessionSummary[]>([]);
-  const [selectedSession, setSelectedSession] = useState<SessionSummary | null>(null);
-  const [showSessions, setShowSessions] = useState(false);
 
   const refreshModels = () => {
     invoke<LocalModel[]>("list_llm_models").then(setLocalModels).catch(() => {});
-  };
-
-  const refreshSessions = () => {
-    invoke<SessionSummary[]>("list_sessions", { language: settings.language })
-      .then(setSessions)
-      .catch(() => {});
   };
 
   useEffect(() => {
@@ -107,12 +97,6 @@ export function Sidebar({
       }).catch(() => {});
     }
   }, [isOpen]);
-
-  useEffect(() => {
-    if (isOpen) {
-      refreshSessions();
-    }
-  }, [isOpen, settings.language]);
 
   useEffect(() => {
     if (isOpen && settings.llmProvider === "gemini" && settings.geminiApiKey) {
@@ -442,88 +426,6 @@ export function Sidebar({
               <option value="small">Small (~500MB)</option>
             </select>
           </SettingGroup>
-
-          {/* Past Sessions */}
-          <div className="pt-4 border-t border-[var(--border)]">
-            <button
-              onClick={() => { setShowSessions(!showSessions); setSelectedSession(null); }}
-              className="flex items-center justify-between w-full text-sm font-medium text-[var(--text-secondary)] mb-2"
-            >
-              <span>{t("pastSessions", settings.nativeLanguage)}</span>
-              <svg
-                width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
-                className={`transition-transform ${showSessions ? "rotate-180" : ""}`}
-              >
-                <path d="M6 9l6 6 6-6" />
-              </svg>
-            </button>
-
-            {showSessions && !selectedSession && (
-              <div className="space-y-1 max-h-64 overflow-y-auto">
-                {sessions.length === 0 ? (
-                  <p className="text-xs text-[var(--text-secondary)] text-center py-3">
-                    {t("noSessions", settings.nativeLanguage)}
-                  </p>
-                ) : (
-                  sessions.map((s) => {
-                    const d = new Date(s.started_at * 1000);
-                    const dateStr = d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-                    const timeStr = d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
-                    return (
-                      <button
-                        key={s.id}
-                        onClick={() => setSelectedSession(s)}
-                        className="w-full text-left px-3 py-2 rounded-lg hover:bg-[var(--bg-elevated)] transition-colors text-xs"
-                      >
-                        <div className="flex items-center gap-2">
-                          <span className={`shrink-0 px-1.5 py-0.5 rounded text-[10px] font-medium ${
-                            s.mode === "scenario"
-                              ? "bg-purple-400/20 text-purple-300"
-                              : "bg-blue-400/20 text-blue-300"
-                          }`}>
-                            {s.mode === "scenario" ? "S" : "F"}
-                          </span>
-                          <span className="text-[var(--text-primary)] truncate">
-                            {s.scenario_title || t("freeTalk", settings.nativeLanguage)}
-                          </span>
-                          {s.has_review && (
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0 ml-auto" />
-                          )}
-                        </div>
-                        <div className="text-[var(--text-secondary)] mt-0.5 pl-6">
-                          {dateStr} {timeStr} · {s.msg_count} msgs
-                        </div>
-                      </button>
-                    );
-                  })
-                )}
-              </div>
-            )}
-
-            {showSessions && selectedSession && (
-              <div className="h-96 border border-[var(--border)] rounded-lg overflow-hidden">
-                <ReviewPanel
-                  session={selectedSession}
-                  nativeLanguage={settings.nativeLanguage}
-                  settings={{
-                    llmProvider: settings.llmProvider,
-                    geminiApiKey: settings.geminiApiKey,
-                    geminiModel: settings.geminiModel,
-                  }}
-                  onBack={() => setSelectedSession(null)}
-                  onDelete={async (id) => {
-                    try {
-                      await invoke("delete_session", { sessionId: id });
-                    } catch (e) {
-                      console.error("Failed to delete session:", e);
-                    }
-                    setSelectedSession(null);
-                    refreshSessions();
-                  }}
-                />
-              </div>
-            )}
-          </div>
 
           <div className="pt-4 border-t border-[var(--border)] space-y-2">
             <button
