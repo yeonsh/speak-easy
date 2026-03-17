@@ -10,6 +10,7 @@ mod llm;
 mod settings;
 mod stt;
 mod session;
+mod courage;
 mod tts;
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -96,6 +97,8 @@ pub fn run() {
             session::load_session_messages,
             session::delete_session,
             session::generate_review,
+            session::calculate_courage_score,
+            session::get_courage_history,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

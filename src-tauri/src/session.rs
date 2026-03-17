@@ -29,6 +29,18 @@ pub fn init_tables(conn: &Connection) -> Result<(), String> {
             session_id  TEXT PRIMARY KEY REFERENCES sessions(id) ON DELETE CASCADE,
             review_json TEXT NOT NULL,
             created_at  INTEGER NOT NULL DEFAULT (unixepoch())
+        );
+
+        CREATE TABLE IF NOT EXISTS courage_scores (
+            session_id        TEXT PRIMARY KEY REFERENCES sessions(id) ON DELETE CASCADE,
+            word_count        INTEGER NOT NULL DEFAULT 0,
+            turn_count        INTEGER NOT NULL DEFAULT 0,
+            native_switches   INTEGER NOT NULL DEFAULT 0,
+            complex_attempts  INTEGER NOT NULL DEFAULT 0,
+            quick_response_ratio REAL,
+            duration_seconds  INTEGER NOT NULL DEFAULT 0,
+            score             REAL NOT NULL DEFAULT 0.0,
+            created_at        INTEGER NOT NULL DEFAULT (unixepoch())
         );"
     ).map_err(|e| e.to_string())
 }
@@ -339,4 +351,56 @@ pub async fn generate_review(
 
     eprintln!("[generate_review] generated {} review items for session {}", items.len(), session_id);
     Ok(items)
+}
+
+// ── courage score ──
+
+#[tauri::command]
+pub async fn calculate_courage_score(
+    db: tauri::State<'_, crate::dictionary::DictionaryDb>,
+    session_id: String,
+    native_language: String,
+    response_gaps_ms: Option<Vec<i64>>,
+) -> Result<crate::courage::CourageMetrics, String> {
+    db.with_conn(|conn| {
+        let (language, started_at, ended_at): (String, i64, Option<i64>) = conn.query_row(
+            "SELECT language, started_at, ended_at FROM sessions WHERE id = ?1",
+            params![session_id],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+        ).map_err(|e| format!("Session not found: {}", e))?;
+
+        let duration = ended_at.unwrap_or_else(|| {
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_secs() as i64
+        }) - started_at;
+
+        let mut stmt = conn.prepare(
+            "SELECT role, content FROM session_messages WHERE session_id = ?1 ORDER BY seq ASC"
+        ).map_err(|e| e.to_string())?;
+        let messages: Vec<(String, String)> = stmt.query_map(params![session_id], |row| {
+            Ok((row.get(0)?, row.get(1)?))
+        }).map_err(|e| e.to_string())?.filter_map(|r| r.ok()).collect();
+
+        if messages.is_empty() {
+            return Err("No messages in session".to_string());
+        }
+
+        let mut metrics = crate::courage::compute_metrics(&messages, &language, &native_language, duration, &response_gaps_ms);
+        crate::courage::calculate_and_store(conn, &session_id, &language, &mut metrics)?;
+        eprintln!("[courage] calculated score {:.1} for session {}", metrics.score, session_id);
+        Ok(metrics)
+    })
+}
+
+#[tauri::command]
+pub async fn get_courage_history(
+    db: tauri::State<'_, crate::dictionary::DictionaryDb>,
+    session_id: String,
+    language: String,
+) -> Result<Option<crate::courage::CourageHistory>, String> {
+    db.with_conn(|conn| {
+        crate::courage::load_history(conn, &session_id, &language)
+    })
 }
