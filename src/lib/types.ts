@@ -70,6 +70,28 @@ export interface LoadedMessage {
   seq: number;
 }
 
+export interface CourageMetrics {
+  word_count: number;
+  turn_count: number;
+  native_switches: number;
+  complex_attempts: number;
+  quick_response_ratio: number | null;
+  duration_seconds: number;
+  score: number;
+}
+
+export interface CourageHistoryEntry {
+  session_id: string;
+  score: number;
+  started_at: number;
+}
+
+export interface CourageHistory {
+  current: CourageMetrics;
+  previous: CourageMetrics | null;
+  history: CourageHistoryEntry[];
+}
+
 export const LANGUAGE_CONFIG: Record<
   Language,
   { name: string; flag: string; nativeName: string }

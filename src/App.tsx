@@ -51,6 +51,8 @@ function App() {
   const sessionIdRef = useRef(crypto.randomUUID());
   const scenarioContextRef = useRef<string | null>(null);
   const explainCacheRef = useRef<Record<string, string>>({});
+  const ttsDoneAtRef = useRef<number | null>(null);
+  const responseGapsRef = useRef<number[]>([]);
 
   const saveCurrentSession = useCallback(async () => {
     const msgs = messagesRef.current;
@@ -62,6 +64,8 @@ function App() {
       .filter((m) => m.role === "user" || m.role === "assistant")
       .map((m, i) => ({ role: m.role, content: m.content, seq: i }));
 
+    const gaps = responseGapsRef.current.length > 0 ? [...responseGapsRef.current] : null;
+
     try {
       await invoke("save_session", {
         sessionId: sessionIdRef.current,
@@ -70,6 +74,13 @@ function App() {
         scenarioContext: scenarioContextRef.current,
         messages: savedMessages,
       });
+
+      // Calculate courage score after saving session
+      await invoke("calculate_courage_score", {
+        sessionId: sessionIdRef.current,
+        nativeLanguage: s.nativeLanguage,
+        responseGapsMs: gaps,
+      }).catch((e: unknown) => console.error("Courage score calc failed:", e));
     } catch (e) {
       console.error("Failed to save session:", e);
     }
@@ -171,6 +182,7 @@ function App() {
         // All audio finished — finalize message
         setIsStreamingTts(false);
         isStreamingTtsRef.current = false;
+        ttsDoneAtRef.current = Date.now();
         const fullText = pendingFullTextRef.current;
         if (fullText) {
           const msgId = pendingMsgIdRef.current ?? crypto.randomUUID();
@@ -217,6 +229,8 @@ function App() {
   const handleLanguageChange = useCallback((lang: Language) => {
     saveCurrentSession();
     sessionIdRef.current = crypto.randomUUID();
+    responseGapsRef.current = [];
+    ttsDoneAtRef.current = null;
     scenarioContextRef.current = null;
 
     tts.stop();
@@ -236,6 +250,8 @@ function App() {
   const handleModeChange = useCallback((mode: ConversationMode) => {
     saveCurrentSession();
     sessionIdRef.current = crypto.randomUUID();
+    responseGapsRef.current = [];
+    ttsDoneAtRef.current = null;
     scenarioContextRef.current = null;
 
     setSettings((s) => {
@@ -257,6 +273,8 @@ function App() {
   const handleClearChat = useCallback(async () => {
     await saveCurrentSession();
     sessionIdRef.current = crypto.randomUUID();
+    responseGapsRef.current = [];
+    ttsDoneAtRef.current = null;
     scenarioContextRef.current = null;
     setMessages([]);
   }, [saveCurrentSession]);
@@ -264,6 +282,8 @@ function App() {
   const handleScenarioSelect = useCallback((scenario: { description: string; opening: string } | null) => {
     saveCurrentSession();
     sessionIdRef.current = crypto.randomUUID();
+    responseGapsRef.current = [];
+    ttsDoneAtRef.current = null;
 
     if (!scenario) {
       scenarioContextRef.current = null;
@@ -603,7 +623,17 @@ function App() {
           <MicButton
             isRecording={stt.isRecording}
             isProcessing={stt.isTranscribing || llm.isGenerating}
-            onRecordStart={() => stt.startRecording()}
+            onRecordStart={() => {
+              const micStartAt = Date.now();
+              if (ttsDoneAtRef.current) {
+                const gap = micStartAt - ttsDoneAtRef.current;
+                if (gap > 0) {
+                  responseGapsRef.current.push(gap);
+                }
+                ttsDoneAtRef.current = null;
+              }
+              stt.startRecording();
+            }}
             onRecordStop={async () => {
               // Interrupt any playing TTS
               if (tts.isSpeaking && currentRequestIdRef.current) {
