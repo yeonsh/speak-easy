@@ -226,6 +226,10 @@ pub fn calculate_and_store(
     language: &str,
     metrics: &mut CourageMetrics,
 ) -> Result<(), String> {
+    if metrics.duration_seconds <= 0 {
+        return Err("Session duration is zero".to_string());
+    }
+
     let baselines = get_baselines(conn, language);
 
     let s_words = normalize(metrics.word_count as f32, baselines.word_count);

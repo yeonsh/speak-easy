@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { SessionSummary, LoadedMessage, ReviewItem, NativeLanguage } from "../lib/types";
 import { t } from "../lib/i18n";
+import { CourageScore } from "./CourageScore";
 
 interface ReviewPanelProps {
   session: SessionSummary;
@@ -98,6 +99,13 @@ export function ReviewPanel({ session, nativeLanguage, settings, onBack, onDelet
           {t("deleteSession", nativeLanguage)}
         </button>
       </div>
+
+      {/* Courage Score */}
+      <CourageScore
+        sessionId={session.id}
+        language={session.language}
+        nativeLanguage={nativeLanguage}
+      />
 
       {/* Conversation replay */}
       <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3">
