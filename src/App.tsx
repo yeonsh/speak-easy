@@ -627,7 +627,7 @@ function App() {
               const micStartAt = Date.now();
               if (ttsDoneAtRef.current) {
                 const gap = micStartAt - ttsDoneAtRef.current;
-                if (gap > 0) {
+                if (gap > 0 && gap <= 30000) {
                   responseGapsRef.current.push(gap);
                 }
                 ttsDoneAtRef.current = null;

@@ -165,13 +165,13 @@ struct Baselines {
     duration: f32,
 }
 
-fn get_baselines(conn: &Connection, language: &str) -> Baselines {
+fn get_baselines(conn: &Connection, language: &str, exclude_session: &str) -> Baselines {
     let count: i64 = conn
         .query_row(
             "SELECT COUNT(*) FROM courage_scores cs
              JOIN sessions s ON s.id = cs.session_id
-             WHERE s.language = ?1",
-            params![language],
+             WHERE s.language = ?1 AND cs.session_id != ?2",
+            params![language, exclude_session],
             |row| row.get(0),
         )
         .unwrap_or(0);
@@ -188,14 +188,18 @@ fn get_baselines(conn: &Connection, language: &str) -> Baselines {
     }
 
     let result = conn.query_row(
-        "SELECT AVG(cs.word_count), AVG(cs.turn_count), AVG(cs.complex_attempts),
-                AVG(cs.native_switches), AVG(cs.quick_response_ratio), AVG(cs.duration_seconds)
-         FROM courage_scores cs
-         JOIN sessions s ON s.id = cs.session_id
-         WHERE s.language = ?1
-         ORDER BY cs.created_at DESC
-         LIMIT 10",
-        params![language],
+        "SELECT AVG(word_count), AVG(turn_count), AVG(complex_attempts),
+                AVG(native_switches), AVG(quick_response_ratio), AVG(duration_seconds)
+         FROM (
+             SELECT cs.word_count, cs.turn_count, cs.complex_attempts,
+                    cs.native_switches, cs.quick_response_ratio, cs.duration_seconds
+             FROM courage_scores cs
+             JOIN sessions s ON s.id = cs.session_id
+             WHERE s.language = ?1 AND cs.session_id != ?2
+             ORDER BY cs.created_at DESC
+             LIMIT 10
+         )",
+        params![language, exclude_session],
         |row| {
             Ok(Baselines {
                 word_count: row.get::<_, f64>(0).unwrap_or(BASE_WORD_COUNT as f64) as f32,
@@ -230,7 +234,7 @@ pub fn calculate_and_store(
         return Err("Session duration is zero".to_string());
     }
 
-    let baselines = get_baselines(conn, language);
+    let baselines = get_baselines(conn, language, session_id);
 
     let s_words = normalize(metrics.word_count as f32, baselines.word_count);
     let s_turns = normalize(metrics.turn_count as f32, baselines.turn_count);
