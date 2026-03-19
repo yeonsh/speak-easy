@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { invoke } from "@tauri-apps/api/core";
+import { invoke, transcribeAudio } from "../lib/backend";
 import { useAudioRecorder } from "./useAudioRecorder";
 import type { Language } from "../lib/types";
 
@@ -49,27 +49,7 @@ export function useStt(): UseSttReturn {
           return null;
         }
 
-        // Send WAV bytes to Rust for decoding and transcription
-        const wavBytes = Array.from(new Uint8Array(wavBuffer));
-
-        const samples = await invoke<number[]>("decode_wav_to_samples", {
-          wavBytes,
-        });
-
-        if (samples.length === 0) {
-          setIsTranscribing(false);
-          setError("No audio captured");
-          return null;
-        }
-
-        const result = await invoke<{ text: string; language: string | null }>(
-          "transcribe_audio",
-          {
-            audioData: samples,
-            targetLanguage,
-            nativeLanguage,
-          },
-        );
+        const result = await transcribeAudio(wavBuffer, targetLanguage, nativeLanguage);
 
         setIsTranscribing(false);
         return result.text ? { text: result.text, language: result.language ?? targetLanguage } : null;

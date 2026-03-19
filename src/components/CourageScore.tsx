@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "../lib/backend";
 import type { CourageHistory, CourageMetrics, NativeLanguage } from "../lib/types";
 import { t } from "../lib/i18n";
 

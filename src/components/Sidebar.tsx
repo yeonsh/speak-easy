@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
-import { invoke } from "@tauri-apps/api/core";
-import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import { invoke, listen, isTauri } from "../lib/backend";
 import type { AppSettings, Language, LlmProvider, NativeLanguage, TtsEngine } from "../lib/types";
 import { LANGUAGE_CONFIG } from "../lib/types";
 import { t } from "../lib/i18n";
@@ -109,10 +108,11 @@ export function Sidebar({
   }, [isOpen, settings.llmProvider, settings.geminiApiKey]);
 
   const downloadModel = async (model: ModelInfo) => {
+    if (!isTauri) return;
     const downloadId = `llm-download-${Date.now()}`;
     setDownloading({ id: downloadId, progress: 0, total: model.size_bytes });
 
-    const unlisteners: UnlistenFn[] = [];
+    const unlisteners: (() => void)[] = [];
     unlisteners.push(await listen<{ downloaded: number; total: number | null }>(`download-progress-${downloadId}`, (e) => {
       setDownloading((prev) => prev ? { ...prev, progress: e.payload.downloaded, total: e.payload.total ?? prev.total } : null);
     }));

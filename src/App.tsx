@@ -1,6 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from "react";
-import { invoke } from "@tauri-apps/api/core";
-import { getCurrentWindow } from "@tauri-apps/api/window";
+import { invoke, getCurrentWindow, isTauri } from "./lib/backend";
 import { ChatView } from "./components/ChatView";
 import { LanguageBar } from "./components/LanguageBar";
 import { MicButton } from "./components/MicButton";
@@ -302,10 +301,14 @@ function App() {
   }, [tts, settings.ttsSpeed, settings.language, saveCurrentSession]);
 
   useEffect(() => {
-    const unlisten = getCurrentWindow().onCloseRequested(async () => {
-      await saveCurrentSession();
+    let cleanup: (() => void) | null = null;
+    getCurrentWindow().then((w) => {
+      const unlisten = w.onCloseRequested(async () => {
+        await saveCurrentSession();
+      });
+      Promise.resolve(unlisten).then((f) => { cleanup = f; });
     });
-    return () => { unlisten.then((f) => f()); };
+    return () => { cleanup?.(); };
   }, [saveCurrentSession]);
 
   const handleTutorFlow = useCallback(async (nativeText: string) => {
@@ -433,7 +436,7 @@ function App() {
     );
   }
 
-  if (showWizard) {
+  if (isTauri && showWizard) {
     return <SetupWizard onComplete={() => setShowWizard(false)} />;
   }
 

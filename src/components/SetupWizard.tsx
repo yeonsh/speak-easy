@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
+import { invoke, listen, isTauri } from "../lib/backend";
 
 interface SetupStatus {
   has_whisper: boolean;
@@ -34,6 +33,11 @@ interface SetupWizardProps {
 }
 
 export function SetupWizard({ onComplete }: SetupWizardProps) {
+  if (!isTauri) {
+    onComplete();
+    return null;
+  }
+
   const [step, setStep] = useState(0);
   const [status, setStatus] = useState<SetupStatus | null>(null);
   const [models, setModels] = useState<ModelInfo[]>([]);

@@ -1,6 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from "react";
-import { invoke } from "@tauri-apps/api/core";
-import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import { invoke, listen, sendChat } from "../lib/backend";
 
 interface UseLlmReturn {
   isServerRunning: boolean;
@@ -31,13 +30,13 @@ export function useLlm(): UseLlmReturn {
   const [streamingText, setStreamingText] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const onComplete = useRef<((fullText: string) => void) | null>(null);
-  const unlistenRef = useRef<UnlistenFn | null>(null);
+  const unlistenRef = useRef<(() => void) | null>(null);
   const currentRequestIdRef = useRef<string | null>(null);
   const startTimeRef = useRef<number | null>(null);
 
   useEffect(() => {
     // Listen for server ready event
-    let unlisten: UnlistenFn | undefined;
+    let unlisten: (() => void) | undefined;
     listen<boolean>("llm-ready", () => {
       setIsServerRunning(true);
       setIsServerStarting(false);
@@ -149,27 +148,14 @@ export function useLlm(): UseLlmReturn {
       unlistenRef.current = unlisten;
 
       try {
-        if (provider === "gemini" && apiKey) {
-          await invoke("send_chat_gemini", {
-            messages,
-            temperature: temperature ?? null,
-            requestId,
-            ttsEnabled: ttsEnabled ?? false,
-            ttsSpeed: ttsSpeed ?? null,
-            language: language ?? null,
-            apiKey,
-            model: apiModel ?? null,
-          });
-        } else {
-          await invoke("send_chat_message", {
-            messages,
-            temperature: temperature ?? null,
-            requestId,
-            ttsEnabled: ttsEnabled ?? false,
-            ttsSpeed: ttsSpeed ?? null,
-            language: language ?? null,
-          });
-        }
+        const chatProvider = (provider === "gemini" && apiKey) ? "gemini" : "local";
+        await sendChat(chatProvider, requestId, messages, {
+          temperature: temperature ?? null,
+          ttsEnabled: ttsEnabled ?? false,
+          ttsSpeed: ttsSpeed ?? null,
+          language: language ?? null,
+          ...(chatProvider === "gemini" ? { apiKey, model: apiModel ?? null } : {}),
+        });
       } catch (e) {
         currentRequestIdRef.current = null;
         setIsGenerating(false);

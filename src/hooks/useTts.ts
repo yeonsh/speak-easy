@@ -1,6 +1,5 @@
 import { useState, useCallback, useRef } from "react";
-import { invoke } from "@tauri-apps/api/core";
-import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import { invoke, listen } from "../lib/backend";
 import type { Language, TtsEngine } from "../lib/types";
 
 const KOKORO_VOICES: Record<Language, string> = {
@@ -75,8 +74,8 @@ export function useTts(): UseTtsReturn {
   const sourceRef = useRef<AudioBufferSourceNode | null>(null);
   const workletNodeRef = useRef<AudioWorkletNode | null>(null);
   const workletReadyRef = useRef(false);
-  const unlistenChunkRef = useRef<UnlistenFn | null>(null);
-  const unlistenStopRef = useRef<UnlistenFn | null>(null);
+  const unlistenChunkRef = useRef<() => void | null>(null);
+  const unlistenStopRef = useRef<() => void | null>(null);
   const chunkMetaRef = useRef<Map<number, string>>(new Map());
   const onChunkDone = useRef<
     ((index: number, text: string, done: boolean) => void) | null
