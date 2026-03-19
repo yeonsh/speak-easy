@@ -1,4 +1,4 @@
-const isTauri = "__TAURI__" in window;
+const isTauri = !!(globalThis as any).isTauri;
 
 // --- Lazy Tauri imports (only loaded in Tauri context, awaited on first use) ---
 
