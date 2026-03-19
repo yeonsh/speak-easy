@@ -31,24 +31,28 @@ struct TranscribeQuery {
 }
 
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct WhisperLoadReq {
     model_size: Option<String>,
     custom_path: Option<String>,
 }
 
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct TtsLoadReq {
     voice_name: String,
     engine: Option<String>,
 }
 
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct LlmStartReq {
     model_path: Option<String>,
     gpu_layers: Option<i32>,
 }
 
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct GeminiModelsReq {
     api_key: String,
 }
@@ -60,6 +64,7 @@ struct SessionListQuery {
 }
 
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct SaveSessionReq {
     session_id: String,
     language: String,
@@ -69,6 +74,7 @@ struct SaveSessionReq {
 }
 
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct ExplainReq {
     text: String,
     language: String,
@@ -80,6 +86,7 @@ struct ExplainReq {
 }
 
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct SuggestReq {
     text: String,
     language: String,
@@ -90,6 +97,7 @@ struct SuggestReq {
 }
 
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct TranslateReq {
     text: String,
     native_language: String,
@@ -100,6 +108,7 @@ struct TranslateReq {
 }
 
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct LookupReq {
     word: String,
     sentence: String,
@@ -112,6 +121,7 @@ struct LookupReq {
 }
 
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct ReviewReq {
     session_id: String,
     native_language: String,
@@ -121,6 +131,7 @@ struct ReviewReq {
 }
 
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct CourageCalcReq {
     session_id: String,
     native_language: String,
@@ -128,12 +139,14 @@ struct CourageCalcReq {
 }
 
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct CourageHistoryQuery {
     session_id: String,
     language: String,
 }
 
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct CancelReq {
     request_id: String,
 }
@@ -600,6 +613,7 @@ struct WsMessage {
 }
 
 #[derive(Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
 struct WsChatSettings {
     #[serde(default)]
     temperature: Option<f32>,
