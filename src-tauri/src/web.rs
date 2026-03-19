@@ -478,7 +478,7 @@ async fn explain(
     .map_err(|e| err_json(format!("Task join error: {}", e)))?;
 
     match result {
-        Ok(text) => Ok(Json(serde_json::json!({ "result": text }))),
+        Ok(text) => Ok(Json(text)),
         Err(e) => Err(err_json(e)),
     }
 }
@@ -498,7 +498,7 @@ async fn suggest(
     .map_err(|e| err_json(format!("Task join error: {}", e)))?;
 
     match result {
-        Ok(text) => Ok(Json(serde_json::json!({ "result": text }))),
+        Ok(text) => Ok(Json(text)),
         Err(e) => Err(err_json(e)),
     }
 }
@@ -517,7 +517,7 @@ async fn translate(
     .map_err(|e| err_json(format!("Task join error: {}", e)))?;
 
     match result {
-        Ok(text) => Ok(Json(serde_json::json!({ "result": text }))),
+        Ok(text) => Ok(Json(text)),
         Err(e) => Err(err_json(e)),
     }
 }
@@ -538,7 +538,7 @@ async fn lookup(
     .map_err(|e| err_json(format!("Task join error: {}", e)))?;
 
     match result {
-        Ok(text) => Ok(Json(serde_json::json!({ "result": text }))),
+        Ok(text) => Ok(Json(text)),
         Err(e) => Err(err_json(e)),
     }
 }
