@@ -22,5 +22,15 @@ export default defineConfig(async () => ({
     watch: {
       ignored: ["**/src-tauri/**"],
     },
+    proxy: {
+      "/api": {
+        target: "http://localhost:3456",
+        changeOrigin: true,
+      },
+      "/ws": {
+        target: "ws://localhost:3456",
+        ws: true,
+      },
+    },
   },
 }));
