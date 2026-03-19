@@ -25,7 +25,7 @@ Axum launches as a tokio task inside Tauri's `setup()` hook. It shares the same 
 
 - **Single client**: Only one web client at a time. The LLM server handles one request at a time, and STT/TTS serialize behind mutexes. Document this as an explicit limitation rather than adding request queuing.
 - **Blocking work on spawn_blocking**: WhisperContext and ort Session may not be Send-safe across async boundaries. All compute-heavy handlers (STT transcription, TTS synthesis) must use `tokio::task::spawn_blocking`.
-- **Desktop-only features**: SetupWizard, model downloads, `open_models_folder`, `install_espeak`, `extract_llama_server` are desktop-only. The web UI assumes models are already set up on the host machine. The web frontend hides SetupWizard when not running in Tauri.
+- **Desktop-only features**: SetupWizard, model downloads, `open_models_folder`, `install_espeak`, `extract_llama_server` are desktop-only. The web UI assumes models are already set up on the host machine. The web frontend hides SetupWizard when not running in Tauri. `check_setup_complete` returns `true` stub in web mode via the frontend adapter. Download-related invoke calls in Sidebar are hidden in web mode.
 
 ## State Sharing
 
@@ -36,7 +36,7 @@ Create `Arc<T>` before calling `app.manage()`, keep a clone for Axum:
 let llm = Arc::new(LlmState::new());
 let stt = Arc::new(SttState::new());
 let tts = Arc::new(TtsState::new());
-let db = Arc::new(DictionaryDb::new()?);
+let db = Arc::new(DictionaryDb::open()?);
 
 app.manage(llm.clone());
 app.manage(stt.clone());
@@ -86,10 +86,8 @@ This means `chat.rs`, `gemini.rs`, and `llm.rs` need minor modifications to dual
 | GET | `/api/settings` | Load app settings |
 | POST | `/api/settings` | Save app settings |
 | POST | `/api/models/whisper/load` | Load whisper model |
-| POST | `/api/models/whisper/unload` | Unload whisper model |
 | GET | `/api/models/whisper/status` | Check if whisper is loaded |
 | POST | `/api/models/tts/load` | Load TTS voice |
-| POST | `/api/models/tts/unload` | Unload TTS voice |
 | GET | `/api/models/tts/status` | Check if TTS is loaded |
 | GET | `/api/models/tts/voices` | List available voices |
 | GET | `/api/status` | Server/model readiness status |
@@ -109,6 +107,7 @@ This means `chat.rs`, `gemini.rs`, and `llm.rs` need minor modifications to dual
 | POST | `/api/review` | Generate session review |
 | GET | `/api/courage` | Get courage score/history |
 | POST | `/api/cancel` | Cancel current generation |
+| GET | `/api/models/dir` | Get models directory path |
 
 Note: `/api/transcribe` combines `decode_wav_to_samples` + `transcribe_audio` into a single call. The client uploads raw WAV bytes and gets text back.
 
@@ -125,7 +124,7 @@ Single persistent WebSocket connection per client. JSON messages with a `type` d
 ### Client → Server
 
 ```json
-{"type": "chat", "requestId": "uuid", "messages": [...], "settings": {...}}
+{"type": "chat", "requestId": "uuid", "provider": "local|gemini", "messages": [...], "settings": {...}}
 {"type": "chat-cancel", "requestId": "uuid"}
 {"type": "tts-cancel", "requestId": "uuid"}
 ```
