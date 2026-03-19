@@ -220,6 +220,7 @@ pub async fn start_web_server(state: WebState) {
         .route("/api/courage", get(courage_history).post(courage_calc))
         // Cancel
         .route("/api/cancel", post(cancel))
+        .route("/api/synthesize", post(synthesize_speech))
         // WebSocket
         .route("/ws", get(ws_handler))
         // Static files (fallback)
@@ -576,6 +577,30 @@ async fn courage_history(
     match crate::session::get_courage_history_inner(&state.db, &q.session_id, &q.language) {
         Ok(history) => Ok(Json(history)),
         Err(e) => Err(err_json(e)),
+    }
+}
+
+// ── Synthesize (one-shot TTS for replay) ──
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct SynthesizeReq {
+    text: String,
+    speed: Option<f32>,
+    language: Option<String>,
+}
+
+async fn synthesize_speech(
+    AxState(state): AxState<WebState>,
+    Json(req): Json<SynthesizeReq>,
+) -> impl IntoResponse {
+    let tts = state.tts.clone();
+    match tokio::task::spawn_blocking(move || {
+        crate::tts::synthesize_speech_inner(&tts, &req.text, req.speed.unwrap_or(1.0), req.language.as_deref().unwrap_or("en"))
+    }).await {
+        Ok(Ok(result)) => Json(result).into_response(),
+        Ok(Err(e)) => err_json(e).into_response(),
+        Err(e) => err_json(e.to_string()).into_response(),
     }
 }
 

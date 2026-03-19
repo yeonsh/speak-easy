@@ -111,6 +111,7 @@ const CMD_MAP: Record<string, (args?: any) => ApiRoute> = {
   get_courage_history:     () => ({ method: "GET",  path: "/api/courage" }),
   calculate_courage_score: () => ({ method: "POST", path: "/api/courage" }),
   cancel_generation:       () => ({ method: "POST", path: "/api/cancel" }),
+  synthesize_speech:       () => ({ method: "POST", path: "/api/synthesize" }),
   check_setup_complete:    () => ({ method: "STUB", path: "" }),
   open_models_folder:      () => ({ method: "STUB", path: "" }),
   download_file:           () => ({ method: "STUB", path: "" }),
