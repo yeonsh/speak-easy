@@ -13,6 +13,7 @@ mod stt;
 mod session;
 mod courage;
 mod tts;
+mod web;
 
 pub use event_bus::EventBus;
 
@@ -51,12 +52,33 @@ fn save_settings(new_settings: settings::Settings) -> Result<(), String> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    let llm = llm::LlmState::new();
+    let stt = stt::SttState::new();
+    let tts = tts::TtsState::new();
+    let db = dictionary::DictionaryDb::open().expect("Failed to open dictionary DB");
+    let bus = event_bus::EventBus::new();
+
+    let web_state = web::WebState {
+        llm: llm.clone(),
+        stt: stt.clone(),
+        tts: tts.clone(),
+        db: db.clone(),
+        bus: bus.clone(),
+    };
+
+    // Spawn Axum web server in background
+    std::thread::spawn(move || {
+        let rt = tokio::runtime::Runtime::new().expect("Failed to create tokio runtime");
+        rt.block_on(web::start_web_server(web_state));
+    });
+
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
-        .manage(llm::LlmState::new())
-        .manage(stt::SttState::new())
-        .manage(tts::TtsState::new())
-        .manage(dictionary::DictionaryDb::open().expect("Failed to open dictionary DB"))
+        .manage(llm)
+        .manage(stt)
+        .manage(tts)
+        .manage(db)
+        .manage(bus)
         .invoke_handler(tauri::generate_handler![
             get_models_dir,
             check_model_exists,

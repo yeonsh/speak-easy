@@ -49,19 +49,18 @@ pub fn init_tables(conn: &Connection) -> Result<(), String> {
 
 #[derive(Debug, Deserialize)]
 pub struct SavedMessage {
-    role: String,
-    content: String,
-    seq: i64,
+    pub role: String,
+    pub content: String,
+    pub seq: i64,
 }
 
-#[tauri::command]
-pub async fn save_session(
-    db: tauri::State<'_, crate::dictionary::DictionaryDb>,
-    session_id: String,
-    language: String,
-    mode: String,
-    scenario_context: Option<String>,
-    messages: Vec<SavedMessage>,
+pub fn save_session_inner(
+    db: &crate::dictionary::DictionaryDb,
+    session_id: &str,
+    language: &str,
+    mode: &str,
+    scenario_context: Option<&str>,
+    messages: &[SavedMessage],
 ) -> Result<(), String> {
     let user_count = messages.iter().filter(|m| m.role == "user").count();
     if user_count < 2 {
@@ -69,7 +68,7 @@ pub async fn save_session(
         return Ok(());
     }
 
-    let scenario_title = scenario_context.as_ref().map(|ctx| {
+    let scenario_title = scenario_context.map(|ctx| {
         ctx.lines().next().unwrap_or("").to_string()
     });
     let msg_count = messages.len() as i64;
@@ -77,7 +76,6 @@ pub async fn save_session(
     db.with_conn(|conn| {
         let tx = conn.unchecked_transaction().map_err(|e| e.to_string())?;
 
-        // On conflict: only update ended_at and msg_count (language/mode/scenario are immutable per session)
         tx.execute(
             "INSERT INTO sessions (id, language, mode, scenario_context, scenario_title, msg_count, ended_at)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, unixepoch())
@@ -90,7 +88,7 @@ pub async fn save_session(
             params![session_id],
         ).map_err(|e| e.to_string())?;
 
-        for msg in &messages {
+        for msg in messages {
             tx.execute(
                 "INSERT INTO session_messages (session_id, role, content, seq)
                  VALUES (?1, ?2, ?3, ?4)",
@@ -102,6 +100,18 @@ pub async fn save_session(
         eprintln!("[session] saved session {} ({} msgs, {} user)", session_id, msg_count, user_count);
         Ok(())
     })
+}
+
+#[tauri::command]
+pub async fn save_session(
+    db: tauri::State<'_, crate::dictionary::DictionaryDb>,
+    session_id: String,
+    language: String,
+    mode: String,
+    scenario_context: Option<String>,
+    messages: Vec<SavedMessage>,
+) -> Result<(), String> {
+    save_session_inner(&db, &session_id, &language, &mode, scenario_context.as_deref(), &messages)
 }
 
 // ── list_sessions ──
@@ -117,10 +127,9 @@ pub struct SessionSummary {
     has_review: bool,
 }
 
-#[tauri::command]
-pub async fn list_sessions(
-    db: tauri::State<'_, crate::dictionary::DictionaryDb>,
-    language: Option<String>,
+pub fn list_sessions_inner(
+    db: &crate::dictionary::DictionaryDb,
+    language: Option<&str>,
     limit: Option<i64>,
 ) -> Result<Vec<SessionSummary>, String> {
     db.with_conn(|conn| {
@@ -150,6 +159,15 @@ pub async fn list_sessions(
     })
 }
 
+#[tauri::command]
+pub async fn list_sessions(
+    db: tauri::State<'_, crate::dictionary::DictionaryDb>,
+    language: Option<String>,
+    limit: Option<i64>,
+) -> Result<Vec<SessionSummary>, String> {
+    list_sessions_inner(&db, language.as_deref(), limit)
+}
+
 // ── load_session_messages ──
 
 #[derive(Debug, Serialize)]
@@ -159,10 +177,9 @@ pub struct LoadedMessage {
     seq: i64,
 }
 
-#[tauri::command]
-pub async fn load_session_messages(
-    db: tauri::State<'_, crate::dictionary::DictionaryDb>,
-    session_id: String,
+pub fn load_session_messages_inner(
+    db: &crate::dictionary::DictionaryDb,
+    session_id: &str,
 ) -> Result<Vec<LoadedMessage>, String> {
     db.with_conn(|conn| {
         let mut stmt = conn.prepare(
@@ -182,12 +199,19 @@ pub async fn load_session_messages(
     })
 }
 
-// ── delete_session ──
-
 #[tauri::command]
-pub async fn delete_session(
+pub async fn load_session_messages(
     db: tauri::State<'_, crate::dictionary::DictionaryDb>,
     session_id: String,
+) -> Result<Vec<LoadedMessage>, String> {
+    load_session_messages_inner(&db, &session_id)
+}
+
+// ── delete_session ──
+
+pub fn delete_session_inner(
+    db: &crate::dictionary::DictionaryDb,
+    session_id: &str,
 ) -> Result<(), String> {
     db.with_conn(|conn| {
         conn.execute(
@@ -197,6 +221,14 @@ pub async fn delete_session(
         eprintln!("[session] deleted session {}", session_id);
         Ok(())
     })
+}
+
+#[tauri::command]
+pub async fn delete_session(
+    db: tauri::State<'_, crate::dictionary::DictionaryDb>,
+    session_id: String,
+) -> Result<(), String> {
+    delete_session_inner(&db, &session_id)
 }
 
 // ── generate_review ──
@@ -211,17 +243,15 @@ pub struct ReviewItem {
     error_type: String,
 }
 
-#[tauri::command]
-pub async fn generate_review(
-    llm_state: tauri::State<'_, LlmState>,
-    db: tauri::State<'_, crate::dictionary::DictionaryDb>,
-    session_id: String,
-    native_language: String,
-    provider: Option<String>,
-    api_key: Option<String>,
-    api_model: Option<String>,
+pub fn generate_review_inner(
+    llm: &LlmState,
+    db: &crate::dictionary::DictionaryDb,
+    session_id: &str,
+    native_language: &str,
+    provider: Option<&str>,
+    api_key: Option<&str>,
+    api_model: Option<&str>,
 ) -> Result<Vec<ReviewItem>, String> {
-    // Check cache
     let cached = db.with_conn(|conn| {
         match conn.query_row(
             "SELECT review_json FROM session_reviews WHERE session_id = ?1",
@@ -315,10 +345,10 @@ pub async fn generate_review(
         }
     }
 
-    let port = *llm_state.port.lock().unwrap();
-    let prov = provider.as_deref().unwrap_or("local");
-    let key = api_key.as_deref().unwrap_or("");
-    let model = api_model.as_deref().unwrap_or("");
+    let port = *llm.port.lock().unwrap();
+    let prov = provider.unwrap_or("local");
+    let key = api_key.unwrap_or("");
+    let model = api_model.unwrap_or("");
 
     eprintln!("[generate_review] session={}, provider={}, utterances={}", session_id, prov, user_utterances.len());
 
@@ -353,14 +383,29 @@ pub async fn generate_review(
     Ok(items)
 }
 
-// ── courage score ──
-
 #[tauri::command]
-pub async fn calculate_courage_score(
+pub async fn generate_review(
+    llm_state: tauri::State<'_, LlmState>,
     db: tauri::State<'_, crate::dictionary::DictionaryDb>,
     session_id: String,
     native_language: String,
-    response_gaps_ms: Option<Vec<i64>>,
+    provider: Option<String>,
+    api_key: Option<String>,
+    api_model: Option<String>,
+) -> Result<Vec<ReviewItem>, String> {
+    generate_review_inner(
+        &llm_state, &db, &session_id, &native_language,
+        provider.as_deref(), api_key.as_deref(), api_model.as_deref(),
+    )
+}
+
+// ── courage score ──
+
+pub fn calculate_courage_score_inner(
+    db: &crate::dictionary::DictionaryDb,
+    session_id: &str,
+    native_language: &str,
+    response_gaps_ms: &Option<Vec<i64>>,
 ) -> Result<crate::courage::CourageMetrics, String> {
     db.with_conn(|conn| {
         let (language, started_at, ended_at): (String, i64, Option<i64>) = conn.query_row(
@@ -387,10 +432,30 @@ pub async fn calculate_courage_score(
             return Err("No messages in session".to_string());
         }
 
-        let mut metrics = crate::courage::compute_metrics(&messages, &language, &native_language, duration, &response_gaps_ms);
-        crate::courage::calculate_and_store(conn, &session_id, &language, &mut metrics)?;
+        let mut metrics = crate::courage::compute_metrics(&messages, &language, native_language, duration, response_gaps_ms);
+        crate::courage::calculate_and_store(conn, session_id, &language, &mut metrics)?;
         eprintln!("[courage] calculated score {:.1} for session {}", metrics.score, session_id);
         Ok(metrics)
+    })
+}
+
+#[tauri::command]
+pub async fn calculate_courage_score(
+    db: tauri::State<'_, crate::dictionary::DictionaryDb>,
+    session_id: String,
+    native_language: String,
+    response_gaps_ms: Option<Vec<i64>>,
+) -> Result<crate::courage::CourageMetrics, String> {
+    calculate_courage_score_inner(&db, &session_id, &native_language, &response_gaps_ms)
+}
+
+pub fn get_courage_history_inner(
+    db: &crate::dictionary::DictionaryDb,
+    session_id: &str,
+    language: &str,
+) -> Result<Option<crate::courage::CourageHistory>, String> {
+    db.with_conn(|conn| {
+        crate::courage::load_history(conn, session_id, language)
     })
 }
 
@@ -400,7 +465,5 @@ pub async fn get_courage_history(
     session_id: String,
     language: String,
 ) -> Result<Option<crate::courage::CourageHistory>, String> {
-    db.with_conn(|conn| {
-        crate::courage::load_history(conn, &session_id, &language)
-    })
+    get_courage_history_inner(&db, &session_id, &language)
 }

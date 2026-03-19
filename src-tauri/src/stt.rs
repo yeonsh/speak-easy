@@ -62,9 +62,8 @@ fn find_whisper_model(model_size: &str) -> Result<PathBuf, String> {
     ))
 }
 
-#[tauri::command]
-pub fn load_whisper_model(
-    state: tauri::State<'_, SttState>,
+pub fn load_whisper_model_inner(
+    state: &SttState,
     model_size: Option<String>,
     custom_path: Option<String>,
 ) -> Result<(), String> {
@@ -92,16 +91,28 @@ pub fn load_whisper_model(
 }
 
 #[tauri::command]
-pub fn is_whisper_loaded(state: tauri::State<'_, SttState>) -> bool {
+pub fn load_whisper_model(
+    state: tauri::State<'_, SttState>,
+    model_size: Option<String>,
+    custom_path: Option<String>,
+) -> Result<(), String> {
+    load_whisper_model_inner(&state, model_size, custom_path)
+}
+
+pub fn is_whisper_loaded_inner(state: &SttState) -> bool {
     state.context.lock().unwrap().is_some()
 }
 
 #[tauri::command]
-pub fn transcribe_audio(
-    state: tauri::State<'_, SttState>,
+pub fn is_whisper_loaded(state: tauri::State<'_, SttState>) -> bool {
+    is_whisper_loaded_inner(&state)
+}
+
+pub fn transcribe_audio_inner(
+    state: &SttState,
     audio_data: Vec<f32>,
-    target_language: String,
-    native_language: String,
+    target_language: &str,
+    native_language: &str,
 ) -> Result<TranscriptionResult, String> {
     // Pad with silence to at least 1.1s (17600 samples at 16kHz)
     // Whisper's mel spectrogram trims edges, so 16000 samples still reports <1000ms
@@ -124,7 +135,7 @@ pub fn transcribe_audio(
     // Detect which language was spoken using Whisper's built-in language detection.
     // This is fast (encoder-only, no full transcription) and returns per-language probabilities.
     let chosen_lang = if target_language == native_language {
-        target_language.clone()
+        target_language.to_string()
     } else {
         let mut detect_state = ctx.create_state()
             .map_err(|e| format!("Failed to create whisper state: {}", e))?;
@@ -157,10 +168,10 @@ pub fn transcribe_audio(
         // "translated" into the native language by Whisper.
         if native_prob > target_prob * 2.0 && native_prob > 0.5 {
             eprintln!("[stt] Detected native language: {}", native_language);
-            native_language.clone()
+            native_language.to_string()
         } else {
             eprintln!("[stt] Using target language: {}", target_language);
-            target_language.clone()
+            target_language.to_string()
         }
     };
 
@@ -193,6 +204,16 @@ pub fn transcribe_audio(
         text: text.trim().to_string(),
         language: Some(chosen_lang),
     })
+}
+
+#[tauri::command]
+pub fn transcribe_audio(
+    state: tauri::State<'_, SttState>,
+    audio_data: Vec<f32>,
+    target_language: String,
+    native_language: String,
+) -> Result<TranscriptionResult, String> {
+    transcribe_audio_inner(&state, audio_data, &target_language, &native_language)
 }
 
 /// Convert WAV bytes (from frontend) to f32 samples at 16kHz mono

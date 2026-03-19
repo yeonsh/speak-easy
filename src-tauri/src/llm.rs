@@ -75,13 +75,16 @@ fn find_model_path() -> Result<String, String> {
     ))
 }
 
-#[tauri::command]
-pub fn get_llm_port(state: tauri::State<'_, LlmState>) -> u16 {
+pub fn get_llm_port_inner(state: &LlmState) -> u16 {
     *state.port.lock().unwrap()
 }
 
 #[tauri::command]
-pub fn is_llm_running(state: tauri::State<'_, LlmState>) -> bool {
+pub fn get_llm_port(state: tauri::State<'_, LlmState>) -> u16 {
+    get_llm_port_inner(&state)
+}
+
+pub fn is_llm_running_inner(state: &LlmState) -> bool {
     let mut proc = state.process.lock().unwrap();
     match *proc {
         Some(ref mut child) => match child.try_wait() {
@@ -94,6 +97,106 @@ pub fn is_llm_running(state: tauri::State<'_, LlmState>) -> bool {
         },
         None => false,
     }
+}
+
+#[tauri::command]
+pub fn is_llm_running(state: tauri::State<'_, LlmState>) -> bool {
+    is_llm_running_inner(&state)
+}
+
+/// Start llm-server without AppHandle — for web server use.
+/// `program` is the resolved path to llama-server binary.
+pub fn start_llm_server_inner(
+    state: &LlmState,
+    bus: &crate::event_bus::EventBus,
+    model_path: Option<String>,
+    gpu_layers: Option<i32>,
+) -> Result<u16, String> {
+    if is_llm_running_inner(state) {
+        let port = *state.port.lock().unwrap();
+        let _ = bus.tx.send(WebEvent::LlmReady);
+        return Ok(port);
+    }
+
+    let model = match model_path {
+        Some(p) => p,
+        None => find_model_path()?,
+    };
+
+    let port = find_available_port()?;
+    let n_gpu = gpu_layers.unwrap_or(-1);
+
+    // Resolve llama-server from stored path or PATH
+    let program = state.llama_server_path.lock().unwrap().clone()
+        .map(|p| p.to_string_lossy().to_string())
+        .or_else(|| {
+            // Try ~/.speakeasy/bin/
+            dirs::home_dir().and_then(|h| {
+                let bin = h.join(".speakeasy").join("bin").join(llama_server_binary_name());
+                if bin.exists() { Some(bin.to_string_lossy().to_string()) } else { None }
+            })
+        })
+        .or_else(|| {
+            // Fall back to PATH
+            std::process::Command::new("which")
+                .arg("llama-server")
+                .output()
+                .ok()
+                .filter(|o| o.status.success())
+                .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+        })
+        .ok_or("llama-server not found. Download it from the setup wizard or install llama.cpp.")?;
+
+    *state.llama_server_path.lock().unwrap() = Some(std::path::PathBuf::from(&program));
+
+    let program_dir = std::path::Path::new(&program)
+        .parent()
+        .map(|p| p.to_string_lossy().to_string())
+        .unwrap_or_default();
+
+    let mut cmd = Command::new(&program);
+    cmd.args([
+            "--model", &model,
+            "--port", &port.to_string(),
+            "--host", "127.0.0.1",
+            "--n-gpu-layers", &n_gpu.to_string(),
+            "--ctx-size", "4096",
+            "--threads", &num_cpus().to_string(),
+        ])
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped());
+
+    if !program_dir.is_empty() {
+        #[cfg(target_os = "macos")]
+        cmd.env("DYLD_LIBRARY_PATH", &program_dir);
+        #[cfg(target_os = "linux")]
+        cmd.env("LD_LIBRARY_PATH", &program_dir);
+    }
+
+    let mut child = cmd.spawn()
+        .map_err(|e| format!("Failed to start llama-server ({}): {}", program, e))?;
+
+    let stderr = child.stderr.take();
+    let bus_clone = bus.clone();
+    std::thread::spawn(move || {
+        if let Some(stderr) = stderr {
+            let reader = BufReader::new(stderr);
+            for line in reader.lines() {
+                if let Ok(line) = line {
+                    eprintln!("[llama-server] {}", line);
+                    let _ = bus_clone.tx.send(WebEvent::LlmLog { line: line.clone() });
+                    if line.contains("all slots are idle") {
+                        let _ = bus_clone.tx.send(WebEvent::LlmReady);
+                    }
+                }
+            }
+        }
+    });
+
+    *state.port.lock().unwrap() = port;
+    *state.process.lock().unwrap() = Some(child);
+
+    Ok(port)
 }
 
 #[tauri::command]
@@ -185,8 +288,7 @@ pub fn start_llm_server(
     Ok(port)
 }
 
-#[tauri::command]
-pub fn stop_llm_server(state: tauri::State<'_, LlmState>) -> Result<(), String> {
+pub fn stop_llm_server_inner(state: &LlmState) -> Result<(), String> {
     let mut proc = state.process.lock().unwrap();
     if let Some(ref mut child) = *proc {
         child.kill().map_err(|e| e.to_string())?;
@@ -195,6 +297,11 @@ pub fn stop_llm_server(state: tauri::State<'_, LlmState>) -> Result<(), String> 
     *proc = None;
     *state.port.lock().unwrap() = 0;
     Ok(())
+}
+
+#[tauri::command]
+pub fn stop_llm_server(state: tauri::State<'_, LlmState>) -> Result<(), String> {
+    stop_llm_server_inner(&state)
 }
 
 fn llama_server_binary_name() -> &'static str {

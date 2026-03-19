@@ -485,16 +485,20 @@ pub fn send_chat_message(
     Ok(())
 }
 
+pub fn cancel_generation_inner(state: &LlmState, request_id: &str) {
+    let flags = state.cancel_flags.lock().unwrap();
+    if let Some(flag) = flags.get(request_id) {
+        flag.store(true, Ordering::Relaxed);
+        eprintln!("[chat] Cancelled generation {}", request_id);
+    }
+}
+
 #[tauri::command]
 pub fn cancel_generation(
     state: tauri::State<'_, LlmState>,
     request_id: String,
 ) {
-    let flags = state.cancel_flags.lock().unwrap();
-    if let Some(flag) = flags.get(&request_id) {
-        flag.store(true, Ordering::Relaxed);
-        eprintln!("[chat] Cancelled generation {}", request_id);
-    }
+    cancel_generation_inner(&state, &request_id)
 }
 
 #[derive(Debug, Deserialize)]
@@ -578,6 +582,47 @@ pub(crate) fn complete_with_provider(
     }
 }
 
+pub fn explain_message_inner(
+    llm: &LlmState,
+    db: &crate::dictionary::DictionaryDb,
+    text: &str,
+    language: &str,
+    native_language: Option<&str>,
+    provider: Option<&str>,
+    api_key: Option<&str>,
+    api_model: Option<&str>,
+    force_refresh: bool,
+) -> Result<String, String> {
+    let native_code = native_language.unwrap_or("ko");
+
+    if !force_refresh {
+        if let Some(cached) = db.get("translate", text, language, native_code) {
+            return Ok(cached);
+        }
+    }
+
+    let port = *llm.port.lock().unwrap();
+    let prov = provider.unwrap_or("local");
+    let key = api_key.unwrap_or("");
+    let model = api_model.unwrap_or("");
+
+    let native_lang = lang_name(native_code);
+    let target_lang = lang_name(language);
+
+    let system_prompt = format!(
+        "Translate the following {} sentence into {}. \
+         Return ONLY the {} translation, nothing else. \
+         No explanations, no original text, no formatting.",
+        target_lang, native_lang, native_lang
+    );
+
+    eprintln!("[explain_message] provider={}, lang={}, native={}, text_len={}", prov, language, native_code, text.len());
+    let result = complete_with_provider(port, prov, key, model, &system_prompt, text, 0.3, 2048)?;
+    eprintln!("[explain_message] result_len={}", result.len());
+    db.put("translate", text, language, native_code, &result);
+    Ok(result)
+}
+
 #[tauri::command]
 pub async fn explain_message(
     state: tauri::State<'_, LlmState>,
@@ -590,55 +635,31 @@ pub async fn explain_message(
     api_model: Option<String>,
     force_refresh: Option<bool>,
 ) -> Result<String, String> {
-    let native_code = native_language.as_deref().unwrap_or("ko");
-
-    // Check DB cache
-    if !force_refresh.unwrap_or(false) {
-        if let Some(cached) = db.get("translate", &text, &language, native_code) {
-            return Ok(cached);
-        }
-    }
-
-    let port = *state.port.lock().unwrap();
-    let prov = provider.as_deref().unwrap_or("local");
-    let key = api_key.as_deref().unwrap_or("");
-    let model = api_model.as_deref().unwrap_or("");
-
-    let native_lang = lang_name(native_code);
-    let target_lang = lang_name(&language);
-
-    let system_prompt = format!(
-        "Translate the following {} sentence into {}. \
-         Return ONLY the {} translation, nothing else. \
-         No explanations, no original text, no formatting.",
-        target_lang, native_lang, native_lang
-    );
-
-    eprintln!("[explain_message] provider={}, lang={}, native={}, text_len={}", prov, language, native_code, text.len());
-    let result = complete_with_provider(port, prov, key, model, &system_prompt, &text, 0.3, 2048)?;
-    eprintln!("[explain_message] result_len={}", result.len());
-    db.put("translate", &text, &language, native_code, &result);
-    Ok(result)
+    explain_message_inner(
+        &state, &db, &text, &language,
+        native_language.as_deref(), provider.as_deref(),
+        api_key.as_deref(), api_model.as_deref(),
+        force_refresh.unwrap_or(false),
+    )
 }
 
-#[tauri::command]
-pub async fn suggest_responses(
-    state: tauri::State<'_, LlmState>,
-    text: String,
-    language: String,
-    native_language: Option<String>,
-    provider: Option<String>,
-    api_key: Option<String>,
-    api_model: Option<String>,
+pub fn suggest_responses_inner(
+    llm: &LlmState,
+    text: &str,
+    language: &str,
+    native_language: Option<&str>,
+    provider: Option<&str>,
+    api_key: Option<&str>,
+    api_model: Option<&str>,
 ) -> Result<String, String> {
-    let port = *state.port.lock().unwrap();
-    let prov = provider.as_deref().unwrap_or("local");
-    let key = api_key.as_deref().unwrap_or("");
-    let model = api_model.as_deref().unwrap_or("");
+    let port = *llm.port.lock().unwrap();
+    let prov = provider.unwrap_or("local");
+    let key = api_key.unwrap_or("");
+    let model = api_model.unwrap_or("");
 
-    let (native_lang, native_label) = match native_language.as_deref() {
+    let (native_lang, native_label) = match native_language {
         Some("en") => ("English", "English"),
-        _ => ("Korean", "한국어"),
+        _ => ("Korean", "\u{d55c}\u{ad6d}\u{c5b4}"),
     };
 
     let system_prompt = format!(
@@ -654,7 +675,24 @@ pub async fn suggest_responses(
         language, native_label, native_lang
     );
 
-    complete_with_provider(port, prov, key, model, &system_prompt, &text, 0.7, 2048)
+    complete_with_provider(port, prov, key, model, &system_prompt, text, 0.7, 2048)
+}
+
+#[tauri::command]
+pub async fn suggest_responses(
+    state: tauri::State<'_, LlmState>,
+    text: String,
+    language: String,
+    native_language: Option<String>,
+    provider: Option<String>,
+    api_key: Option<String>,
+    api_model: Option<String>,
+) -> Result<String, String> {
+    suggest_responses_inner(
+        &state, &text, &language,
+        native_language.as_deref(), provider.as_deref(),
+        api_key.as_deref(), api_model.as_deref(),
+    )
 }
 
 pub(crate) fn lang_name(code: &str) -> &str {
@@ -679,6 +717,34 @@ pub(crate) fn lang_name(code: &str) -> &str {
     }
 }
 
+pub fn tutor_translate_inner(
+    llm: &LlmState,
+    text: &str,
+    native_language: &str,
+    target_language: &str,
+    provider: Option<&str>,
+    api_key: Option<&str>,
+    api_model: Option<&str>,
+) -> Result<String, String> {
+    let port = *llm.port.lock().unwrap();
+    let prov = provider.unwrap_or("local");
+    let key = api_key.unwrap_or("");
+    let model = api_model.unwrap_or("");
+
+    let native_lang = lang_name(native_language);
+    let target_lang = lang_name(target_language);
+
+    let system_prompt = format!(
+        "The user is practicing {} and said something in {} because they didn't know how to say it. \
+         Translate their message into natural {}. \
+         Return ONLY the {} translation, nothing else. \
+         No explanations, no original text, no quotation marks, no formatting.",
+        target_lang, native_lang, target_lang, target_lang
+    );
+
+    complete_with_provider(port, prov, key, model, &system_prompt, text, 0.3, 2048)
+}
+
 #[tauri::command]
 pub async fn tutor_translate(
     state: tauri::State<'_, LlmState>,
@@ -689,23 +755,62 @@ pub async fn tutor_translate(
     api_key: Option<String>,
     api_model: Option<String>,
 ) -> Result<String, String> {
-    let port = *state.port.lock().unwrap();
-    let prov = provider.as_deref().unwrap_or("local");
-    let key = api_key.as_deref().unwrap_or("");
-    let model = api_model.as_deref().unwrap_or("");
+    tutor_translate_inner(
+        &state, &text, &native_language, &target_language,
+        provider.as_deref(), api_key.as_deref(), api_model.as_deref(),
+    )
+}
 
-    let native_lang = lang_name(&native_language);
-    let target_lang = lang_name(&target_language);
+pub fn lookup_word_inner(
+    llm: &LlmState,
+    db: &crate::dictionary::DictionaryDb,
+    word: &str,
+    sentence: &str,
+    target_language: &str,
+    native_language: &str,
+    provider: Option<&str>,
+    api_key: Option<&str>,
+    api_model: Option<&str>,
+    force_refresh: bool,
+) -> Result<String, String> {
+    if !force_refresh {
+        if let Some(cached) = db.get("word", word, target_language, native_language) {
+            eprintln!("[lookup_word] cache hit: '{}'", word);
+            return Ok(cached);
+        }
+    }
+
+    let port = *llm.port.lock().unwrap();
+    let prov = provider.unwrap_or("local");
+    let key = api_key.unwrap_or("");
+    let model = api_model.unwrap_or("");
+
+    let target_lang_name = lang_name(target_language);
+    let native_lang_name = lang_name(native_language);
 
     let system_prompt = format!(
-        "The user is practicing {} and said something in {} because they didn't know how to say it. \
-         Translate their message into natural {}. \
-         Return ONLY the {} translation, nothing else. \
-         No explanations, no original text, no quotation marks, no formatting.",
-        target_lang, native_lang, target_lang, target_lang
+        "You are a {target_lang_name}-{native_lang_name} dictionary. \
+         Explain the meaning of the {target_lang_name} text to a {native_lang_name} speaker. \
+         Respond in {native_lang_name}. Be concise (2-3 lines max). No markdown."
+    );
+    let user_prompt = format!(
+        "Text: \"{word}\"\nSentence: \"{sentence}\"\n\n\
+         1) Meaning in {native_lang_name}\n\
+         2) Grammar if useful\n\
+         3) Example sentence if helpful"
     );
 
-    complete_with_provider(port, prov, key, model, &system_prompt, &text, 0.3, 2048)
+    let effective_model = if prov == "gemini" {
+        "gemini-3.1-flash-lite-preview"
+    } else {
+        model
+    };
+
+    eprintln!("[lookup_word] word='{}' model={}", word, effective_model);
+
+    let result = complete_with_provider(port, prov, key, effective_model, &system_prompt, &user_prompt, 0.3, 2048)?;
+    db.put("word", word, target_language, native_language, &result);
+    Ok(result)
 }
 
 #[tauri::command]
@@ -721,46 +826,11 @@ pub async fn lookup_word(
     api_model: Option<String>,
     force_refresh: Option<bool>,
 ) -> Result<String, String> {
-    // Check DB cache
-    if !force_refresh.unwrap_or(false) {
-        if let Some(cached) = db.get("word", &word, &target_language, &native_language) {
-            eprintln!("[lookup_word] cache hit: '{}'", word);
-            return Ok(cached);
-        }
-    }
-
-    let port = *state.port.lock().unwrap();
-    let prov = provider.as_deref().unwrap_or("local");
-    let key = api_key.as_deref().unwrap_or("");
-    let model = api_model.as_deref().unwrap_or("");
-
-    let target_lang_name = lang_name(&target_language);
-    let native_lang_name = lang_name(&native_language);
-
-    let system_prompt = format!(
-        "You are a {target_lang_name}-{native_lang_name} dictionary. \
-         Explain the meaning of the {target_lang_name} text to a {native_lang_name} speaker. \
-         Respond in {native_lang_name}. Be concise (2-3 lines max). No markdown."
-    );
-    let user_prompt = format!(
-        "Text: \"{word}\"\nSentence: \"{sentence}\"\n\n\
-         1) Meaning in {native_lang_name}\n\
-         2) Grammar if useful\n\
-         3) Example sentence if helpful"
-    );
-
-    // Use cheaper/faster model for word lookups with Gemini
-    let effective_model = if prov == "gemini" {
-        "gemini-3.1-flash-lite-preview"
-    } else {
-        model
-    };
-
-    eprintln!("[lookup_word] word='{}' model={}", word, effective_model);
-
-    let result = complete_with_provider(port, prov, key, effective_model, &system_prompt, &user_prompt, 0.3, 2048)?;
-    db.put("word", &word, &target_language, &native_language, &result);
-    Ok(result)
+    lookup_word_inner(
+        &state, &db, &word, &sentence, &target_language, &native_language,
+        provider.as_deref(), api_key.as_deref(), api_model.as_deref(),
+        force_refresh.unwrap_or(false),
+    )
 }
 
 #[cfg(test)]

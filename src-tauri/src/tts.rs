@@ -168,9 +168,8 @@ fn parse_npy_f32(data: &[u8]) -> Option<Vec<f32>> {
     Some(floats)
 }
 
-#[tauri::command]
-pub fn load_tts_voice(
-    state: tauri::State<'_, TtsState>,
+pub fn load_tts_voice_inner(
+    state: &TtsState,
     voice_name: String,
     engine: Option<String>,
 ) -> Result<(), String> {
@@ -234,9 +233,15 @@ pub fn load_tts_voice(
 }
 
 #[tauri::command]
-pub fn is_tts_loaded(
+pub fn load_tts_voice(
     state: tauri::State<'_, TtsState>,
-) -> bool {
+    voice_name: String,
+    engine: Option<String>,
+) -> Result<(), String> {
+    load_tts_voice_inner(&state, voice_name, engine)
+}
+
+pub fn is_tts_loaded_inner(state: &TtsState) -> bool {
     let eng = state.engine.lock().unwrap().clone();
     if eng == "edge" {
         state.edge_voice.lock().unwrap().is_some()
@@ -246,9 +251,13 @@ pub fn is_tts_loaded(
 }
 
 #[tauri::command]
-pub fn list_voices(
+pub fn is_tts_loaded(
     state: tauri::State<'_, TtsState>,
-) -> Result<Vec<String>, String> {
+) -> bool {
+    is_tts_loaded_inner(&state)
+}
+
+pub fn list_voices_inner(state: &TtsState) -> Result<Vec<String>, String> {
     let eng = state.engine.lock().unwrap().clone();
     if eng == "edge" {
         return crate::edge_tts::get_voices();
@@ -265,6 +274,13 @@ pub fn list_voices(
     let mut names: Vec<String> = voices.voices.keys().cloned().collect();
     names.sort();
     Ok(names)
+}
+
+#[tauri::command]
+pub fn list_voices(
+    state: tauri::State<'_, TtsState>,
+) -> Result<Vec<String>, String> {
+    list_voices_inner(&state)
 }
 
 /// Clean text for TTS: strip emojis, replace fullwidth CJK punctuation with
@@ -467,6 +483,42 @@ fn fade_in(samples: &mut [f32], fade_len: usize) {
     }
 }
 
+pub fn synthesize_speech_inner(
+    state: &TtsState,
+    text: &str,
+    speed: f32,
+    language: &str,
+) -> Result<TtsResult, String> {
+    let sentences = split_into_sentences(text);
+
+    if sentences.len() <= 1 {
+        return synthesize_text(state, text, speed, language);
+    }
+
+    let mut all_samples: Vec<f32> = Vec::new();
+    let mut out_sample_rate = KOKORO_SAMPLE_RATE;
+    for (i, sentence) in sentences.iter().enumerate() {
+        let mut result = synthesize_text(state, sentence, speed, language)?;
+        out_sample_rate = result.sample_rate;
+        if i < sentences.len() - 1 {
+            fade_out(&mut result.samples, FADE_SAMPLES);
+        }
+        if i > 0 {
+            fade_in(&mut result.samples, FADE_SAMPLES);
+        }
+        all_samples.extend_from_slice(&result.samples);
+        if i < sentences.len() - 1 {
+            let silence_samples = (out_sample_rate as f64 * 0.25) as usize;
+            all_samples.extend(std::iter::repeat(0.0f32).take(silence_samples));
+        }
+    }
+
+    Ok(TtsResult {
+        sample_rate: out_sample_rate,
+        samples: all_samples,
+    })
+}
+
 #[tauri::command]
 pub fn synthesize_speech(
     state: tauri::State<'_, TtsState>,
@@ -476,36 +528,7 @@ pub fn synthesize_speech(
 ) -> Result<TtsResult, String> {
     let spd = speed.unwrap_or(1.0);
     let lang = language.unwrap_or_else(|| "en".to_string());
-    let sentences = split_into_sentences(&text);
-
-    if sentences.len() <= 1 {
-        return synthesize_text(&state, &text, spd, &lang);
-    }
-
-    let mut all_samples: Vec<f32> = Vec::new();
-    let mut out_sample_rate = KOKORO_SAMPLE_RATE;
-    for (i, sentence) in sentences.iter().enumerate() {
-        let mut result = synthesize_text(&state, sentence, spd, &lang)?;
-        out_sample_rate = result.sample_rate;
-        // Apply fade-out/fade-in at sentence boundaries to avoid clicks
-        if i < sentences.len() - 1 {
-            fade_out(&mut result.samples, FADE_SAMPLES);
-        }
-        if i > 0 {
-            fade_in(&mut result.samples, FADE_SAMPLES);
-        }
-        all_samples.extend_from_slice(&result.samples);
-        // Add silence gap between sentences (not after the last one)
-        if i < sentences.len() - 1 {
-            let silence_samples = (out_sample_rate as f64 * 0.25) as usize; // 250ms
-            all_samples.extend(std::iter::repeat(0.0f32).take(silence_samples));
-        }
-    }
-
-    Ok(TtsResult {
-        sample_rate: out_sample_rate,
-        samples: all_samples,
-    })
+    synthesize_speech_inner(&state, &text, spd, &lang)
 }
 
 /// Convert WAV samples to WAV bytes for playback in frontend
