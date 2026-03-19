@@ -1,5 +1,7 @@
+use crate::event_bus::{bus_send, WebEvent};
 use crate::llm::ChatMessage;
 use crate::tts::{TtsState, clean_for_tts};
+use base64::Engine;
 use serde::{Deserialize, Serialize};
 use std::io::{BufRead, BufReader};
 use std::sync::mpsc;
@@ -295,6 +297,7 @@ pub fn send_chat_gemini(
     // Spawn TTS worker (same pattern as chat.rs)
     let tts_app = app.clone();
     let tts_event = tts_event_name.clone();
+    let tts_request_id = request_id.clone();
 
     let tts_handle = if tts_on {
         Some(std::thread::spawn(move || {
@@ -321,14 +324,33 @@ pub fn send_chat_gemini(
                     }
                 };
 
-                let _ = tts_app.emit(&tts_event, TtsChunk {
+                let chunk = TtsChunk {
                     samples, sample_rate, index, text: sentence, done: false,
+                };
+                let pcm_bytes: Vec<u8> = chunk.samples.iter().flat_map(|s| s.to_le_bytes()).collect();
+                let _ = tts_app.emit(&tts_event, &chunk);
+                bus_send(&tts_app, WebEvent::TtsChunk {
+                    request_id: tts_request_id.clone(),
+                    data: base64::engine::general_purpose::STANDARD.encode(&pcm_bytes),
+                    sample_rate: chunk.sample_rate,
+                    index: chunk.index,
+                    text: chunk.text.clone(),
+                    done: chunk.done,
                 });
                 index += 1;
             }
             // Final done chunk
-            let _ = tts_app.emit(&tts_event, TtsChunk {
+            let done_chunk = TtsChunk {
                 samples: vec![], sample_rate: 24000, index, text: String::new(), done: true,
+            };
+            let _ = tts_app.emit(&tts_event, &done_chunk);
+            bus_send(&tts_app, WebEvent::TtsChunk {
+                request_id: tts_request_id.clone(),
+                data: base64::engine::general_purpose::STANDARD.encode(&[] as &[u8]),
+                sample_rate: done_chunk.sample_rate,
+                index: done_chunk.index,
+                text: done_chunk.text.clone(),
+                done: done_chunk.done,
             });
         }))
     } else {
@@ -373,6 +395,10 @@ pub fn send_chat_gemini(
                             let _ = app.emit(&event_name, StreamDelta {
                                 content: content.clone(), done: false,
                             });
+                            bus_send(&app, WebEvent::ChatToken {
+                                request_id: request_id.clone(),
+                                token: content.clone(),
+                            });
 
                             // TTS sentence buffering
                             if !past_corrections_delimiter {
@@ -414,12 +440,20 @@ pub fn send_chat_gemini(
                 if tts_on { let _ = sentence_tx.send(None); }
 
                 let _ = app.emit(&event_name, StreamDelta { content: String::new(), done: true });
+                bus_send(&app, WebEvent::ChatDone {
+                    request_id: request_id.clone(),
+                });
             }
             Err(e) => {
                 eprintln!("[gemini] Error: {}", e);
                 if tts_on { let _ = sentence_tx.send(None); }
+                let err_msg = format!("[Gemini Error: {}]", e);
                 let _ = app.emit(&event_name, StreamDelta {
-                    content: format!("[Gemini Error: {}]", e), done: true,
+                    content: err_msg.clone(), done: true,
+                });
+                bus_send(&app, WebEvent::Error {
+                    request_id: request_id.clone(),
+                    message: err_msg,
                 });
             }
         }
