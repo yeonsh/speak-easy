@@ -1,6 +1,6 @@
 # SpeakEasy
 
-A desktop app for practicing foreign languages with AI. Speak, listen, and get corrections — with offline-first design and optional cloud TTS for higher quality voices.
+A desktop app for practicing foreign languages with AI. Speak, listen, and get corrections — with offline-first design and optional cloud TTS for higher quality voices. Includes a built-in web server for remote access via Tailscale or local network.
 
 Supports **16 languages** — English, Spanish, French, Chinese, Japanese, German, Korean, Portuguese (BR), Italian, Russian, Arabic, Hindi, Turkish, Indonesian, Vietnamese, and Polish — with two practice modes (Free Talk and Scenario Role-Play) and an optional Corrections toggle. The entire interface is localized in all 16 languages.
 
@@ -17,6 +17,7 @@ Supports **16 languages** — English, Spanish, French, Chinese, Japanese, Germa
 - **AI Tutor** — speak in your native language to get translations into the target language
 - **External LLM** — use Gemini API as an alternative to local LLM; uses flash-lite for word lookups to minimize cost
 - **Dual TTS Engine** — Edge TTS (online, high quality) or Kokoro (offline, fully private); switchable in settings
+- **Web Interface** — access from any device on your network via built-in Axum web server (port 3456); ideal for remote practice over Tailscale
 - **Streaming TTS** — sentence-by-sentence audio with natural pauses between sentences
 - **Voice Preview** — hear a sample phrase when selecting a voice in settings
 - **Language Reset** — switching practice language resets conversation and returns to the initial screen
@@ -32,6 +33,7 @@ Built with [Tauri 2](https://v2.tauri.app/) (Rust backend + React frontend) and 
 | **STT** | Speech-to-text | [whisper.cpp](https://github.com/ggerganov/whisper.cpp) via `whisper-rs` (bilingual detection) |
 | **LLM** | Conversation | [llama.cpp](https://github.com/ggml-org/llama.cpp) (`llama-server` sidecar) or [Gemini API](https://ai.google.dev/) |
 | **TTS** | Text-to-speech | [Edge TTS](https://github.com/BreakingOnTheEdge/msedge-tts) (online) or [Kokoro](https://github.com/thewh1teagle/kokoro-onnx) (offline) |
+| **Web** | Remote access | [Axum](https://github.com/tokio-rs/axum) HTTP/WebSocket server with shared state |
 | **Dictionary** | Word lookup cache | SQLite via `rusqlite` |
 
 ## Prerequisites
@@ -57,9 +59,19 @@ cd speak-easy
 # Install dependencies
 npm install
 
-# Run in development mode
-npm run tauri dev
+# Run in development mode (desktop + web server)
+npm run serve
 ```
+
+This builds the frontend and starts the Tauri app with an embedded web server on port 3456.
+
+### Remote Access via Tailscale
+
+1. Install [Tailscale](https://tailscale.com/) on both machines
+2. Run `npm run serve` on your home machine
+3. Access `http://<tailscale-ip>:3456` from any device on your tailnet
+
+The web interface shares all state with the desktop app — models load once and are available to both interfaces. The web server port is configurable via `SPEAKEASY_WEB_PORT` environment variable.
 
 On first launch, the **setup wizard** will guide you through downloading all required models:
 
@@ -89,7 +101,7 @@ The output is in `src-tauri/target/release/bundle/`.
 src/                          # React frontend
   components/                 # UI: ChatView, MicButton, SetupWizard, etc.
   hooks/                      # useLlm, useStt, useTts, useAudioRecorder
-  lib/                        # Types, per-language prompts, i18n
+  lib/                        # Types, per-language prompts, i18n, backend adapter
 src-tauri/src/                # Rust backend
   lib.rs                      # Tauri command registration
   llm.rs                      # llama-server lifecycle management
@@ -101,6 +113,8 @@ src-tauri/src/                # Rust backend
   edge_tts.rs                 # Edge TTS via msedge-tts (online)
   downloads.rs                # Model download with progress events
   settings.rs                 # Settings persistence
+  web.rs                      # Axum web server (REST API, WebSocket, static files)
+  event_bus.rs                # Broadcast channel for Tauri-to-WebSocket event bridging
 ```
 
 ## Data Directories
