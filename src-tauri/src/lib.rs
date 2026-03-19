@@ -5,6 +5,7 @@ mod chat;
 mod dictionary;
 mod downloads;
 mod edge_tts;
+mod event_bus;
 mod gemini;
 mod llm;
 mod settings;
@@ -12,6 +13,8 @@ mod stt;
 mod session;
 mod courage;
 mod tts;
+
+pub use event_bus::EventBus;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct AppState {
