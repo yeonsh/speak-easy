@@ -139,7 +139,7 @@ export async function invoke<T>(
   }
 
   if (route.method === "STUB") {
-    if (cmd === "check_setup_complete") return { llm: true, stt: true, tts: true } as T;
+    if (cmd === "check_setup_complete") return { has_llm: true, has_whisper: true, has_llama_server: true, has_tts: true, has_espeak: true } as T;
     return undefined as T;
   }
 
