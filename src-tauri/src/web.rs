@@ -248,10 +248,16 @@ async fn get_settings() -> impl IntoResponse {
     }
 }
 
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct SaveSettingsWrapper {
+    new_settings: crate::settings::Settings,
+}
+
 async fn post_settings(
-    Json(settings): Json<crate::settings::Settings>,
+    Json(wrapper): Json<SaveSettingsWrapper>,
 ) -> impl IntoResponse {
-    match crate::settings::save_settings(&settings) {
+    match crate::settings::save_settings(&wrapper.new_settings) {
         Ok(()) => Ok(ok_json()),
         Err(e) => Err(err_json(e)),
     }
