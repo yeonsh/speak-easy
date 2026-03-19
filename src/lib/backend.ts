@@ -56,7 +56,15 @@ function getWs(): Promise<WebSocket> {
             });
           }
           if (eventType === "tts-chunk") {
-            dispatch(`tts-chunk-${requestId}`, data);
+            // Convert base64 PCM data to samples array for useTts compatibility
+            const samples = base64ToF32Samples(data.data || "");
+            dispatch(`tts-chunk-${requestId}`, {
+              samples,
+              sample_rate: data.sampleRate || 24000,
+              index: data.index || 0,
+              text: data.text || "",
+              done: data.done || false,
+            });
           }
           if (eventType === "tts-stop") {
             dispatch(`tts-stop-${requestId}`, true);
@@ -72,6 +80,16 @@ function getWs(): Promise<WebSocket> {
     };
   });
   return wsConnecting;
+}
+
+/** Decode base64 string of little-endian f32 PCM bytes into number[] */
+function base64ToF32Samples(b64: string): number[] {
+  if (!b64) return [];
+  const binary = atob(b64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  const floats = new Float32Array(bytes.buffer);
+  return Array.from(floats);
 }
 
 function dispatch(key: string, payload: any) {
