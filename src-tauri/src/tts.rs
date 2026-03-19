@@ -4,28 +4,29 @@ use serde::Serialize;
 use std::collections::HashMap;
 use std::io::Cursor;
 use std::path::PathBuf;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
+#[derive(Clone)]
 pub struct TtsState {
-    engine: Mutex<String>, // "kokoro" or "edge"
+    engine: Arc<Mutex<String>>, // "kokoro" or "edge"
     // Kokoro state
-    session: Mutex<Option<Session>>,
-    voices: Mutex<Option<VoicesData>>,
-    loaded_voice_name: Mutex<Option<String>>,
-    voice_embedding: Mutex<Option<Vec<Vec<f32>>>>,
+    session: Arc<Mutex<Option<Session>>>,
+    voices: Arc<Mutex<Option<VoicesData>>>,
+    loaded_voice_name: Arc<Mutex<Option<String>>>,
+    voice_embedding: Arc<Mutex<Option<Vec<Vec<f32>>>>>,
     // Edge TTS state
-    edge_voice: Mutex<Option<String>>,
+    edge_voice: Arc<Mutex<Option<String>>>,
 }
 
 impl TtsState {
     pub fn new() -> Self {
         Self {
-            engine: Mutex::new("edge".to_string()),
-            session: Mutex::new(None),
-            voices: Mutex::new(None),
-            loaded_voice_name: Mutex::new(None),
-            voice_embedding: Mutex::new(None),
-            edge_voice: Mutex::new(None),
+            engine: Arc::new(Mutex::new("edge".to_string())),
+            session: Arc::new(Mutex::new(None)),
+            voices: Arc::new(Mutex::new(None)),
+            loaded_voice_name: Arc::new(Mutex::new(None)),
+            voice_embedding: Arc::new(Mutex::new(None)),
+            edge_voice: Arc::new(Mutex::new(None)),
         }
     }
 }

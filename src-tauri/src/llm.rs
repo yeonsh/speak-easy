@@ -7,24 +7,25 @@ use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Emitter, Manager};
 
+#[derive(Clone)]
 pub struct LlmState {
-    process: Mutex<Option<Child>>,
-    pub(crate) port: Mutex<u16>,
-    pub(crate) cancel_flags: Mutex<HashMap<String, Arc<AtomicBool>>>,
+    process: Arc<Mutex<Option<Child>>>,
+    pub(crate) port: Arc<Mutex<u16>>,
+    pub(crate) cancel_flags: Arc<Mutex<HashMap<String, Arc<AtomicBool>>>>,
+    pub llama_server_path: Arc<Mutex<Option<std::path::PathBuf>>>,
 }
 
 impl LlmState {
     pub fn new() -> Self {
         Self {
-            process: Mutex::new(None),
-            port: Mutex::new(0),
-            cancel_flags: Mutex::new(HashMap::new()),
+            process: Arc::new(Mutex::new(None)),
+            port: Arc::new(Mutex::new(0)),
+            cancel_flags: Arc::new(Mutex::new(HashMap::new())),
+            llama_server_path: Arc::new(Mutex::new(None)),
         }
     }
-}
 
-impl Drop for LlmState {
-    fn drop(&mut self) {
+    pub fn shutdown(&self) {
         if let Ok(mut proc) = self.process.lock() {
             if let Some(ref mut child) = *proc {
                 let _ = child.kill();

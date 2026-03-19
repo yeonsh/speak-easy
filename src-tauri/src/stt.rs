@@ -1,18 +1,19 @@
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use whisper_rs::{FullParams, SamplingStrategy, WhisperContext, WhisperContextParameters};
 
+#[derive(Clone)]
 pub struct SttState {
-    context: Mutex<Option<WhisperContext>>,
-    model_path: Mutex<Option<PathBuf>>,
+    context: Arc<Mutex<Option<WhisperContext>>>,
+    model_path: Arc<Mutex<Option<PathBuf>>>,
 }
 
 impl SttState {
     pub fn new() -> Self {
         Self {
-            context: Mutex::new(None),
-            model_path: Mutex::new(None),
+            context: Arc::new(Mutex::new(None)),
+            model_path: Arc::new(Mutex::new(None)),
         }
     }
 }

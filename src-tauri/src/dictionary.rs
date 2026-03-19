@@ -1,8 +1,9 @@
 use rusqlite::{Connection, params};
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
+#[derive(Clone)]
 pub struct DictionaryDb {
-    conn: Mutex<Connection>,
+    conn: Arc<Mutex<Connection>>,
 }
 
 impl DictionaryDb {
@@ -32,7 +33,7 @@ impl DictionaryDb {
 
         crate::session::init_tables(&conn)?;
 
-        Ok(Self { conn: Mutex::new(conn) })
+        Ok(Self { conn: Arc::new(Mutex::new(conn)) })
     }
 
     pub fn with_conn<F, T>(&self, f: F) -> Result<T, String>
