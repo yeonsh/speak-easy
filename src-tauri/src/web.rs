@@ -714,7 +714,7 @@ fn handle_ws_message(text: String, state: &WebState) {
 
 fn handle_ws_chat(
     llm: &LlmState,
-    _tts: &TtsState,
+    tts: &TtsState,
     bus: &EventBus,
     provider: &str,
     request_id: &str,
@@ -723,6 +723,9 @@ fn handle_ws_chat(
 ) {
     let port = *llm.port.lock().unwrap();
     let temp = settings.temperature.unwrap_or(0.7);
+    let tts_enabled = settings.tts_enabled.unwrap_or(false);
+    let tts_speed = settings.tts_speed.unwrap_or(1.0);
+    let language = settings.language.clone().unwrap_or_else(|| "en".to_string());
     let api_key = settings.api_key.as_deref().unwrap_or("");
     let api_model = settings.api_model.as_deref().unwrap_or("");
 
@@ -733,9 +736,61 @@ fn handle_ws_chat(
         flags.insert(request_id.to_string(), cancel_flag.clone());
     }
 
+    // TTS worker: receives sentences, synthesizes, emits TtsChunk events
+    let (tts_tx, tts_rx) = std::sync::mpsc::channel::<(String, u32, bool)>();
+    let tts_bus = bus.clone();
+    let tts_rid = request_id.to_string();
+    let tts_state = tts.clone();
+    let tts_cancel = cancel_flag.clone();
+    let tts_handle = if tts_enabled {
+        Some(std::thread::spawn(move || {
+            while let Ok((sentence, index, is_last)) = tts_rx.recv() {
+                if tts_cancel.load(std::sync::atomic::Ordering::Relaxed) {
+                    let _ = tts_bus.tx.send(WebEvent::TtsStop { request_id: tts_rid.clone() });
+                    break;
+                }
+                if sentence.trim().is_empty() { continue; }
+                match crate::tts::synthesize_speech_inner(&tts_state, &sentence, tts_speed, &language) {
+                    Ok(result) => {
+                        let pcm_bytes: Vec<u8> = result.samples.iter()
+                            .flat_map(|s| s.to_le_bytes())
+                            .collect();
+                        let _ = tts_bus.tx.send(WebEvent::TtsChunk {
+                            request_id: tts_rid.clone(),
+                            data: base64::Engine::encode(
+                                &base64::engine::general_purpose::STANDARD,
+                                &pcm_bytes,
+                            ),
+                            sample_rate: result.sample_rate,
+                            index,
+                            text: sentence,
+                            done: is_last,
+                        });
+                    }
+                    Err(_) => {}
+                }
+            }
+        }))
+    } else {
+        None
+    };
+
+    // Sentence accumulation for TTS
+    let mut accumulated_text = String::new();
+    let mut sentence_buf = String::new();
+    let mut tts_index: u32 = 0;
+
+    let send_sentence = |buf: &mut String, idx: &mut u32, is_last: bool, tx: &std::sync::mpsc::Sender<(String, u32, bool)>| {
+        let s = buf.trim().to_string();
+        if !s.is_empty() {
+            let _ = tx.send((s, *idx, is_last));
+            *idx += 1;
+        }
+        buf.clear();
+    };
+
     // Determine URL + build request body based on provider
     let result = if provider == "gemini" {
-        // For Gemini, use non-streaming completion (streaming would require SSE parsing)
         let system_text: String = messages.iter()
             .filter(|m| m.role == "system")
             .map(|m| m.content.clone())
@@ -751,7 +806,6 @@ fn handle_ws_chat(
         if port == 0 {
             Err("LLM server is not running".to_string())
         } else {
-            // Use streaming SSE from local llama-server
             let url = format!("http://127.0.0.1:{}/v1/chat/completions", port);
             let body = serde_json::json!({
                 "messages": messages,
@@ -779,6 +833,10 @@ fn handle_ws_chat(
                         if !line.starts_with("data: ") { continue; }
                         let data = &line[6..];
                         if data == "[DONE]" {
+                            // Flush remaining sentence to TTS
+                            if tts_enabled {
+                                send_sentence(&mut sentence_buf, &mut tts_index, true, &tts_tx);
+                            }
                             let _ = bus.tx.send(WebEvent::ChatDone {
                                 request_id: request_id.to_string(),
                             });
@@ -800,9 +858,24 @@ fn handle_ws_chat(
                                                 request_id: request_id.to_string(),
                                                 token: content.clone(),
                                             });
+                                            // Accumulate for TTS sentence splitting
+                                            if tts_enabled {
+                                                accumulated_text.push_str(content);
+                                                sentence_buf.push_str(content);
+                                                // Send sentence on boundary (. ! ? or CJK sentence-enders)
+                                                if sentence_buf.len() > 10 {
+                                                    let last = sentence_buf.trim_end().chars().last().unwrap_or(' ');
+                                                    if ".!?。！？".contains(last) {
+                                                        send_sentence(&mut sentence_buf, &mut tts_index, false, &tts_tx);
+                                                    }
+                                                }
+                                            }
                                         }
                                     }
                                     if choice.finish_reason.is_some() {
+                                        if tts_enabled {
+                                            send_sentence(&mut sentence_buf, &mut tts_index, true, &tts_tx);
+                                        }
                                         let _ = bus.tx.send(WebEvent::ChatDone {
                                             request_id: request_id.to_string(),
                                         });
@@ -812,12 +885,18 @@ fn handle_ws_chat(
                             }
                         }
                     }
-                    Ok(String::new()) // streaming handled via events
+                    Ok(String::new())
                 }
                 Err(e) => Err(format!("LLM request failed: {}", e)),
             }
         }
     };
+
+    // Close TTS channel so worker thread exits
+    drop(tts_tx);
+    if let Some(handle) = tts_handle {
+        let _ = handle.join();
+    }
 
     match result {
         Ok(text) if !text.is_empty() => {
@@ -830,7 +909,7 @@ fn handle_ws_chat(
                 request_id: request_id.to_string(),
             });
         }
-        Ok(_) => {} // streaming already handled
+        Ok(_) => {}
         Err(e) => {
             let _ = bus.tx.send(WebEvent::Error {
                 request_id: request_id.to_string(),
