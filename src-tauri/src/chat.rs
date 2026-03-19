@@ -1,5 +1,7 @@
+use crate::event_bus::{bus_send, WebEvent};
 use crate::llm::{ChatMessage, LlmState};
 use crate::tts::{TtsState, clean_for_tts};
+use base64::Engine;
 use serde::{Deserialize, Serialize};
 use std::io::{BufRead, BufReader};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -178,6 +180,7 @@ pub fn send_chat_message(
     let tts_cancel = cancel_flag.clone();
     let tts_event = tts_event_name.clone();
     let tts_stop = tts_stop_event.clone();
+    let tts_request_id = request_id.clone();
 
     let tts_handle = if tts_enabled {
         Some(std::thread::spawn(move || {
@@ -209,6 +212,9 @@ pub fn send_chat_message(
                         }
                     }
                     let _ = tts_app.emit(&tts_stop, true);
+                    bus_send(&tts_app, WebEvent::TtsStop {
+                        request_id: tts_request_id.clone(),
+                    });
                     return;
                 }
 
@@ -220,16 +226,22 @@ pub fn send_chat_message(
                 let tts_input = clean_for_tts(&sentence);
                 if tts_input.trim().is_empty() {
                     // Sentence was only emojis — reveal text without audio
-                    let _ = tts_app.emit(
-                        &tts_event,
-                        TtsChunk {
-                            samples: vec![],
-                            sample_rate: 24000,
-                            index,
-                            text: sentence,
-                            done: false,
-                        },
-                    );
+                    let chunk = TtsChunk {
+                        samples: vec![],
+                        sample_rate: 24000,
+                        index,
+                        text: sentence,
+                        done: false,
+                    };
+                    let _ = tts_app.emit(&tts_event, &chunk);
+                    bus_send(&tts_app, WebEvent::TtsChunk {
+                        request_id: tts_request_id.clone(),
+                        data: base64::engine::general_purpose::STANDARD.encode(&[] as &[u8]),
+                        sample_rate: chunk.sample_rate,
+                        index: chunk.index,
+                        text: chunk.text.clone(),
+                        done: chunk.done,
+                    });
                     index += 1;
                     continue;
                 }
@@ -244,31 +256,44 @@ pub fn send_chat_message(
                     }
                 };
 
-                let _ = tts_app.emit(
-                    &tts_event,
-                    TtsChunk {
-                        samples,
-                        sample_rate,
-                        index,
-                        text: sentence,
-                        done: false,
-                    },
-                );
+                let pcm_bytes: Vec<u8> = samples.iter().flat_map(|s| s.to_le_bytes()).collect();
+                let chunk = TtsChunk {
+                    samples,
+                    sample_rate,
+                    index,
+                    text: sentence,
+                    done: false,
+                };
+                let _ = tts_app.emit(&tts_event, &chunk);
+                bus_send(&tts_app, WebEvent::TtsChunk {
+                    request_id: tts_request_id.clone(),
+                    data: base64::engine::general_purpose::STANDARD.encode(&pcm_bytes),
+                    sample_rate: chunk.sample_rate,
+                    index: chunk.index,
+                    text: chunk.text.clone(),
+                    done: chunk.done,
+                });
                 index += 1;
             }
 
             if !tts_cancel.load(Ordering::Relaxed) {
                 // Send final done chunk
-                let _ = tts_app.emit(
-                    &tts_event,
-                    TtsChunk {
-                        samples: vec![],
-                        sample_rate: 24000,
-                        index,
-                        text: String::new(),
-                        done: true,
-                    },
-                );
+                let done_chunk = TtsChunk {
+                    samples: vec![],
+                    sample_rate: 24000,
+                    index,
+                    text: String::new(),
+                    done: true,
+                };
+                let _ = tts_app.emit(&tts_event, &done_chunk);
+                bus_send(&tts_app, WebEvent::TtsChunk {
+                    request_id: tts_request_id.clone(),
+                    data: base64::engine::general_purpose::STANDARD.encode(&[] as &[u8]),
+                    sample_rate: done_chunk.sample_rate,
+                    index: done_chunk.index,
+                    text: done_chunk.text.clone(),
+                    done: done_chunk.done,
+                });
             }
         }))
     } else {
@@ -336,6 +361,9 @@ pub fn send_chat_message(
                                 done: true,
                             },
                         );
+                        bus_send(&app, WebEvent::ChatDone {
+                            request_id: request_id.clone(),
+                        });
                         break;
                     }
 
@@ -352,6 +380,10 @@ pub fn send_chat_message(
                                                 done: false,
                                             },
                                         );
+                                        bus_send(&app, WebEvent::ChatToken {
+                                            request_id: request_id.clone(),
+                                            token: content.clone(),
+                                        });
 
                                         // Check for corrections delimiter "---"
                                         if !past_corrections_delimiter {
@@ -403,6 +435,9 @@ pub fn send_chat_message(
                                             done: true,
                                         },
                                     );
+                                    bus_send(&app, WebEvent::ChatDone {
+                                        request_id: request_id.clone(),
+                                    });
                                     break;
                                 }
                             }
@@ -420,13 +455,18 @@ pub fn send_chat_message(
                 if tts_enabled {
                     let _ = sentence_tx.send(None);
                 }
+                let err_msg = format!("[Error: {}]", e);
                 let _ = app.emit(
                     &event_name_err,
                     StreamDelta {
-                        content: format!("[Error: {}]", e),
+                        content: err_msg.clone(),
                         done: true,
                     },
                 );
+                bus_send(&app, WebEvent::Error {
+                    request_id: request_id.clone(),
+                    message: err_msg,
+                });
             }
         }
 
