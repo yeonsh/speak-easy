@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { invoke, transcribeAudio } from "../lib/backend";
 import { useAudioRecorder } from "./useAudioRecorder";
 import type { Language } from "../lib/types";
@@ -18,6 +18,13 @@ export function useStt(): UseSttReturn {
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const recorder = useAudioRecorder();
+
+  // Check backend status on mount (model may already be loaded by desktop)
+  useEffect(() => {
+    invoke<boolean>("is_whisper_loaded").then((loaded) => {
+      if (loaded) setIsModelLoaded(true);
+    }).catch(() => {});
+  }, []);
 
   const loadModel = useCallback(async (modelSize?: string) => {
     try {

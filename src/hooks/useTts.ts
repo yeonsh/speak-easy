@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { invoke, listen } from "../lib/backend";
 import type { Language, TtsEngine } from "../lib/types";
 
@@ -69,6 +69,13 @@ export function useTts(): UseTtsReturn {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [availableVoices, setAvailableVoices] = useState<string[]>([]);
+
+  // Check backend status on mount (voice may already be loaded by desktop)
+  useEffect(() => {
+    invoke<boolean>("is_tts_loaded").then((loaded) => {
+      if (loaded) setIsLoaded(true);
+    }).catch(() => {});
+  }, []);
 
   const audioContextRef = useRef<AudioContext | null>(null);
   const sourceRef = useRef<AudioBufferSourceNode | null>(null);
