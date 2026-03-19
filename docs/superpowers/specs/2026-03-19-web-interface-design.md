@@ -29,30 +29,29 @@ Axum launches as a tokio task inside Tauri's `setup()` hook. It shares the same 
 
 ## State Sharing
 
-Create `Arc<T>` before calling `app.manage()`, keep a clone for Axum:
+State structs use `Arc<Mutex<T>>` for inner fields and derive `Clone`. Cloning shares the same inner mutexes. Both Tauri and Axum hold clones of the same state:
 
 ```rust
 // in setup()
-let llm = Arc::new(LlmState::new());
-let stt = Arc::new(SttState::new());
-let tts = Arc::new(TtsState::new());
-let db = Arc::new(DictionaryDb::open()?);
+let llm = LlmState::new();
+let stt = SttState::new();
+let tts = TtsState::new();
+let db = DictionaryDb::open()?;
+let bus = EventBus::new();
 
-app.manage(llm.clone());
-app.manage(stt.clone());
-app.manage(tts.clone());
-app.manage(db.clone());
+let web_state = WebState {
+    llm: llm.clone(), stt: stt.clone(),
+    tts: tts.clone(), db: db.clone(),
+    bus: bus.clone(),
+};
 
-tokio::spawn(start_web_server(llm, stt, tts, db));
-```
+app.manage(llm);  // Tauri commands get State<LlmState>
+app.manage(stt);
+app.manage(tts);
+app.manage(db);
+app.manage(bus);
 
-```rust
-pub async fn start_web_server(
-    llm: Arc<LlmState>,
-    stt: Arc<SttState>,
-    tts: Arc<TtsState>,
-    db: Arc<DictionaryDb>,
-) { ... }
+tokio::spawn(start_web_server(web_state));
 ```
 
 ## Event Bridging
@@ -94,7 +93,6 @@ This means `chat.rs`, `gemini.rs`, and `llm.rs` need minor modifications to dual
 | GET | `/api/llm/models` | List available LLM models |
 | POST | `/api/llm/start` | Start LLM server |
 | POST | `/api/llm/stop` | Stop LLM server |
-| POST | `/api/llm/switch` | Switch LLM model |
 | GET | `/api/llm/status` | Check if LLM is running |
 | GET | `/api/sessions` | List session history |
 | GET | `/api/sessions/:id` | Get session messages |

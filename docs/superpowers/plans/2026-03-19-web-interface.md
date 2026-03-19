@@ -81,6 +81,8 @@ git commit -m "deps: add axum, tower-http, tokio, base64 for web server"
 
 State structs must be `Clone` so Tauri and Axum share the same inner data. Wrap each `Mutex<T>` field in `Arc<Mutex<T>>` and derive `Clone`. No changes to call-site code needed — `Arc<Mutex<T>>` has the same `.lock()` API.
 
+**Send/Sync risk:** `WhisperContext` (in SttState) and `ort::Session` (in TtsState) use raw C/C++ pointers. If `Arc<Mutex<T>>` fails to compile because `T: !Send`, fallback: keep these as `Mutex<T>` (not Arc-wrapped), don't derive `Clone` on that struct, and instead wrap the entire struct in `Arc` at the `WebState` level (e.g., `pub stt: Arc<SttState>`). Task 7 Step 1 `WebState` definition should accommodate this.
+
 **Files:**
 - Modify: `src-tauri/src/llm.rs`
 - Modify: `src-tauri/src/stt.rs`
@@ -116,6 +118,8 @@ pub struct LlmState {
 Update `LlmState::new()` to wrap each field in `Arc::new(...)` and add `llama_server_path: Arc::new(Mutex::new(None))`.
 
 Also add `use std::path::PathBuf;` if not already imported.
+
+**Drop impl:** The current `LlmState` has a `Drop` impl that kills the child process. With `Clone`, each clone's drop would try to kill the process. Fix: remove the `Drop` impl and add an explicit `pub fn shutdown(&self)` method that kills the process. Call this from Tauri's window close handler instead of relying on implicit Drop.
 
 - [ ] **Step 2: Wrap SttState fields in Arc**
 
@@ -512,9 +516,37 @@ pub async fn start_web_server(state: WebState) {
 }
 ```
 
-- [ ] **Step 2: Implement REST handlers**
+- [ ] **Step 2: Extract inner functions from Tauri commands**
 
-Each handler extracts `AxState(state)` and calls existing logic. Use `tokio::task::spawn_blocking` for compute-heavy work (STT, TTS). Pattern:
+Several `#[tauri::command]` functions take `tauri::State<'_, T>` or `AppHandle` which are unavailable in Axum handlers. Extract the core logic into standalone functions:
+
+**In `src-tauri/src/stt.rs`:** Extract `transcribe_audio_inner`:
+```rust
+// Existing #[tauri::command] becomes a thin wrapper:
+pub fn transcribe_audio(state: tauri::State<'_, SttState>, ...) -> Result<...> {
+    transcribe_audio_inner(&state, audio_data, target_language, native_language)
+}
+
+// New standalone function callable from web.rs:
+pub fn transcribe_audio_inner(state: &SttState, audio_data: Vec<f32>, target_language: &str, native_language: &str) -> Result<TranscriptionResult, String> {
+    // ... existing logic moved here ...
+}
+```
+
+Apply same pattern to all commands that web.rs needs to call:
+- `stt.rs`: `transcribe_audio` → `transcribe_audio_inner(&SttState, ...)`
+- `tts.rs`: `load_tts_voice` → `load_tts_voice_inner(&TtsState, ...)`
+- `tts.rs`: `synthesize_speech` → `synthesize_speech_inner(&TtsState, ...)`
+- `llm.rs`: `is_llm_running` → `is_llm_running_inner(&LlmState) -> bool`
+- `session.rs`: All session commands → `_inner(&DictionaryDb, ...)`
+- `chat.rs`: `explain_message`, `suggest_responses`, `tutor_translate` → `_inner(&LlmState, ...)`
+- `dictionary.rs`: `lookup_word` → `lookup_word_inner(&DictionaryDb, ...)`
+
+For each: the `#[tauri::command]` wrapper calls the `_inner` function. Web handlers call `_inner` directly.
+
+- [ ] **Step 3: Implement REST handlers**
+
+Each handler extracts `AxState(state)` and calls the `_inner` functions. Use `tokio::task::spawn_blocking` for compute-heavy work (STT, TTS). Pattern:
 
 ```rust
 async fn get_settings() -> impl IntoResponse {
@@ -543,9 +575,11 @@ async fn transcribe(
     body: axum::body::Bytes,
 ) -> impl IntoResponse {
     let stt = state.stt.clone();
+    let target = q.target.clone();
+    let native = q.native.clone();
     match tokio::task::spawn_blocking(move || {
         let samples = crate::stt::decode_wav_to_samples(body.to_vec())?;
-        crate::stt::transcribe_audio_inner(&stt, samples, &q.target, &q.native)
+        crate::stt::transcribe_audio_inner(&stt, samples, &target, &native)
     }).await {
         Ok(Ok(result)) => Json(result).into_response(),
         Ok(Err(e)) => (axum::http::StatusCode::INTERNAL_SERVER_ERROR, e).into_response(),
@@ -556,9 +590,9 @@ async fn transcribe(
 
 **For commands that use `AppHandle`:**
 
-- `start_llm_server`: The web handler reads `llama_server_path` from `LlmState` (set by Task 6 Step 4), then spawns the process using the same logic but without `AppHandle`. Create a `start_llm_server_web()` function in `web.rs` that takes the stored path.
-- `cancel_generation`: Operates on `LlmState.cancel_flags` — does not need `AppHandle`, just set the flag.
-- `explain_message`, `suggest_responses`, `tutor_translate`: These call the LLM via the same HTTP path as `send_chat_message` (ureq to llama-server). Check if they use `AppHandle` — if they only use `State<LlmState>` for the port, they can be called directly with `&state.llm`.
+- `start_llm_server`: Create `start_llm_server_web()` in `web.rs`. It reads `llama_server_path` from `LlmState` (stored by Task 6 Step 4), then spawns the llama-server process. The stderr monitoring thread cannot use `bus_send()` (needs AppHandle), so it receives a `EventBus` clone directly and calls `bus.tx.send(WebEvent::LlmReady)` / `bus.tx.send(WebEvent::LlmLog { line })`. Extract the process-spawning logic from `llm.rs::start_llm_server` into a `start_llm_process(server_path, model_path, port, gpu_layers, ctx_size) -> Result<Child>` inner function that both the Tauri command and web handler can call.
+- `cancel_generation`: Operates on `LlmState.cancel_flags` directly — set the AtomicBool flag.
+- `explain_message`, `suggest_responses`, `tutor_translate`: These use `LlmState` only for the port number to call ureq. Use `_inner(&LlmState, ...)` functions.
 
 Implement all ~27 REST handlers. Refer to the existing Tauri command functions and their signatures in `chat.rs`, `llm.rs`, `stt.rs`, `tts.rs`, `settings.rs`, `dictionary.rs`, `session.rs`, `courage.rs`.
 
@@ -613,14 +647,54 @@ async fn handle_ws_message(text: String, state: &WebState) {
     match msg.msg_type.as_str() {
         "chat" => {
             let state = state.clone();
-            // Spawn the chat on a separate task so it doesn't block the WS read loop
+            let request_id = msg.request_id.unwrap_or_default();
+            let provider = msg.provider.unwrap_or_else(|| "local".to_string());
+            let messages = msg.messages.unwrap_or_default();
+            let settings = msg.settings.unwrap_or_default();
+
+            // Extract send_chat_message / send_chat_gemini core logic into
+            // _inner functions that take (&LlmState, &TtsState, &EventBus, ...)
+            // instead of AppHandle.
+            //
+            // Key differences from Tauri path:
+            // - TtsState accessed from state.tts (not app.state::<TtsState>())
+            // - Events emitted via state.bus.tx.send() (not app.emit())
+            // - Cancel flag registered in state.llm.cancel_flags
+            //
+            // Spawn blocking because the SSE loop (ureq) is synchronous:
             tokio::task::spawn_blocking(move || {
-                // Route to local LLM or Gemini based on provider
-                // Call the same logic as send_chat_message / send_chat_gemini
-                // Events flow back via EventBus → WS select loop
+                // Register cancel flag
+                let cancel = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+                state.llm.cancel_flags.lock().unwrap()
+                    .insert(request_id.clone(), cancel.clone());
+
+                let result = if provider == "gemini" {
+                    crate::gemini::send_chat_gemini_web(
+                        &state.llm, &state.tts, &state.bus,
+                        &request_id, messages, settings,
+                    )
+                } else {
+                    crate::chat::send_chat_message_web(
+                        &state.llm, &state.tts, &state.bus,
+                        &request_id, messages, settings,
+                    )
+                };
+
+                // Cleanup cancel flag
+                state.llm.cancel_flags.lock().unwrap().remove(&request_id);
+
+                if let Err(e) = result {
+                    let _ = state.bus.tx.send(WebEvent::Error {
+                        request_id,
+                        message: e,
+                    });
+                }
             });
         }
-        "chat-cancel" => {
+        "chat-cancel" | "tts-cancel" => {
+            // TTS cancel is functionally identical to chat cancel:
+            // the TTS worker checks the same cancel flag as chat streaming.
+            // Setting the flag stops both token streaming and TTS synthesis.
             if let Some(rid) = msg.request_id {
                 if let Ok(flags) = state.llm.cancel_flags.lock() {
                     if let Some(flag) = flags.get(&rid) {
@@ -629,13 +703,18 @@ async fn handle_ws_message(text: String, state: &WebState) {
                 }
             }
         }
-        "tts-cancel" => {
-            // Set a cancel flag or drop the TTS worker for this request
-            // TTS cancel emits TtsStop via EventBus
-        }
         _ => {}
     }
 }
+
+// This means chat.rs and gemini.rs each need a `_web` variant:
+// - send_chat_message_web(&LlmState, &TtsState, &EventBus, request_id, messages, settings)
+// - send_chat_gemini_web(&LlmState, &TtsState, &EventBus, request_id, messages, settings)
+//
+// These are extracted from the existing functions. Key change:
+// replace app.emit() with bus.tx.send(), and replace
+// tts_app.state::<TtsState>() with the passed &TtsState reference.
+// The SSE loop (ureq to llama-server) and TTS synthesis logic are unchanged.
 ```
 
 - [ ] **Step 4: Add mod web and launch in lib.rs**
