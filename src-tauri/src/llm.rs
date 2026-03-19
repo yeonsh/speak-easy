@@ -5,6 +5,7 @@ use std::net::TcpListener;
 use std::process::{Child, Command};
 use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};
+use crate::event_bus::{bus_send, WebEvent};
 use tauri::{AppHandle, Emitter, Manager};
 
 #[derive(Clone)]
@@ -106,6 +107,7 @@ pub fn start_llm_server(
     if is_llm_running(state.clone()) {
         let port = *state.port.lock().unwrap();
         let _ = app.emit("llm-ready", true);
+        bus_send(&app, WebEvent::LlmReady);
         return Ok(port);
     }
 
@@ -119,6 +121,7 @@ pub fn start_llm_server(
 
     // Resolve llama-server: ~/.speakeasy/bin/ → bundled sidecar → PATH
     let program = resolve_llama_server(&app)?;
+    *state.llama_server_path.lock().unwrap() = Some(std::path::PathBuf::from(&program));
 
     // Set library search path to the directory containing llama-server
     // so it can find libllama.dylib and other shared libraries
@@ -165,9 +168,11 @@ pub fn start_llm_server(
                 if let Ok(line) = line {
                     eprintln!("[llama-server] {}", line);
                     let _ = app_clone.emit("llm-log", &line);
+                    bus_send(&app_clone, WebEvent::LlmLog { line: line.clone() });
                     // "all slots are idle" indicates model is fully loaded and ready
                     if line.contains("all slots are idle") {
                         let _ = app_clone.emit("llm-ready", true);
+                        bus_send(&app_clone, WebEvent::LlmReady);
                     }
                 }
             }
