@@ -304,6 +304,13 @@ const strings = {
     tr: "Kopyalandı!", id: "Disalin!", vi: "Đã sao chép!", pl: "Skopiowano!",
   },
 
+  endSession: {
+    en: "End Session", ko: "세션 종료", es: "Finalizar sesión", fr: "Terminer la session",
+    zh: "结束会话", ja: "セッション終了", de: "Sitzung beenden", pt: "Encerrar sessão",
+    it: "Termina sessione", ru: "Завершить сессию", ar: "إنهاء الجلسة", hi: "सत्र समाप्त करें",
+    tr: "Oturumu bitir", id: "Akhiri sesi", vi: "Kết thúc phiên", pl: "Zakończ sesję",
+  },
+
   // Session Replay
   pastSessions: {
     en: "Past Sessions", ko: "지난 대화", es: "Sesiones anteriores", fr: "Sessions passées",

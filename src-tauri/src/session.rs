@@ -61,6 +61,7 @@ pub fn save_session_inner(
     mode: &str,
     scenario_context: Option<&str>,
     messages: &[SavedMessage],
+    started_at: i64,
 ) -> Result<(), String> {
     let user_count = messages.iter().filter(|m| m.role == "user").count();
     if user_count < 2 {
@@ -77,10 +78,10 @@ pub fn save_session_inner(
         let tx = conn.unchecked_transaction().map_err(|e| e.to_string())?;
 
         tx.execute(
-            "INSERT INTO sessions (id, language, mode, scenario_context, scenario_title, msg_count, ended_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, unixepoch())
+            "INSERT INTO sessions (id, language, mode, scenario_context, scenario_title, msg_count, started_at, ended_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, unixepoch())
              ON CONFLICT(id) DO UPDATE SET ended_at = unixepoch(), msg_count = ?6",
-            params![session_id, language, mode, scenario_context, scenario_title, msg_count],
+            params![session_id, language, mode, scenario_context, scenario_title, msg_count, started_at],
         ).map_err(|e| e.to_string())?;
 
         tx.execute(
@@ -110,8 +111,9 @@ pub async fn save_session(
     mode: String,
     scenario_context: Option<String>,
     messages: Vec<SavedMessage>,
+    started_at: i64,
 ) -> Result<(), String> {
-    save_session_inner(&db, &session_id, &language, &mode, scenario_context.as_deref(), &messages)
+    save_session_inner(&db, &session_id, &language, &mode, scenario_context.as_deref(), &messages, started_at)
 }
 
 // ── list_sessions ──
@@ -321,7 +323,13 @@ pub fn generate_review_inner(
          - \"grammar\": grammatical error\n\
          - \"vocab\": wrong word choice\n\
          - \"naturalness\": grammatically correct but unnatural for a native speaker\n\
-         - \"none\": no issues"
+         - \"none\": no issues\n\n\
+         IMPORTANT: If the student wrote in {native_name} instead of {target_name}, \
+         this is intentional — the app allows students to use their native language to ask for translations. \
+         Do NOT criticize or flag this as an error. Instead, set errorType to \"vocab\", \
+         set \"corrected\" to the {target_name} translation of their {native_name} sentence, \
+         and set \"note\" to a brief explanation in {native_name} of the translated sentence \
+         (e.g. grammar points, useful vocabulary, or usage tips)."
     );
 
     if is_scenario {

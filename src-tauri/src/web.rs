@@ -71,6 +71,7 @@ struct SaveSessionReq {
     mode: String,
     scenario_context: Option<String>,
     messages: Vec<crate::session::SavedMessage>,
+    started_at: i64,
 }
 
 #[derive(Deserialize)]
@@ -433,7 +434,7 @@ async fn save_session(
 ) -> impl IntoResponse {
     match crate::session::save_session_inner(
         &state.db, &req.session_id, &req.language, &req.mode,
-        req.scenario_context.as_deref(), &req.messages,
+        req.scenario_context.as_deref(), &req.messages, req.started_at,
     ) {
         Ok(()) => Ok(ok_json()),
         Err(e) => Err(err_json(e)),

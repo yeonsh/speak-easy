@@ -96,6 +96,98 @@ fn is_complex(text: &str, lang: &str) -> bool {
     count_words(text, lang) >= complex_word_threshold(lang) || has_connective(text, lang)
 }
 
+/// Detect if a user message is primarily in the native language rather than the target language.
+/// Uses Unicode script/block detection to identify the dominant script of the text.
+fn is_native_language_text(text: &str, target_lang: &str, native_lang: &str) -> bool {
+    if target_lang == native_lang {
+        return false;
+    }
+    let script = dominant_script(text);
+    // Check if the dominant script matches the native language but not the target language
+    let target_script = expected_script(target_lang);
+    let native_script = expected_script(native_lang);
+    if target_script == native_script {
+        // Both languages use the same script (e.g., Spanish and French both Latin) — can't detect
+        return false;
+    }
+    script == native_script && script != target_script
+}
+
+#[derive(Debug, PartialEq, Clone, Copy)]
+enum Script {
+    Latin,
+    Hangul,
+    Cjk,
+    Hiragana,  // Japanese (hiragana/katakana)
+    Cyrillic,
+    Arabic,
+    Devanagari,
+    Thai,
+    Other,
+}
+
+fn expected_script(lang: &str) -> Script {
+    match lang {
+        "en" | "es" | "fr" | "de" | "pt" | "it" | "tr" | "id" | "vi" | "pl" => Script::Latin,
+        "ko" => Script::Hangul,
+        "zh" => Script::Cjk,
+        "ja" => Script::Hiragana,
+        "ru" => Script::Cyrillic,
+        "ar" => Script::Arabic,
+        "hi" => Script::Devanagari,
+        "th" => Script::Thai,
+        _ => Script::Latin,
+    }
+}
+
+fn char_script(c: char) -> Script {
+    match c {
+        '\u{AC00}'..='\u{D7AF}' | '\u{1100}'..='\u{11FF}' | '\u{3130}'..='\u{318F}' => Script::Hangul,
+        '\u{4E00}'..='\u{9FFF}' | '\u{3400}'..='\u{4DBF}' | '\u{F900}'..='\u{FAFF}' => Script::Cjk,
+        '\u{3040}'..='\u{309F}' | '\u{30A0}'..='\u{30FF}' | '\u{31F0}'..='\u{31FF}' => Script::Hiragana,
+        '\u{0400}'..='\u{04FF}' => Script::Cyrillic,
+        '\u{0600}'..='\u{06FF}' | '\u{0750}'..='\u{077F}' | '\u{FB50}'..='\u{FDFF}' | '\u{FE70}'..='\u{FEFF}' => Script::Arabic,
+        '\u{0900}'..='\u{097F}' => Script::Devanagari,
+        '\u{0E00}'..='\u{0E7F}' => Script::Thai,
+        'A'..='Z' | 'a'..='z' | '\u{00C0}'..='\u{024F}' => Script::Latin,
+        _ => Script::Other,
+    }
+}
+
+fn dominant_script(text: &str) -> Script {
+    let mut counts = [0u32; 9]; // one per Script variant
+    for c in text.chars() {
+        let idx = match char_script(c) {
+            Script::Latin => 0,
+            Script::Hangul => 1,
+            Script::Cjk => 2,
+            Script::Hiragana => 3,
+            Script::Cyrillic => 4,
+            Script::Arabic => 5,
+            Script::Devanagari => 6,
+            Script::Thai => 7,
+            Script::Other => 8,
+        };
+        counts[idx] += 1;
+    }
+    // Find the dominant script (excluding Other)
+    let scripts = [
+        Script::Latin, Script::Hangul, Script::Cjk, Script::Hiragana,
+        Script::Cyrillic, Script::Arabic, Script::Devanagari, Script::Thai,
+    ];
+    scripts.iter()
+        .max_by_key(|s| {
+            let idx = match s {
+                Script::Latin => 0, Script::Hangul => 1, Script::Cjk => 2, Script::Hiragana => 3,
+                Script::Cyrillic => 4, Script::Arabic => 5, Script::Devanagari => 6, Script::Thai => 7,
+                _ => 8,
+            };
+            counts[idx]
+        })
+        .copied()
+        .unwrap_or(Script::Other)
+}
+
 // ── normalize ──
 
 fn normalize(value: f32, baseline: f32) -> f32 {
@@ -114,13 +206,14 @@ fn normalize_inverse(value: f32, baseline: f32) -> f32 {
 pub fn compute_metrics(
     messages: &[(String, String)],
     language: &str,
-    _native_language: &str,
+    native_language: &str,
     duration_seconds: i64,
     response_gaps_ms: &Option<Vec<i64>>,
 ) -> CourageMetrics {
     let mut word_count: i64 = 0;
     let mut turn_count: i64 = 0;
     let mut complex_attempts: i64 = 0;
+    let mut native_switches: i64 = 0;
 
     for (role, content) in messages {
         if role == "user" {
@@ -129,10 +222,11 @@ pub fn compute_metrics(
             if is_complex(content, language) {
                 complex_attempts += 1;
             }
+            if is_native_language_text(content, language, native_language) {
+                native_switches += 1;
+            }
         }
     }
-
-    let native_switches: i64 = 0; // placeholder
 
     let quick_response_ratio = response_gaps_ms.as_ref().map(|gaps| {
         let valid: Vec<&i64> = gaps.iter().filter(|&&g| g > 0).collect();

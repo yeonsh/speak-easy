@@ -48,6 +48,7 @@ function App() {
   const messagesRef = useRef(messages);
   messagesRef.current = messages;
   const sessionIdRef = useRef(crypto.randomUUID());
+  const sessionStartRef = useRef(Math.floor(Date.now() / 1000));
   const scenarioContextRef = useRef<string | null>(null);
   const explainCacheRef = useRef<Record<string, string>>({});
   const ttsDoneAtRef = useRef<number | null>(null);
@@ -72,6 +73,7 @@ function App() {
         mode: s.mode,
         scenarioContext: scenarioContextRef.current,
         messages: savedMessages,
+        startedAt: sessionStartRef.current,
       });
 
       // Calculate courage score after saving session
@@ -228,6 +230,7 @@ function App() {
   const handleLanguageChange = useCallback((lang: Language) => {
     saveCurrentSession();
     sessionIdRef.current = crypto.randomUUID();
+    sessionStartRef.current = Math.floor(Date.now() / 1000);
     responseGapsRef.current = [];
     ttsDoneAtRef.current = null;
     scenarioContextRef.current = null;
@@ -249,6 +252,7 @@ function App() {
   const handleModeChange = useCallback((mode: ConversationMode) => {
     saveCurrentSession();
     sessionIdRef.current = crypto.randomUUID();
+    sessionStartRef.current = Math.floor(Date.now() / 1000);
     responseGapsRef.current = [];
     ttsDoneAtRef.current = null;
     scenarioContextRef.current = null;
@@ -269,9 +273,38 @@ function App() {
     });
   }, [saveCurrentSession]);
 
+  const handleEndSession = useCallback(async () => {
+    const msgs = messagesRef.current;
+    const userMsgs = msgs.filter((m) => m.role === "user");
+    if (userMsgs.length < 2) return;
+
+    const s = settingsRef.current;
+    await saveCurrentSession();
+    tts.stop();
+
+    const endedSession: SessionSummary = {
+      id: sessionIdRef.current,
+      language: s.language,
+      mode: s.mode as "free-talk" | "scenario",
+      scenario_title: scenarioContextRef.current?.split("\n")[0] ?? null,
+      started_at: sessionStartRef.current,
+      msg_count: msgs.filter((m) => m.role === "user" || m.role === "assistant").length,
+      has_review: false,
+    };
+
+    sessionIdRef.current = crypto.randomUUID();
+    sessionStartRef.current = Math.floor(Date.now() / 1000);
+    responseGapsRef.current = [];
+    ttsDoneAtRef.current = null;
+    scenarioContextRef.current = null;
+    setMessages([]);
+    setSelectedSession(endedSession);
+  }, [saveCurrentSession, tts]);
+
   const handleClearChat = useCallback(async () => {
     await saveCurrentSession();
     sessionIdRef.current = crypto.randomUUID();
+    sessionStartRef.current = Math.floor(Date.now() / 1000);
     responseGapsRef.current = [];
     ttsDoneAtRef.current = null;
     scenarioContextRef.current = null;
@@ -281,6 +314,7 @@ function App() {
   const handleScenarioSelect = useCallback((scenario: { description: string; opening: string } | null) => {
     saveCurrentSession();
     sessionIdRef.current = crypto.randomUUID();
+    sessionStartRef.current = Math.floor(Date.now() / 1000);
     responseGapsRef.current = [];
     ttsDoneAtRef.current = null;
 
@@ -514,6 +548,16 @@ function App() {
               onChange={(enabled) => setSettings((s) => ({ ...s, correctionsEnabled: enabled }))}
               nativeLanguage={settings.nativeLanguage}
             />
+            <button
+              onClick={handleEndSession}
+              disabled={messages.filter((m) => m.role === "user").length < 2}
+              className="p-2 rounded-lg transition-colors hover:bg-[var(--bg-elevated)] text-[var(--text-secondary)] disabled:opacity-30 disabled:cursor-not-allowed"
+              title={t("endSession", settings.nativeLanguage)}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect x="6" y="6" width="12" height="12" rx="2" />
+              </svg>
+            </button>
             <button
               onClick={() => setIsHistoryOpen(true)}
               className={`p-2 rounded-lg transition-colors ${
