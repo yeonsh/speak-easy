@@ -142,13 +142,17 @@ pub fn send_chat_message(
     tts_enabled: Option<bool>,
     tts_speed: Option<f32>,
     language: Option<String>,
+    custom_endpoint: Option<String>,
 ) -> Result<(), String> {
-    let port = *state.port.lock().unwrap();
-    if port == 0 {
-        return Err("LLM server is not running".to_string());
-    }
-
-    let url = format!("http://127.0.0.1:{}/v1/chat/completions", port);
+    let url = if let Some(ref endpoint) = custom_endpoint {
+        format!("{}/v1/chat/completions", endpoint.trim_end_matches('/'))
+    } else {
+        let port = *state.port.lock().unwrap();
+        if port == 0 {
+            return Err("LLM server is not running".to_string());
+        }
+        format!("http://127.0.0.1:{}/v1/chat/completions", port)
+    };
     let temp = temperature.unwrap_or(0.7);
 
     let body = serde_json::json!({

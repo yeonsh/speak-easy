@@ -17,6 +17,7 @@ interface UseLlmReturn {
     provider?: string,
     apiKey?: string,
     apiModel?: string,
+    customEndpoint?: string,
   ) => Promise<string>;  // returns requestId
   streamingText: string;
   isGenerating: boolean;
@@ -114,6 +115,7 @@ export function useLlm(): UseLlmReturn {
       provider?: string,
       apiKey?: string,
       apiModel?: string,
+      customEndpoint?: string,
     ) => {
       // Clean up previous listener
       if (unlistenRef.current) {
@@ -148,13 +150,14 @@ export function useLlm(): UseLlmReturn {
       unlistenRef.current = unlisten;
 
       try {
-        const chatProvider = (provider === "gemini" && apiKey) ? "gemini" : "local";
+        const chatProvider = provider === "gemini" ? "gemini" : provider === "openai-compatible" ? "openai-compatible" : "local";
         await sendChat(chatProvider, requestId, messages, {
           temperature: temperature ?? null,
           ttsEnabled: ttsEnabled ?? false,
           ttsSpeed: ttsSpeed ?? null,
           language: language ?? null,
           ...(chatProvider === "gemini" ? { apiKey, model: apiModel ?? null } : {}),
+          ...(chatProvider === "openai-compatible" ? { customEndpoint } : {}),
         });
       } catch (e) {
         currentRequestIdRef.current = null;

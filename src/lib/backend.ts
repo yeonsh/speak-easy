@@ -231,7 +231,7 @@ export async function transcribeAudio(
 }
 
 export async function sendChat(
-  provider: "local" | "gemini",
+  provider: "local" | "gemini" | "openai-compatible",
   requestId: string,
   messages: any[],
   settings: any,
