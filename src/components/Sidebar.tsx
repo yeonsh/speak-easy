@@ -310,6 +310,7 @@ export function Sidebar({
             >
               <option value="local">{t("localLlm", settings.nativeLanguage)}</option>
               <option value="gemini">Gemini</option>
+              <option value="openai-compatible">{t("openaiCompatible", settings.nativeLanguage)}</option>
             </select>
 
             {settings.llmProvider === "gemini" && (
@@ -339,6 +340,23 @@ export function Sidebar({
                     <option value={settings.geminiModel}>{settings.geminiModel}</option>
                   )}
                 </select>
+              </div>
+            )}
+
+            {settings.llmProvider === "openai-compatible" && (
+              <div className="mt-2 space-y-2">
+                <input
+                  type="text"
+                  value={settings.customEndpoint}
+                  onChange={(e) =>
+                    onSettingsChange({ ...settings, customEndpoint: e.target.value })
+                  }
+                  placeholder="http://localhost:1234"
+                  className="w-full bg-[var(--bg-elevated)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm font-mono"
+                />
+                <p className="text-xs text-[var(--text-secondary)] opacity-60">
+                  LM Studio, Ollama, vLLM, etc.
+                </p>
               </div>
             )}
           </SettingGroup>
