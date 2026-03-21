@@ -166,6 +166,7 @@ function App() {
       provider: s.llmProvider,
       apiKey: s.geminiApiKey,
       apiModel: s.geminiModel,
+      customEndpoint: s.customEndpoint,
     }).then((result) => {
       explainCacheRef.current[msgId] = result;
     }).catch((e) => {
@@ -364,6 +365,7 @@ function App() {
         provider: settings.llmProvider,
         apiKey: settings.geminiApiKey,
         apiModel: settings.geminiModel,
+        customEndpoint: settings.customEndpoint,
       });
 
       const tutorMsg: Message = {
@@ -447,6 +449,7 @@ function App() {
           settings.llmProvider,
           settings.geminiApiKey,
           settings.geminiModel,
+          settings.customEndpoint,
         );
       } catch (e) {
         const errorMsg: Message = {
@@ -583,6 +586,7 @@ function App() {
               llmProvider: settings.llmProvider,
               geminiApiKey: settings.geminiApiKey,
               geminiModel: settings.geminiModel,
+              customEndpoint: settings.customEndpoint,
             }}
             onBack={() => setSelectedSession(null)}
             onDelete={async (id) => {
@@ -628,6 +632,7 @@ function App() {
                     provider: settings.llmProvider,
                     apiKey: settings.geminiApiKey,
                     apiModel: settings.geminiModel,
+                    customEndpoint: settings.customEndpoint,
                   });
                   setExplanations((prev) => ({ ...prev, [msgId]: result }));
                   return result;
@@ -645,6 +650,7 @@ function App() {
                   provider: settings.llmProvider,
                   apiKey: settings.geminiApiKey,
                   apiModel: settings.geminiModel,
+                  customEndpoint: settings.customEndpoint,
                 });
                 setSuggestions((prev) => ({ ...prev, [msgId]: result }));
                 return result;
@@ -659,6 +665,7 @@ function App() {
                   apiKey: settings.geminiApiKey,
                   apiModel: settings.geminiModel,
                   forceRefresh: forceRefresh ?? false,
+                  customEndpoint: settings.customEndpoint,
                 });
                 return result;
               }}
@@ -716,15 +723,16 @@ function App() {
             }}
           />
           <TextInput
-            disabled={(settings.llmProvider === "local" ? !llm.isServerRunning : !settings.geminiApiKey) || llm.isGenerating}
+            disabled={(settings.llmProvider === "local" ? !llm.isServerRunning : settings.llmProvider === "gemini" ? !settings.geminiApiKey : !settings.customEndpoint) || llm.isGenerating}
             onSubmit={sendToLlm}
             nativeLanguage={settings.nativeLanguage}
           />
         </footer>
 
         <ServerStatus
-          isLlmRunning={settings.llmProvider !== "local" || llm.isServerRunning}
-          isLlmStarting={settings.llmProvider === "local" && llm.isServerStarting}
+          isLlmRunning={llm.isServerRunning}
+          isLlmStarting={llm.isServerStarting}
+          llmProvider={settings.llmProvider}
           isWhisperLoaded={stt.isModelLoaded}
           isTtsLoaded={tts.isLoaded}
           llmError={llm.serverError}

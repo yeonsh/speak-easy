@@ -10,6 +10,7 @@ interface ServerStatusProps {
   sttError: string | null;
   ttsError: string | null;
   nativeLanguage: NativeLanguage;
+  llmProvider?: string;
   onStartLlm: () => void;
   onStopLlm: () => void;
   onLoadWhisper: () => void;
@@ -33,13 +34,17 @@ export function ServerStatus({
   sttError,
   ttsError,
   nativeLanguage,
+  llmProvider,
   onStartLlm,
   onStopLlm,
   onLoadWhisper,
   onLoadTts,
 }: ServerStatusProps) {
+  const isExternalProvider = llmProvider === "gemini" || llmProvider === "openai-compatible";
+  const effectiveLlmRunning = isExternalProvider ? true : isLlmRunning;
+  const effectiveLlmStarting = isExternalProvider ? false : isLlmStarting;
   const error = llmError || sttError || ttsError;
-  const allOk = isLlmRunning && isWhisperLoaded && isTtsLoaded && !error;
+  const allOk = effectiveLlmRunning && isWhisperLoaded && isTtsLoaded && !error;
 
   // When everything is running and no errors, show minimal bar
   if (allOk) {
@@ -56,13 +61,13 @@ export function ServerStatus({
     <div className="flex items-center gap-3 px-3 py-1 bg-[var(--bg-main)] border-t border-[var(--border)] text-[10px] text-[var(--text-secondary)]">
       {/* LLM */}
       <span className="flex items-center gap-1">
-        <Dot color={isLlmRunning ? "green" : isLlmStarting ? "yellow" : "red"} />
-        {isLlmRunning ? "LLM" : isLlmStarting ? t("llmStarting", nativeLanguage) : (
+        <Dot color={effectiveLlmRunning ? "green" : effectiveLlmStarting ? "yellow" : "red"} />
+        {effectiveLlmRunning ? "LLM" : effectiveLlmStarting ? t("llmStarting", nativeLanguage) : (
           <button onClick={onStartLlm} className="hover:text-[var(--text-primary)] transition-colors underline decoration-dotted">
             {t("llmOff", nativeLanguage)}
           </button>
         )}
-        {isLlmRunning && (
+        {effectiveLlmRunning && !isExternalProvider && (
           <button onClick={onStopLlm} className="hover:text-[var(--text-primary)] transition-colors opacity-50 hover:opacity-100">
             {t("stop", nativeLanguage)}
           </button>

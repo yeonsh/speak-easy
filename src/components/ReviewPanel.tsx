@@ -7,7 +7,7 @@ import { CourageScore } from "./CourageScore";
 interface ReviewPanelProps {
   session: SessionSummary;
   nativeLanguage: NativeLanguage;
-  settings: { llmProvider: string; geminiApiKey: string; geminiModel: string };
+  settings: { llmProvider: string; geminiApiKey: string; geminiModel: string; customEndpoint: string };
   onBack: () => void;
   onDelete: (id: string) => void;
 }
@@ -43,6 +43,7 @@ export function ReviewPanel({ session, nativeLanguage, settings, onBack, onDelet
         provider: settings.llmProvider,
         apiKey: settings.geminiApiKey,
         apiModel: settings.geminiModel,
+        customEndpoint: settings.customEndpoint,
       });
       setReview(items);
     } catch (e) {
