@@ -4,7 +4,7 @@ export type NativeLanguage = Language;
 
 export type TtsEngine = "kokoro" | "edge";
 
-export type LlmProvider = "local" | "gemini";
+export type LlmProvider = "local" | "gemini" | "openai-compatible";
 
 export type ConversationMode = "free-talk" | "scenario";
 
@@ -38,6 +38,7 @@ export interface AppSettings {
   llmProvider: LlmProvider;
   geminiApiKey: string;
   geminiModel: string;
+  customEndpoint: string;
 }
 
 export interface SessionSummary {
@@ -129,4 +130,5 @@ export const DEFAULT_SETTINGS: AppSettings = {
   llmProvider: "local",
   geminiApiKey: "",
   geminiModel: "gemini-2.5-flash",
+  customEndpoint: "http://localhost:1234",
 };

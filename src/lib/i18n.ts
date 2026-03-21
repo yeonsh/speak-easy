@@ -130,6 +130,12 @@ const strings = {
     it: "Locale (integrato)", ru: "Локальный (встроенный)", ar: "محلي (مدمج)", hi: "स्थानीय (अंतर्निहित)",
     tr: "Yerel (dahili)", id: "Lokal (bawaan)", vi: "Cục bộ (tích hợp)", pl: "Lokalny (wbudowany)",
   },
+  openaiCompatible: {
+    en: "OpenAI-Compatible", ko: "OpenAI 호환", es: "Compatible con OpenAI", fr: "Compatible OpenAI",
+    zh: "OpenAI 兼容", ja: "OpenAI 互換", de: "OpenAI-kompatibel", pt: "Compatível com OpenAI",
+    it: "Compatibile OpenAI", ru: "OpenAI-совместимый", ar: "متوافق مع OpenAI", hi: "OpenAI-संगत",
+    tr: "OpenAI Uyumlu", id: "Kompatibel OpenAI", vi: "Tương thích OpenAI", pl: "Kompatybilny z OpenAI",
+  },
   modelManagementHint: {
     en: "Model download and management coming in Phase 5.",
     ko: "모델 다운로드 및 관리 기능은 Phase 5에서 추가됩니다.",

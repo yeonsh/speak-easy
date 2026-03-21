@@ -32,6 +32,8 @@ pub struct Settings {
     pub gemini_api_key: String,
     #[serde(default = "default_gemini_model")]
     pub gemini_model: String,
+    #[serde(default = "default_custom_endpoint")]
+    pub custom_endpoint: String,
 }
 
 fn default_language() -> String { "en".to_string() }
@@ -45,6 +47,7 @@ fn default_gpu_layers() -> i32 { -1 }
 fn default_whisper_model() -> String { "base".to_string() }
 fn default_llm_provider() -> String { "local".to_string() }
 fn default_gemini_model() -> String { "gemini-2.5-flash".to_string() }
+fn default_custom_endpoint() -> String { "http://localhost:1234".to_string() }
 
 impl Default for Settings {
     fn default() -> Self {
@@ -63,6 +66,7 @@ impl Default for Settings {
             llm_provider: default_llm_provider(),
             gemini_api_key: String::new(),
             gemini_model: default_gemini_model(),
+            custom_endpoint: default_custom_endpoint(),
         }
     }
 }
