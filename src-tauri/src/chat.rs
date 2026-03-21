@@ -546,14 +546,19 @@ pub(crate) fn complete_with_provider(
     user_prompt: &str,
     temperature: f32,
     max_tokens: u32,
+    custom_endpoint: Option<&str>,
 ) -> Result<String, String> {
     match provider {
         "gemini" => crate::gemini::complete_text(api_key, api_model, system_prompt, user_prompt, temperature, max_tokens),
         _ => {
-            if port == 0 {
-                return Err("LLM server is not running".to_string());
-            }
-            let url = format!("http://127.0.0.1:{}/v1/chat/completions", port);
+            let url = if let Some(endpoint) = custom_endpoint {
+                format!("{}/v1/chat/completions", endpoint.trim_end_matches('/'))
+            } else {
+                if port == 0 {
+                    return Err("LLM server is not running".to_string());
+                }
+                format!("http://127.0.0.1:{}/v1/chat/completions", port)
+            };
             let body = serde_json::json!({
                 "messages": [
                     { "role": "system", "content": system_prompt },
@@ -596,6 +601,7 @@ pub fn explain_message_inner(
     api_key: Option<&str>,
     api_model: Option<&str>,
     force_refresh: bool,
+    custom_endpoint: Option<&str>,
 ) -> Result<String, String> {
     let native_code = native_language.unwrap_or("ko");
 
@@ -621,7 +627,7 @@ pub fn explain_message_inner(
     );
 
     eprintln!("[explain_message] provider={}, lang={}, native={}, text_len={}", prov, language, native_code, text.len());
-    let result = complete_with_provider(port, prov, key, model, &system_prompt, text, 0.3, 2048)?;
+    let result = complete_with_provider(port, prov, key, model, &system_prompt, text, 0.3, 2048, custom_endpoint)?;
     eprintln!("[explain_message] result_len={}", result.len());
     db.put("translate", text, language, native_code, &result);
     Ok(result)
@@ -638,12 +644,14 @@ pub async fn explain_message(
     api_key: Option<String>,
     api_model: Option<String>,
     force_refresh: Option<bool>,
+    custom_endpoint: Option<String>,
 ) -> Result<String, String> {
     explain_message_inner(
         &state, &db, &text, &language,
         native_language.as_deref(), provider.as_deref(),
         api_key.as_deref(), api_model.as_deref(),
         force_refresh.unwrap_or(false),
+        custom_endpoint.as_deref(),
     )
 }
 
@@ -655,6 +663,7 @@ pub fn suggest_responses_inner(
     provider: Option<&str>,
     api_key: Option<&str>,
     api_model: Option<&str>,
+    custom_endpoint: Option<&str>,
 ) -> Result<String, String> {
     let port = *llm.port.lock().unwrap();
     let prov = provider.unwrap_or("local");
@@ -679,7 +688,7 @@ pub fn suggest_responses_inner(
         language, native_label, native_lang
     );
 
-    complete_with_provider(port, prov, key, model, &system_prompt, text, 0.7, 2048)
+    complete_with_provider(port, prov, key, model, &system_prompt, text, 0.7, 2048, custom_endpoint)
 }
 
 #[tauri::command]
@@ -691,11 +700,13 @@ pub async fn suggest_responses(
     provider: Option<String>,
     api_key: Option<String>,
     api_model: Option<String>,
+    custom_endpoint: Option<String>,
 ) -> Result<String, String> {
     suggest_responses_inner(
         &state, &text, &language,
         native_language.as_deref(), provider.as_deref(),
         api_key.as_deref(), api_model.as_deref(),
+        custom_endpoint.as_deref(),
     )
 }
 
@@ -729,6 +740,7 @@ pub fn tutor_translate_inner(
     provider: Option<&str>,
     api_key: Option<&str>,
     api_model: Option<&str>,
+    custom_endpoint: Option<&str>,
 ) -> Result<String, String> {
     let port = *llm.port.lock().unwrap();
     let prov = provider.unwrap_or("local");
@@ -746,7 +758,7 @@ pub fn tutor_translate_inner(
         target_lang, native_lang, target_lang, target_lang
     );
 
-    complete_with_provider(port, prov, key, model, &system_prompt, text, 0.3, 2048)
+    complete_with_provider(port, prov, key, model, &system_prompt, text, 0.3, 2048, custom_endpoint)
 }
 
 #[tauri::command]
@@ -758,10 +770,12 @@ pub async fn tutor_translate(
     provider: Option<String>,
     api_key: Option<String>,
     api_model: Option<String>,
+    custom_endpoint: Option<String>,
 ) -> Result<String, String> {
     tutor_translate_inner(
         &state, &text, &native_language, &target_language,
         provider.as_deref(), api_key.as_deref(), api_model.as_deref(),
+        custom_endpoint.as_deref(),
     )
 }
 
@@ -776,6 +790,7 @@ pub fn lookup_word_inner(
     api_key: Option<&str>,
     api_model: Option<&str>,
     force_refresh: bool,
+    custom_endpoint: Option<&str>,
 ) -> Result<String, String> {
     if !force_refresh {
         if let Some(cached) = db.get("word", word, target_language, native_language) {
@@ -812,7 +827,7 @@ pub fn lookup_word_inner(
 
     eprintln!("[lookup_word] word='{}' model={}", word, effective_model);
 
-    let result = complete_with_provider(port, prov, key, effective_model, &system_prompt, &user_prompt, 0.3, 2048)?;
+    let result = complete_with_provider(port, prov, key, effective_model, &system_prompt, &user_prompt, 0.3, 2048, custom_endpoint)?;
     db.put("word", word, target_language, native_language, &result);
     Ok(result)
 }
@@ -829,11 +844,13 @@ pub async fn lookup_word(
     api_key: Option<String>,
     api_model: Option<String>,
     force_refresh: Option<bool>,
+    custom_endpoint: Option<String>,
 ) -> Result<String, String> {
     lookup_word_inner(
         &state, &db, &word, &sentence, &target_language, &native_language,
         provider.as_deref(), api_key.as_deref(), api_model.as_deref(),
         force_refresh.unwrap_or(false),
+        custom_endpoint.as_deref(),
     )
 }
 

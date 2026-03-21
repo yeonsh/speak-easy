@@ -253,6 +253,7 @@ pub fn generate_review_inner(
     provider: Option<&str>,
     api_key: Option<&str>,
     api_model: Option<&str>,
+    custom_endpoint: Option<&str>,
 ) -> Result<Vec<ReviewItem>, String> {
     let cached = db.with_conn(|conn| {
         match conn.query_row(
@@ -360,7 +361,7 @@ pub fn generate_review_inner(
 
     eprintln!("[generate_review] session={}, provider={}, utterances={}", session_id, prov, user_utterances.len());
 
-    let result = complete_with_provider(port, prov, key, model, &system_prompt, &user_prompt, 0.3, 4096)?;
+    let result = complete_with_provider(port, prov, key, model, &system_prompt, &user_prompt, 0.3, 4096, custom_endpoint)?;
 
     // Parse JSON — strip markdown fences if present
     let trimmed = result.trim();
@@ -400,10 +401,12 @@ pub async fn generate_review(
     provider: Option<String>,
     api_key: Option<String>,
     api_model: Option<String>,
+    custom_endpoint: Option<String>,
 ) -> Result<Vec<ReviewItem>, String> {
     generate_review_inner(
         &llm_state, &db, &session_id, &native_language,
         provider.as_deref(), api_key.as_deref(), api_model.as_deref(),
+        custom_endpoint.as_deref(),
     )
 }
 

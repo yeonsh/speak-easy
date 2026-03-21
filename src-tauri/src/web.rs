@@ -84,6 +84,7 @@ struct ExplainReq {
     api_key: Option<String>,
     api_model: Option<String>,
     force_refresh: Option<bool>,
+    custom_endpoint: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -95,6 +96,7 @@ struct SuggestReq {
     provider: Option<String>,
     api_key: Option<String>,
     api_model: Option<String>,
+    custom_endpoint: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -106,6 +108,7 @@ struct TranslateReq {
     provider: Option<String>,
     api_key: Option<String>,
     api_model: Option<String>,
+    custom_endpoint: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -119,6 +122,7 @@ struct LookupReq {
     api_key: Option<String>,
     api_model: Option<String>,
     force_refresh: Option<bool>,
+    custom_endpoint: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -129,6 +133,7 @@ struct ReviewReq {
     provider: Option<String>,
     api_key: Option<String>,
     api_model: Option<String>,
+    custom_endpoint: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -473,6 +478,7 @@ async fn explain(
             req.native_language.as_deref(), req.provider.as_deref(),
             req.api_key.as_deref(), req.api_model.as_deref(),
             req.force_refresh.unwrap_or(false),
+            req.custom_endpoint.as_deref(),
         )
     })
     .await
@@ -493,6 +499,7 @@ async fn suggest(
             &state.llm, &req.text, &req.language,
             req.native_language.as_deref(), req.provider.as_deref(),
             req.api_key.as_deref(), req.api_model.as_deref(),
+            req.custom_endpoint.as_deref(),
         )
     })
     .await
@@ -512,6 +519,7 @@ async fn translate(
         crate::chat::tutor_translate_inner(
             &state.llm, &req.text, &req.native_language, &req.target_language,
             req.provider.as_deref(), req.api_key.as_deref(), req.api_model.as_deref(),
+            req.custom_endpoint.as_deref(),
         )
     })
     .await
@@ -533,6 +541,7 @@ async fn lookup(
             &req.target_language, &req.native_language,
             req.provider.as_deref(), req.api_key.as_deref(), req.api_model.as_deref(),
             req.force_refresh.unwrap_or(false),
+            req.custom_endpoint.as_deref(),
         )
     })
     .await
@@ -554,6 +563,7 @@ async fn review(
         crate::session::generate_review_inner(
             &state.llm, &state.db, &req.session_id, &req.native_language,
             req.provider.as_deref(), req.api_key.as_deref(), req.api_model.as_deref(),
+            req.custom_endpoint.as_deref(),
         )
     })
     .await
@@ -659,6 +669,8 @@ struct WsChatSettings {
     api_key: Option<String>,
     #[serde(default)]
     api_model: Option<String>,
+    #[serde(default)]
+    custom_endpoint: Option<String>,
 }
 
 async fn handle_ws(mut socket: WebSocket, state: WebState) {
@@ -810,10 +822,15 @@ fn handle_ws_chat(
             .join("\n");
         crate::gemini::complete_text(api_key, api_model, &system_text, &user_text, temp, 2048)
     } else {
-        if port == 0 {
-            Err("LLM server is not running".to_string())
+        let url = if let Some(ref endpoint) = settings.custom_endpoint {
+            format!("{}/v1/chat/completions", endpoint.trim_end_matches('/'))
         } else {
-            let url = format!("http://127.0.0.1:{}/v1/chat/completions", port);
+            if port == 0 {
+                return;
+            }
+            format!("http://127.0.0.1:{}/v1/chat/completions", port)
+        };
+        {
             let body = serde_json::json!({
                 "messages": messages,
                 "temperature": temp,
