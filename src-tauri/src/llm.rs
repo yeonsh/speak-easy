@@ -26,6 +26,7 @@ impl LlmState {
         }
     }
 
+    #[allow(dead_code)]
     pub fn shutdown(&self) {
         if let Ok(mut proc) = self.process.lock() {
             if let Some(ref mut child) = *proc {
