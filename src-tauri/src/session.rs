@@ -410,6 +410,93 @@ pub async fn generate_review(
     )
 }
 
+// ── assess_cefr_level ──
+
+pub fn assess_cefr_level_inner(
+    llm: &LlmState,
+    db: &crate::dictionary::DictionaryDb,
+    session_id: &str,
+    language: &str,
+    provider: Option<&str>,
+    api_key: Option<&str>,
+    api_model: Option<&str>,
+    custom_endpoint: Option<&str>,
+) -> Result<String, String> {
+    let messages = db.with_conn(|conn| {
+        let mut stmt = conn.prepare(
+            "SELECT content FROM session_messages
+             WHERE session_id = ?1 AND role = 'user' ORDER BY seq ASC"
+        ).map_err(|e| e.to_string())?;
+        let msgs: Vec<String> = stmt.query_map(params![session_id], |row| row.get(0))
+            .map_err(|e| e.to_string())?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| e.to_string())?;
+        Ok(msgs)
+    })?;
+
+    if messages.is_empty() {
+        return Ok("B1".to_string());
+    }
+
+    let target_name = lang_name(language);
+    let numbered: String = messages.iter().enumerate()
+        .map(|(i, m)| format!("[{}] {}", i + 1, m))
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    let system_prompt = format!(
+        "You are a language proficiency assessor. \
+         Review the following {target_name} learner messages and determine their CEFR level. \
+         Consider vocabulary range, sentence complexity, grammar accuracy, and fluency. \
+         Respond with ONLY a single token — one of: A1, A2, B1, B2, C1, C2. \
+         No explanation, no punctuation, nothing else."
+    );
+
+    let port = *llm.port.lock().unwrap();
+    let result = complete_with_provider(
+        port,
+        provider.unwrap_or("local"),
+        api_key.unwrap_or(""),
+        api_model.unwrap_or(""),
+        &system_prompt,
+        &numbered,
+        0.1,
+        16,
+        custom_endpoint,
+    )?;
+
+    let level = result.trim().to_uppercase();
+    let valid = ["A1", "A2", "B1", "B2", "C1", "C2"];
+    if valid.contains(&level.as_str()) {
+        Ok(level)
+    } else {
+        Ok("B1".to_string())
+    }
+}
+
+#[tauri::command]
+pub async fn assess_cefr_level(
+    llm_state: tauri::State<'_, LlmState>,
+    db: tauri::State<'_, crate::dictionary::DictionaryDb>,
+    session_id: String,
+    language: String,
+    provider: Option<String>,
+    api_key: Option<String>,
+    api_model: Option<String>,
+    custom_endpoint: Option<String>,
+) -> Result<String, String> {
+    assess_cefr_level_inner(
+        &llm_state,
+        &db,
+        &session_id,
+        &language,
+        provider.as_deref(),
+        api_key.as_deref(),
+        api_model.as_deref(),
+        custom_endpoint.as_deref(),
+    )
+}
+
 // ── courage score ──
 
 pub fn calculate_courage_score_inner(
