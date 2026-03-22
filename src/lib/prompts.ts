@@ -1,4 +1,4 @@
-import type { ConversationMode, Language, NativeLanguage } from "./types";
+import type { ConversationMode, Language, NativeLanguage, CefrLevel } from "./types";
 
 const LANGUAGE_NAMES: Record<Language, string> = {
   en: "English",
@@ -147,6 +147,15 @@ const CORRECTION_FOCUS: Record<Language, string> = {
 - Consonant clusters and pronunciation (ść, szcz, chrząszcz, źdźbło)
 - Preposition + case requirements (w + locative, do + genitive, z + instrumental/genitive, na + accusative/locative)
 - Word order: relatively free but SVO default, changes for emphasis`,
+};
+
+const CEFR_GUIDELINES: Record<CefrLevel, string> = {
+  A1: "Current learner level: A1 (beginner). Use only the ~500 most common words. Keep every response to ONE short simple sentence. Use present simple tense only. Avoid contractions, idioms, and complex grammar entirely.",
+  A2: "Current learner level: A2 (elementary). Use words from the ~1,500 most common. Write 1–2 simple sentences. You may use past simple and basic question forms. Avoid subjunctive, passive, or conditional structures.",
+  B1: "Current learner level: B1 (intermediate). Use vocabulary within the ~3,500 most common words. Write 2–3 sentences with simple connectors (and, but, because, so). You may use present perfect and basic conditionals (if + will).",
+  B2: "Current learner level: B2 (upper-intermediate). Use natural vocabulary up to ~8,000 words. Write 3–4 sentences with varied structure. Passive voice, reported speech, and real/unreal conditionals are appropriate.",
+  C1: "Current learner level: C1 (advanced). Use natural register with a wide vocabulary. Write 4–5 sentences with complex structures. Full grammar range including advanced connectives, inversion, and cleft sentences is appropriate.",
+  C2: "Current learner level: C2 (proficient). Use unrestricted native-like language. Any vocabulary, idioms, nuance, and full grammatical complexity is appropriate.",
 };
 
 // Per-language scenario sets
@@ -692,11 +701,13 @@ export function getSystemPrompt(
   mode: ConversationMode,
   correctionsEnabled: boolean,
   nativeLanguage: NativeLanguage = "ko",
+  cefrLevel: CefrLevel = "B1",
 ): string {
   const lang = LANGUAGE_NAMES[language];
   const nativeLang = NATIVE_LANG_NAMES[nativeLanguage];
+  const cefrGuideline = CEFR_GUIDELINES[cefrLevel];
 
-  const base = `You are a friendly and patient ${lang} language practice partner. ALWAYS respond in ${lang}. Keep responses concise (1-3 sentences) to maintain a natural spoken conversation flow. Use vocabulary appropriate for an intermediate learner unless the user demonstrates advanced proficiency. IMPORTANT: Do NOT use any emojis or emoticons in your responses. Use only plain text.`;
+  const base = `You are a friendly and patient ${lang} language practice partner. ALWAYS respond in ${lang}. ${cefrGuideline} IMPORTANT: Do NOT use any emojis or emoticons in your responses. Use only plain text.`;
 
   const correctionBlock = correctionsEnabled
     ? `
