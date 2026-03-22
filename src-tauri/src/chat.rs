@@ -159,7 +159,7 @@ pub fn send_chat_message(
         "messages": messages,
         "temperature": temp,
         "stream": true,
-        "max_tokens": 1024,
+        "max_tokens": 4096,
     });
 
     let event_name = format!("chat-stream-{}", request_id);
@@ -376,7 +376,7 @@ pub fn send_chat_message(
                             if let Some(choice) = choices.first() {
                                 if let Some(ref delta) = choice.delta {
                                     if let Some(ref content) = delta.content {
-                                        // Emit text token (unchanged behavior)
+                                        // Emit text token
                                         let _ = app.emit(
                                             &event_name,
                                             StreamDelta {
