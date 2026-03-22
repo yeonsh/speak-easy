@@ -835,7 +835,7 @@ fn handle_ws_chat(
                 "messages": messages,
                 "temperature": temp,
                 "stream": true,
-                "max_tokens": 1024,
+                "max_tokens": 4096,
             });
 
             let body_str = body.to_string();
