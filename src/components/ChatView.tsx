@@ -53,6 +53,7 @@ interface ChatViewProps {
   onExplain?: (msgId: string, text: string) => Promise<string>;
   onSuggest?: (msgId: string, text: string) => Promise<string>;
   onLookupWord?: (word: string, sentence: string, forceRefresh?: boolean) => Promise<string>;
+  onSaveWord?: (word: string, definition: string) => void;
   explanations?: Record<string, string>;
   suggestions?: Record<string, string>;
 }
@@ -71,6 +72,7 @@ export function ChatView({
   onExplain,
   onSuggest,
   onLookupWord,
+  onSaveWord,
   explanations,
   suggestions,
 }: ChatViewProps) {
@@ -231,7 +233,9 @@ export function ChatView({
             const { word, sentence, position } = wordPopup;
             handleWordClick(word, sentence, new DOMRect(position.x, position.y - 8, 100, 20), true);
           }}
+          onSave={onSaveWord}
           playingText={playingText}
+          nativeLanguage={nativeLanguage}
         />
       )}
     </div>
@@ -392,7 +396,9 @@ function WordPopup({
   onClose,
   onReplay,
   onRefresh,
+  onSave,
   playingText,
+  nativeLanguage,
 }: {
   word: string;
   definition: string | null;
@@ -401,9 +407,12 @@ function WordPopup({
   onClose: () => void;
   onReplay?: (text: string) => void;
   onRefresh?: () => void;
+  onSave?: (word: string, definition: string) => void;
   playingText?: string | null;
+  nativeLanguage: NativeLanguage;
 }) {
   const popupRef = useRef<HTMLDivElement>(null);
+  const [saved, setSaved] = useState(false);
 
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
@@ -454,6 +463,28 @@ function WordPopup({
               <path d="M3 22v-6h6" />
               <path d="M21 12a9 9 0 0 1-15 6.7L3 16" />
             </svg>
+          </button>
+        )}
+        {onSave && definition && !isLoading && (
+          <button
+            onClick={() => {
+              if (!saved) {
+                onSave(word, definition);
+                setSaved(true);
+              }
+            }}
+            className="p-0.5 rounded hover:bg-[var(--primary)]/20 transition-colors"
+            title={saved ? t("savedToDictionary", nativeLanguage) : t("addToDictionary", nativeLanguage)}
+          >
+            {saved ? (
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" className="text-green-400">
+                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z" />
+              </svg>
+            ) : (
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-[var(--text-secondary)]">
+                <path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z" />
+              </svg>
+            )}
           </button>
         )}
       </div>

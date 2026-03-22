@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { invoke, listen, isTauri } from "../lib/backend";
 import type { AppSettings, CefrLevel, Language, LlmProvider, NativeLanguage, TtsEngine } from "../lib/types";
 import { LANGUAGE_CONFIG } from "../lib/types";
-import { t } from "../lib/i18n";
+import { t, type I18nKey } from "../lib/i18n";
 
 interface LocalModel {
   filename: string;
@@ -380,6 +380,9 @@ export function Sidebar({
                 <option key={level} value={level}>{level}</option>
               ))}
             </select>
+            <p className="text-xs text-[var(--text-secondary)] mt-1 opacity-60">
+              {t(`cefr${settings.cefrLevels?.[settings.language] ?? "B1"}` as I18nKey, settings.nativeLanguage)}
+            </p>
           </SettingGroup>
 
           {/* ── TTS ── */}

@@ -8,6 +8,15 @@ export type LlmProvider = "local" | "gemini" | "openai-compatible";
 
 export type CefrLevel = "A1" | "A2" | "B1" | "B2" | "C1" | "C2";
 
+export interface VocabularyEntry {
+  id: number;
+  word: string;
+  definition: string;
+  target_lang: Language;
+  native_lang: string;
+  created_at: number;
+}
+
 export type ConversationMode = "free-talk" | "scenario";
 
 export interface Message {

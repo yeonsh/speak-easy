@@ -8,6 +8,7 @@ import { ServerStatus } from "./components/ServerStatus";
 import { SetupWizard } from "./components/SetupWizard";
 import { SessionHistoryPanel } from "./components/SessionHistoryPanel";
 import { ReviewPanel } from "./components/ReviewPanel";
+import { DictionaryPanel } from "./components/DictionaryPanel";
 import { useLlm } from "./hooks/useLlm";
 import { useStt } from "./hooks/useStt";
 import { useTts } from "./hooks/useTts";
@@ -34,6 +35,7 @@ function App() {
   const messagesByLangRef = useRef<Record<string, Message[]>>({});
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [isDictionaryOpen, setIsDictionaryOpen] = useState(false);
   const [selectedSession, setSelectedSession] = useState<SessionSummary | null>(null);
   const [showWizard, setShowWizard] = useState<boolean | null>(null);
   const [revealedSentences, setRevealedSentences] = useState<string[]>([]);
@@ -595,11 +597,27 @@ function App() {
             <button
               onClick={handleEndSession}
               disabled={messages.filter((m) => m.role === "user").length < 2}
-              className="p-2 rounded-lg transition-colors hover:bg-[var(--bg-elevated)] text-[var(--text-secondary)] disabled:opacity-30 disabled:cursor-not-allowed"
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+                messages.filter((m) => m.role === "user").length >= 2
+                  ? "bg-amber-500/15 text-amber-400 hover:bg-amber-500/25"
+                  : "bg-[var(--bg-elevated)] text-[var(--text-secondary)] opacity-30 cursor-not-allowed"
+              }`}
               title={t("endSession", settings.nativeLanguage)}
             >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <rect x="6" y="6" width="12" height="12" rx="2" />
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" />
+                <line x1="4" y1="22" x2="4" y2="15" />
+              </svg>
+              {t("endSession", settings.nativeLanguage)}
+            </button>
+            <button
+              onClick={() => setIsDictionaryOpen(true)}
+              className="p-2 rounded-lg transition-colors hover:bg-[var(--bg-elevated)] text-[var(--text-secondary)]"
+              title={t("dictionary", settings.nativeLanguage)}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M4 19.5A2.5 2.5 0 016.5 17H20" />
+                <path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z" />
               </svg>
             </button>
             <button
@@ -712,6 +730,14 @@ function App() {
                 });
                 return result;
               }}
+              onSaveWord={(word, definition) => {
+                invoke("add_vocabulary", {
+                  word,
+                  definition,
+                  targetLang: settings.language,
+                  nativeLang: settings.nativeLanguage,
+                }).catch(() => {});
+              }}
               explanations={explanations}
               suggestions={suggestions}
             />
@@ -800,6 +826,19 @@ function App() {
         }}
         language={settings.language}
         nativeLanguage={settings.nativeLanguage}
+      />
+
+      <DictionaryPanel
+        isOpen={isDictionaryOpen}
+        onClose={() => setIsDictionaryOpen(false)}
+        language={settings.language}
+        nativeLanguage={settings.nativeLanguage}
+        onPlayWord={(text, lang) => {
+          if (tts.isLoaded) {
+            setPlayingText(text);
+            tts.speak(text, settings.ttsSpeed, lang);
+          }
+        }}
       />
     </div>
   );
