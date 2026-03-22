@@ -108,6 +108,7 @@ struct GeminiResponse {
 #[serde(rename_all = "camelCase")]
 struct GeminiCandidate {
     content: Option<GeminiContentResp>,
+    #[allow(dead_code)]
     finish_reason: Option<String>,
 }
 
