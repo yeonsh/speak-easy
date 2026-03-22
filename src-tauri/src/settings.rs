@@ -34,6 +34,8 @@ pub struct Settings {
     pub gemini_model: String,
     #[serde(default = "default_custom_endpoint")]
     pub custom_endpoint: String,
+    #[serde(default = "default_cefr_levels")]
+    pub cefr_levels: std::collections::HashMap<String, String>,
 }
 
 fn default_language() -> String { "en".to_string() }
@@ -48,6 +50,11 @@ fn default_whisper_model() -> String { "base".to_string() }
 fn default_llm_provider() -> String { "local".to_string() }
 fn default_gemini_model() -> String { "gemini-2.5-flash".to_string() }
 fn default_custom_endpoint() -> String { "http://localhost:1234".to_string() }
+fn default_cefr_levels() -> std::collections::HashMap<String, String> {
+    let langs = ["en", "es", "fr", "zh", "ja", "de", "ko", "pt",
+                 "it", "ru", "ar", "hi", "tr", "id", "vi", "pl"];
+    langs.iter().map(|l| (l.to_string(), "B1".to_string())).collect()
+}
 
 impl Default for Settings {
     fn default() -> Self {
@@ -67,6 +74,7 @@ impl Default for Settings {
             gemini_api_key: String::new(),
             gemini_model: default_gemini_model(),
             custom_endpoint: default_custom_endpoint(),
+            cefr_levels: default_cefr_levels(),
         }
     }
 }
