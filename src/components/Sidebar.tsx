@@ -200,6 +200,7 @@ export function Sidebar({
         </div>
 
         <div className="space-y-6">
+          {/* ── General ── */}
           <SettingGroup label={t("nativeLanguage", settings.nativeLanguage)}>
             <select
               value={settings.nativeLanguage}
@@ -219,84 +220,7 @@ export function Sidebar({
             </select>
           </SettingGroup>
 
-          <SettingGroup label={t("llmTemperature", settings.nativeLanguage)}>
-            <input
-              type="range"
-              min="0"
-              max="1.5"
-              step="0.1"
-              value={settings.llmTemperature}
-              onChange={(e) =>
-                onSettingsChange({
-                  ...settings,
-                  llmTemperature: parseFloat(e.target.value),
-                })
-              }
-              className="w-full"
-            />
-            <span className="text-sm text-[var(--text-secondary)]">
-              {settings.llmTemperature.toFixed(1)}
-            </span>
-          </SettingGroup>
-
-          <SettingGroup label={t("llmModel", settings.nativeLanguage)}>
-            {/* Local models */}
-            {localModels.length > 0 && (
-              <select
-                value={settings.llmModel || localModels[0]?.filename || ""}
-                onChange={(e) => {
-                  const filename = e.target.value;
-                  onSettingsChange({ ...settings, llmModel: filename });
-                  onModelChange?.(filename);
-                }}
-                className="w-full bg-[var(--bg-elevated)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm"
-              >
-                {localModels.map((m) => (
-                  <option key={m.filename} value={m.filename}>
-                    {m.filename} ({formatSize(m.size_bytes)})
-                  </option>
-                ))}
-              </select>
-            )}
-            {localModels.length === 0 && !downloading && (
-              <p className="text-xs text-[var(--text-secondary)] italic">{t("noModelsInstalled", settings.nativeLanguage)}</p>
-            )}
-
-            {/* Download progress */}
-            {downloading && (
-              <div className="mt-2">
-                <div className="w-full h-2 bg-[var(--bg-elevated)] rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-[var(--primary)] transition-all duration-300"
-                    style={{ width: `${downloading.total ? (downloading.progress / downloading.total) * 100 : 0}%` }}
-                  />
-                </div>
-                <p className="text-xs text-[var(--text-secondary)] mt-1">
-                  {formatSize(downloading.progress)} / {downloading.total ? formatSize(downloading.total) : "..."}
-                </p>
-              </div>
-            )}
-
-            {/* Downloadable models */}
-            {!downloading && availableModels.filter((m) => !localModels.some((l) => l.filename === m.filename)).length > 0 && (
-              <div className="mt-2 space-y-1.5">
-                <p className="text-xs text-[var(--text-secondary)]">{t("downloadableModels", settings.nativeLanguage)}</p>
-                {availableModels
-                  .filter((m) => !localModels.some((l) => l.filename === m.filename))
-                  .map((m) => (
-                    <button
-                      key={m.id}
-                      onClick={() => downloadModel(m)}
-                      className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-[var(--bg-elevated)] border border-[var(--border)] hover:border-[var(--primary)] transition-colors text-sm"
-                    >
-                      <span className="truncate">{m.name}</span>
-                      <span className="text-xs text-[var(--text-secondary)] shrink-0 ml-2">{formatSize(m.size_bytes)}</span>
-                    </button>
-                  ))}
-              </div>
-            )}
-          </SettingGroup>
-
+          {/* ── LLM ── */}
           <SettingGroup label={t("llmProvider", settings.nativeLanguage)}>
             <select
               value={settings.llmProvider}
@@ -361,6 +285,87 @@ export function Sidebar({
             )}
           </SettingGroup>
 
+          {settings.llmProvider === "local" && (
+            <SettingGroup label={t("llmModel", settings.nativeLanguage)}>
+              {/* Local models */}
+              {localModels.length > 0 && (
+                <select
+                  value={settings.llmModel || localModels[0]?.filename || ""}
+                  onChange={(e) => {
+                    const filename = e.target.value;
+                    onSettingsChange({ ...settings, llmModel: filename });
+                    onModelChange?.(filename);
+                  }}
+                  className="w-full bg-[var(--bg-elevated)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm"
+                >
+                  {localModels.map((m) => (
+                    <option key={m.filename} value={m.filename}>
+                      {m.filename} ({formatSize(m.size_bytes)})
+                    </option>
+                  ))}
+                </select>
+              )}
+              {localModels.length === 0 && !downloading && (
+                <p className="text-xs text-[var(--text-secondary)] italic">{t("noModelsInstalled", settings.nativeLanguage)}</p>
+              )}
+
+              {/* Download progress */}
+              {downloading && (
+                <div className="mt-2">
+                  <div className="w-full h-2 bg-[var(--bg-elevated)] rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-[var(--primary)] transition-all duration-300"
+                      style={{ width: `${downloading.total ? (downloading.progress / downloading.total) * 100 : 0}%` }}
+                    />
+                  </div>
+                  <p className="text-xs text-[var(--text-secondary)] mt-1">
+                    {formatSize(downloading.progress)} / {downloading.total ? formatSize(downloading.total) : "..."}
+                  </p>
+                </div>
+              )}
+
+              {/* Downloadable models */}
+              {!downloading && availableModels.filter((m) => !localModels.some((l) => l.filename === m.filename)).length > 0 && (
+                <div className="mt-2 space-y-1.5">
+                  <p className="text-xs text-[var(--text-secondary)]">{t("downloadableModels", settings.nativeLanguage)}</p>
+                  {availableModels
+                    .filter((m) => !localModels.some((l) => l.filename === m.filename))
+                    .map((m) => (
+                      <button
+                        key={m.id}
+                        onClick={() => downloadModel(m)}
+                        className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-[var(--bg-elevated)] border border-[var(--border)] hover:border-[var(--primary)] transition-colors text-sm"
+                      >
+                        <span className="truncate">{m.name}</span>
+                        <span className="text-xs text-[var(--text-secondary)] shrink-0 ml-2">{formatSize(m.size_bytes)}</span>
+                      </button>
+                    ))}
+                </div>
+              )}
+            </SettingGroup>
+          )}
+
+          <SettingGroup label={t("llmTemperature", settings.nativeLanguage)}>
+            <input
+              type="range"
+              min="0"
+              max="1.5"
+              step="0.1"
+              value={settings.llmTemperature}
+              onChange={(e) =>
+                onSettingsChange({
+                  ...settings,
+                  llmTemperature: parseFloat(e.target.value),
+                })
+              }
+              className="w-full"
+            />
+            <span className="text-sm text-[var(--text-secondary)]">
+              {settings.llmTemperature.toFixed(1)}
+            </span>
+          </SettingGroup>
+
+          {/* ── TTS ── */}
           <SettingGroup label={t("ttsEngine", settings.nativeLanguage)}>
             <select
               value={settings.ttsEngine}
@@ -389,26 +394,6 @@ export function Sidebar({
             </p>
           </SettingGroup>
 
-          <SettingGroup label={t("ttsSpeed", settings.nativeLanguage)}>
-            <input
-              type="range"
-              min="0.5"
-              max="2.0"
-              step="0.1"
-              value={settings.ttsSpeed}
-              onChange={(e) =>
-                onSettingsChange({
-                  ...settings,
-                  ttsSpeed: parseFloat(e.target.value),
-                })
-              }
-              className="w-full"
-            />
-            <span className="text-sm text-[var(--text-secondary)]">
-              {settings.ttsSpeed.toFixed(1)}x
-            </span>
-          </SettingGroup>
-
           {filteredVoices.length > 0 && (
             <SettingGroup label={t("voice", settings.nativeLanguage)}>
               <select
@@ -429,6 +414,27 @@ export function Sidebar({
             </SettingGroup>
           )}
 
+          <SettingGroup label={t("ttsSpeed", settings.nativeLanguage)}>
+            <input
+              type="range"
+              min="0.5"
+              max="2.0"
+              step="0.1"
+              value={settings.ttsSpeed}
+              onChange={(e) =>
+                onSettingsChange({
+                  ...settings,
+                  ttsSpeed: parseFloat(e.target.value),
+                })
+              }
+              className="w-full"
+            />
+            <span className="text-sm text-[var(--text-secondary)]">
+              {settings.ttsSpeed.toFixed(1)}x
+            </span>
+          </SettingGroup>
+
+          {/* ── STT ── */}
           <SettingGroup label={t("whisperModel", settings.nativeLanguage)}>
             <select
               value={settings.whisperModel}
