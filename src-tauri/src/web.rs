@@ -121,7 +121,6 @@ struct LookupReq {
     provider: Option<String>,
     api_key: Option<String>,
     api_model: Option<String>,
-    force_refresh: Option<bool>,
     custom_endpoint: Option<String>,
 }
 
@@ -537,10 +536,9 @@ async fn lookup(
 ) -> impl IntoResponse {
     let result = tokio::task::spawn_blocking(move || {
         crate::chat::lookup_word_inner(
-            &state.llm, &state.db, &req.word, &req.sentence,
+            &state.llm, &req.word, &req.sentence,
             &req.target_language, &req.native_language,
             req.provider.as_deref(), req.api_key.as_deref(), req.api_model.as_deref(),
-            req.force_refresh.unwrap_or(false),
             req.custom_endpoint.as_deref(),
         )
     })

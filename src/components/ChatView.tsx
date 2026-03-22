@@ -52,7 +52,7 @@ interface ChatViewProps {
   onReplay?: (text: string) => void;
   onExplain?: (msgId: string, text: string) => Promise<string>;
   onSuggest?: (msgId: string, text: string) => Promise<string>;
-  onLookupWord?: (word: string, sentence: string, forceRefresh?: boolean) => Promise<string>;
+  onLookupWord?: (word: string, sentence: string) => Promise<string>;
   onSaveWord?: (word: string, definition: string) => void;
   explanations?: Record<string, string>;
   suggestions?: Record<string, string>;
@@ -85,7 +85,7 @@ export function ChatView({
     position: { x: number; y: number };
   } | null>(null);
 
-  const handleWordClick = useCallback(async (word: string, sentence: string, rect: DOMRect, forceRefresh?: boolean) => {
+  const handleWordClick = useCallback(async (word: string, sentence: string, rect: DOMRect) => {
     if (!onLookupWord) return;
 
     const x = Math.min(rect.left, window.innerWidth - 280);
@@ -94,7 +94,7 @@ export function ChatView({
     setWordPopup({ word, sentence, definition: null, isLoading: true, position: { x, y } });
 
     try {
-      const def = await onLookupWord(word, sentence, forceRefresh);
+      const def = await onLookupWord(word, sentence);
       setWordPopup((prev) => prev ? { ...prev, definition: def || null, isLoading: false } : null);
     } catch (e) {
       console.error("[lookup_word] error:", e);
@@ -231,7 +231,7 @@ export function ChatView({
           onReplay={onReplay}
           onRefresh={() => {
             const { word, sentence, position } = wordPopup;
-            handleWordClick(word, sentence, new DOMRect(position.x, position.y - 8, 100, 20), true);
+            handleWordClick(word, sentence, new DOMRect(position.x, position.y - 8, 100, 20));
           }}
           onSave={onSaveWord}
           playingText={playingText}

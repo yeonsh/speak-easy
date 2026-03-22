@@ -716,7 +716,7 @@ function App() {
                 setSuggestions((prev) => ({ ...prev, [msgId]: result }));
                 return result;
               }}
-              onLookupWord={async (word, sentence, forceRefresh) => {
+              onLookupWord={async (word, sentence) => {
                 const result = await invoke<string>("lookup_word", {
                   word,
                   sentence,
@@ -725,7 +725,6 @@ function App() {
                   provider: settings.llmProvider,
                   apiKey: settings.geminiApiKey,
                   apiModel: settings.geminiModel,
-                  forceRefresh: forceRefresh ?? false,
                   customEndpoint: settings.customEndpoint,
                 });
                 return result;

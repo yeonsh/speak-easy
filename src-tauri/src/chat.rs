@@ -781,7 +781,6 @@ pub async fn tutor_translate(
 
 pub fn lookup_word_inner(
     llm: &LlmState,
-    db: &crate::dictionary::DictionaryDb,
     word: &str,
     sentence: &str,
     target_language: &str,
@@ -789,16 +788,8 @@ pub fn lookup_word_inner(
     provider: Option<&str>,
     api_key: Option<&str>,
     api_model: Option<&str>,
-    force_refresh: bool,
     custom_endpoint: Option<&str>,
 ) -> Result<String, String> {
-    if !force_refresh {
-        if let Some(cached) = db.get("word", word, target_language, native_language) {
-            eprintln!("[lookup_word] cache hit: '{}'", word);
-            return Ok(cached);
-        }
-    }
-
     let port = *llm.port.lock().unwrap();
     let prov = provider.unwrap_or("local");
     let key = api_key.unwrap_or("");
@@ -828,14 +819,12 @@ pub fn lookup_word_inner(
     eprintln!("[lookup_word] word='{}' model={}", word, effective_model);
 
     let result = complete_with_provider(port, prov, key, effective_model, &system_prompt, &user_prompt, 0.3, 2048, custom_endpoint)?;
-    db.put("word", word, target_language, native_language, &result);
     Ok(result)
 }
 
 #[tauri::command]
 pub async fn lookup_word(
     state: tauri::State<'_, LlmState>,
-    db: tauri::State<'_, crate::dictionary::DictionaryDb>,
     word: String,
     sentence: String,
     target_language: String,
@@ -843,13 +832,11 @@ pub async fn lookup_word(
     provider: Option<String>,
     api_key: Option<String>,
     api_model: Option<String>,
-    force_refresh: Option<bool>,
     custom_endpoint: Option<String>,
 ) -> Result<String, String> {
     lookup_word_inner(
-        &state, &db, &word, &sentence, &target_language, &native_language,
+        &state, &word, &sentence, &target_language, &native_language,
         provider.as_deref(), api_key.as_deref(), api_model.as_deref(),
-        force_refresh.unwrap_or(false),
         custom_endpoint.as_deref(),
     )
 }
