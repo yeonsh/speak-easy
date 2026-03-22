@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { invoke } from "../lib/backend";
-import type { SessionSummary, LoadedMessage, ReviewItem, NativeLanguage } from "../lib/types";
+import type { SessionSummary, LoadedMessage, ReviewItem, NativeLanguage, CefrLevel } from "../lib/types";
 import { t } from "../lib/i18n";
 import { CourageScore } from "./CourageScore";
 
@@ -10,6 +10,8 @@ interface ReviewPanelProps {
   settings: { llmProvider: string; geminiApiKey: string; geminiModel: string; customEndpoint: string };
   onBack: () => void;
   onDelete: (id: string) => void;
+  justEnded?: boolean;
+  onCefrCalibrated?: (language: string, level: CefrLevel) => void;
 }
 
 const ERROR_COLORS: Record<string, string> = {
@@ -27,11 +29,12 @@ const ERROR_LABEL_KEYS: Record<string, string> = {
   situation: "errorSituation",
 };
 
-export function ReviewPanel({ session, nativeLanguage, settings, onBack, onDelete }: ReviewPanelProps) {
+export function ReviewPanel({ session, nativeLanguage, settings, onBack, onDelete, justEnded, onCefrCalibrated }: ReviewPanelProps) {
   const [messages, setMessages] = useState<LoadedMessage[]>([]);
   const [review, setReview] = useState<ReviewItem[] | null>(null);
   const [reviewLoading, setReviewLoading] = useState(false);
   const [reviewError, setReviewError] = useState<string | null>(null);
+  const [cefrAssessed, setCefrAssessed] = useState<CefrLevel | null>(null);
 
   const loadReview = useCallback(async () => {
     setReviewLoading(true);
@@ -51,7 +54,35 @@ export function ReviewPanel({ session, nativeLanguage, settings, onBack, onDelet
     } finally {
       setReviewLoading(false);
     }
-  }, [session.id, nativeLanguage, settings.llmProvider, settings.geminiApiKey, settings.geminiModel]);
+  }, [session.id, nativeLanguage, settings.llmProvider, settings.geminiApiKey, settings.geminiModel, settings.customEndpoint]);
+
+  const loadCefrAssessment = useCallback(async () => {
+    if (!justEnded) return;
+    try {
+      const level = await invoke<string>("assess_cefr_level", {
+        sessionId: session.id,
+        language: session.language,
+        provider: settings.llmProvider,
+        apiKey: settings.geminiApiKey,
+        apiModel: settings.geminiModel,
+        customEndpoint: settings.customEndpoint,
+      });
+      const cefrLevel = level as CefrLevel;
+      setCefrAssessed(cefrLevel);
+      onCefrCalibrated?.(session.language, cefrLevel);
+    } catch (e) {
+      console.error("CEFR assessment failed:", e);
+    }
+  }, [
+    justEnded,
+    session.id,
+    session.language,
+    settings.llmProvider,
+    settings.geminiApiKey,
+    settings.geminiModel,
+    settings.customEndpoint,
+    onCefrCalibrated,
+  ]);
 
   useEffect(() => {
     invoke<LoadedMessage[]>("load_session_messages", { sessionId: session.id })
@@ -61,7 +92,8 @@ export function ReviewPanel({ session, nativeLanguage, settings, onBack, onDelet
 
   useEffect(() => {
     loadReview();
-  }, [loadReview]);
+    loadCefrAssessment();
+  }, [loadReview, loadCefrAssessment]);
 
   const date = new Date(session.started_at * 1000);
   const dateStr = date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
@@ -92,6 +124,11 @@ export function ReviewPanel({ session, nativeLanguage, settings, onBack, onDelet
           </span>
           <span className="text-[var(--text-secondary)]">{dateStr} {timeStr}</span>
           <span className="text-[var(--text-secondary)]">{session.msg_count} msgs</span>
+          {cefrAssessed && (
+            <span className="text-xs px-2 py-0.5 rounded-full bg-[var(--primary)] text-[var(--text-bubble-user)] font-medium">
+              {t("cefrAssessed", nativeLanguage)}: {cefrAssessed}
+            </span>
+          )}
         </div>
         <button
           onClick={() => onDelete(session.id)}
