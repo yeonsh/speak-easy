@@ -13,9 +13,12 @@ Supports **16 languages** — English, Spanish, French, Chinese, Japanese, Germa
 - **Replay** — re-listen to any message (yours or the assistant's) via TTS
 - **Translate** — one-tap translation of assistant messages into your native language, pre-fetched during TTS playback for instant display
 - **Word Lookup** — click any target-language word for instant dictionary lookup; select multiple words for contextual explanation with grammar and examples
+- **Personal Dictionary** — save looked-up words to your dictionary; browse by language, replay pronunciation, and delete entries
 - **Sample Responses** — get 2 suggested replies with native language translations
 - **AI Tutor** — speak in your native language to get translations into the target language
-- **External LLM** — use Gemini API as an alternative to local LLM; uses flash-lite for word lookups to minimize cost
+- **CEFR Difficulty** — set your proficiency level (A1–C2) per language; AI adapts vocabulary and grammar complexity accordingly
+- **Speaking Courage** — gamified scoring that tracks word count, turn count, complexity, and response speed across sessions
+- **External LLM** — use Gemini API or any OpenAI-compatible endpoint as an alternative to local LLM
 - **Dual TTS Engine** — Edge TTS (online, high quality) or Kokoro (offline, fully private); switchable in settings
 - **Web Interface** — access from any device on your network via built-in Axum web server (port 3456); ideal for remote practice over Tailscale
 - **Streaming TTS** — sentence-by-sentence audio with natural pauses between sentences
@@ -34,7 +37,7 @@ Built with [Tauri 2](https://v2.tauri.app/) (Rust backend + React frontend) and 
 | **LLM** | Conversation | [llama.cpp](https://github.com/ggml-org/llama.cpp) (`llama-server` sidecar) or [Gemini API](https://ai.google.dev/) |
 | **TTS** | Text-to-speech | [Edge TTS](https://github.com/BreakingOnTheEdge/msedge-tts) (online) or [Kokoro](https://github.com/thewh1teagle/kokoro-onnx) (offline) |
 | **Web** | Remote access | [Axum](https://github.com/tokio-rs/axum) HTTP/WebSocket server with shared state |
-| **Dictionary** | Word lookup cache | SQLite via `rusqlite` |
+| **Dictionary** | Word lookup cache + personal vocabulary | SQLite via `rusqlite` |
 
 ## Prerequisites
 
@@ -107,7 +110,9 @@ src-tauri/src/                # Rust backend
   llm.rs                      # llama-server lifecycle management
   chat.rs                     # Streaming chat + TTS pipeline, explain/suggest/lookup commands
   gemini.rs                   # Gemini API integration (streaming + non-streaming)
-  dictionary.rs               # SQLite dictionary cache for word lookups
+  dictionary.rs               # SQLite dictionary cache + personal vocabulary store
+  courage.rs                  # Speaking courage scoring algorithm and trend analysis
+  session.rs                  # Session persistence and review generation
   stt.rs                      # Whisper transcription with bilingual detection
   tts.rs                      # TTS engine dispatch (Kokoro/Edge), text cleaning, sentence splitting
   edge_tts.rs                 # Edge TTS via msedge-tts (online)
@@ -125,7 +130,7 @@ src-tauri/src/                # Rust backend
 | `~/.speakeasy/voices/` | Kokoro TTS model (`kokoro-v1.0.onnx`) and voice pack (`voices-v1.0.bin`) |
 | `~/.speakeasy/bin/` | Downloaded `llama-server` binary |
 | `~/.speakeasy/settings.json` | User preferences (persisted across sessions) |
-| `~/.speakeasy/dictionary.db` | SQLite cache for word lookups and translations |
+| `~/.speakeasy/dictionary.db` | SQLite cache for word lookups, personal vocabulary, sessions, and courage scores |
 
 ## License
 
