@@ -6,6 +6,8 @@ export type TtsEngine = "kokoro" | "edge";
 
 export type LlmProvider = "local" | "gemini" | "openai-compatible";
 
+export type CefrLevel = "A1" | "A2" | "B1" | "B2" | "C1" | "C2";
+
 export type ConversationMode = "free-talk" | "scenario";
 
 export interface Message {
@@ -39,6 +41,7 @@ export interface AppSettings {
   geminiApiKey: string;
   geminiModel: string;
   customEndpoint: string;
+  cefrLevels: Record<Language, CefrLevel>;
 }
 
 export interface SessionSummary {
@@ -131,4 +134,9 @@ export const DEFAULT_SETTINGS: AppSettings = {
   geminiApiKey: "",
   geminiModel: "gemini-2.5-flash",
   customEndpoint: "http://localhost:1234",
+  cefrLevels: {
+    en: "B1", es: "B1", fr: "B1", zh: "B1", ja: "B1",
+    de: "B1", ko: "B1", pt: "B1", it: "B1", ru: "B1",
+    ar: "B1", hi: "B1", tr: "B1", id: "B1", vi: "B1", pl: "B1",
+  },
 };

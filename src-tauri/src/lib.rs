@@ -122,6 +122,7 @@ pub fn run() {
             session::load_session_messages,
             session::delete_session,
             session::generate_review,
+            session::assess_cefr_level,
             session::calculate_courage_score,
             session::get_courage_history,
         ])

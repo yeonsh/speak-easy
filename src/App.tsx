@@ -13,8 +13,10 @@ import { useStt } from "./hooks/useStt";
 import { useTts } from "./hooks/useTts";
 import { getSystemPrompt, getScenarioStarters } from "./lib/prompts";
 import { t } from "./lib/i18n";
+import { estimateCefrAdjustment } from "./lib/cefrHeuristic";
 import type {
   AppSettings,
+  CefrLevel,
   ConversationMode,
   Language,
   Message,
@@ -53,6 +55,10 @@ function App() {
   const explainCacheRef = useRef<Record<string, string>>({});
   const ttsDoneAtRef = useRef<number | null>(null);
   const responseGapsRef = useRef<number[]>([]);
+  const [effectiveCefrLevel, setEffectiveCefrLevel] = useState<CefrLevel>("B1");
+  const effectiveCefrRef = useRef<CefrLevel>("B1");
+  effectiveCefrRef.current = effectiveCefrLevel;
+  const justEndedSessionIdRef = useRef<string | null>(null);
 
   const saveCurrentSession = useCallback(async () => {
     const msgs = messagesRef.current;
@@ -112,6 +118,12 @@ function App() {
     }
     invoke("save_settings", { newSettings: settings }).catch(() => {});
   }, [settings]);
+
+  // Sync effective CEFR level when language changes or baseline is updated
+  useEffect(() => {
+    const baseline = settings.cefrLevels?.[settings.language] ?? "B1";
+    setEffectiveCefrLevel(baseline as CefrLevel);
+  }, [settings.language, settings.cefrLevels]);
 
   const llm = useLlm();
   const stt = useStt();
@@ -293,6 +305,7 @@ function App() {
       has_review: false,
     };
 
+    justEndedSessionIdRef.current = sessionIdRef.current;
     sessionIdRef.current = crypto.randomUUID();
     sessionStartRef.current = Math.floor(Date.now() / 1000);
     responseGapsRef.current = [];
@@ -309,8 +322,17 @@ function App() {
     responseGapsRef.current = [];
     ttsDoneAtRef.current = null;
     scenarioContextRef.current = null;
+    justEndedSessionIdRef.current = null;
     setMessages([]);
+    setEffectiveCefrLevel(settingsRef.current.cefrLevels?.[settingsRef.current.language] ?? "B1" as CefrLevel);
   }, [saveCurrentSession]);
+
+  const handleCefrCalibrated = useCallback((language: string, level: CefrLevel) => {
+    setSettings((s) => ({
+      ...s,
+      cefrLevels: { ...s.cefrLevels, [language as Language]: level },
+    }));
+  }, []);
 
   const handleScenarioSelect = useCallback((scenario: { description: string; opening: string } | null) => {
     saveCurrentSession();
@@ -418,7 +440,26 @@ function App() {
       isStreamingTtsRef.current = false;
       pendingFullTextRef.current = null;
 
-      const systemPrompt = getSystemPrompt(settings.language, settings.mode, settings.correctionsEnabled, settings.nativeLanguage);
+      // Run CEFR heuristic after accumulating enough user messages
+      const userMsgsSoFar = [...messages.filter((m) => m.role === "user"), userMsg];
+      if (userMsgsSoFar.length >= 5) {
+        const nudged = estimateCefrAdjustment(
+          userMsgsSoFar.map((m) => m.content),
+          effectiveCefrRef.current,
+          settings.language,
+        );
+        if (nudged !== effectiveCefrRef.current) {
+          setEffectiveCefrLevel(nudged);
+        }
+      }
+
+      const systemPrompt = getSystemPrompt(
+        settings.language,
+        settings.mode,
+        settings.correctionsEnabled,
+        settings.nativeLanguage,
+        effectiveCefrRef.current,
+      );
       const allMessages = [
         { role: "system", content: systemPrompt },
         ...messages.filter((m) => m.role !== "system" && m.role !== "tutor").map((m) => ({ role: m.role, content: m.content })),
@@ -588,6 +629,8 @@ function App() {
               geminiModel: settings.geminiModel,
               customEndpoint: settings.customEndpoint,
             }}
+            justEnded={selectedSession?.id === justEndedSessionIdRef.current}
+            onCefrCalibrated={handleCefrCalibrated}
             onBack={() => setSelectedSession(null)}
             onDelete={async (id) => {
               try {

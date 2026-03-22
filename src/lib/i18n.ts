@@ -52,6 +52,18 @@ const strings = {
     it: "Temperatura LLM", ru: "Температура LLM", ar: "حرارة LLM", hi: "LLM तापमान",
     tr: "LLM Sıcaklığı", id: "Suhu LLM", vi: "Nhiệt độ LLM", pl: "Temperatura LLM",
   },
+  cefrLevel: {
+    ko: "학습 레벨", en: "Learning Level", es: "Nivel de Aprendizaje", fr: "Niveau d'Apprentissage",
+    zh: "学习级别", ja: "学習レベル", de: "Lernniveau", pt: "Nível de Aprendizado",
+    it: "Livello di Apprendimento", ru: "Уровень обучения", ar: "مستوى التعلم", hi: "सीखने का स्तर",
+    tr: "Öğrenme Seviyesi", id: "Tingkat Belajar", vi: "Cấp độ học", pl: "Poziom nauki",
+  },
+  cefrAssessed: {
+    ko: "측정된 레벨", en: "Assessed Level", es: "Nivel evaluado", fr: "Niveau évalué",
+    zh: "评估级别", ja: "評価レベル", de: "Bewertetes Niveau", pt: "Nível avaliado",
+    it: "Livello valutato", ru: "Оценённый уровень", ar: "المستوى المُقيَّم", hi: "मूल्यांकित स्तर",
+    tr: "Değerlendirilen Seviye", id: "Tingkat yang Dinilai", vi: "Cấp độ đánh giá", pl: "Oceniony poziom",
+  },
   ttsSpeed: {
     en: "TTS Speed", ko: "음성 속도", es: "Velocidad de TTS", fr: "Vitesse TTS",
     zh: "TTS 语速", ja: "TTS 速度", de: "TTS-Geschwindigkeit", pt: "Velocidade do TTS",
