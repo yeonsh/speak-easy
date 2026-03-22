@@ -196,6 +196,16 @@ const strings = {
     it: "Tutti", ru: "Все", ar: "الكل", hi: "सभी",
     tr: "Tümü", id: "Semua", vi: "Tất cả", pl: "Wszystkie",
   },
+  nativeLangHint: {
+    ko: "{lang}(으)로 말하면 번역해 드려요", en: "Speak in {lang} and I'll translate it",
+    es: "Habla en {lang} y lo traduciré", fr: "Parlez en {lang} et je traduirai",
+    zh: "用{lang}说，我来翻译", ja: "{lang}で話すと翻訳します",
+    de: "Sprechen Sie {lang}, ich übersetze", pt: "Fale em {lang} e eu traduzo",
+    it: "Parla in {lang} e tradurrò", ru: "Говорите на {lang}, я переведу",
+    ar: "تحدث بـ{lang} وسأترجم", hi: "{lang} में बोलें, मैं अनुवाद करूँगा",
+    tr: "{lang} konuşun, çevireceğim", id: "Bicara dalam {lang}, saya terjemahkan",
+    vi: "Nói bằng {lang}, tôi sẽ dịch", pl: "Mów po {lang}, przetłumaczę",
+  },
   setupWizard: {
     en: "Setup Wizard", ko: "초기 설정", es: "Asistente de configuración", fr: "Assistant de configuration",
     zh: "设置向导", ja: "セットアップウィザード", de: "Einrichtungsassistent", pt: "Assistente de configuração",

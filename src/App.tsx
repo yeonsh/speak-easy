@@ -24,7 +24,7 @@ import type {
   NativeLanguage,
   SessionSummary,
 } from "./lib/types";
-import { DEFAULT_SETTINGS } from "./lib/types";
+import { DEFAULT_SETTINGS, LANGUAGE_CONFIG } from "./lib/types";
 
 const KOKORO_LANGUAGES: Language[] = ["en", "es", "fr", "zh", "ja"];
 const ALL_LANGUAGES: Language[] = ["en", "es", "fr", "zh", "ja", "de", "ko", "pt", "it", "ru", "ar", "hi", "tr", "id", "vi", "pl"];
@@ -793,10 +793,22 @@ function App() {
           />
           <TextInput
             disabled={(settings.llmProvider === "local" ? !llm.isServerRunning : settings.llmProvider === "gemini" ? !settings.geminiApiKey : !settings.customEndpoint) || llm.isGenerating}
-            onSubmit={sendToLlm}
+            onSubmit={(text) => {
+              const detected = detectScriptLang(text);
+              if (detected && detected !== settings.language) {
+                handleTutorFlow(text);
+              } else {
+                sendToLlm(text);
+              }
+            }}
             nativeLanguage={settings.nativeLanguage}
           />
         </footer>
+        {messages.length > 0 && (
+          <p className="text-[11px] text-center text-[var(--text-secondary)] opacity-40 pb-2 -mt-1">
+            {t("nativeLangHint", settings.nativeLanguage).replace("{lang}", LANGUAGE_CONFIG[settings.nativeLanguage].nativeName)}
+          </p>
+        )}
 
         <ServerStatus
           isLlmRunning={llm.isServerRunning}
@@ -899,6 +911,34 @@ function CorrectionsToggle({
       {t("corrections", nativeLanguage)}
     </button>
   );
+}
+
+// Detect dominant script of text → language code (null if Latin/ambiguous)
+function detectScriptLang(text: string): Language | null {
+  const stripped = text.replace(/[\s\d\p{P}\p{S}]/gu, "");
+  if (!stripped) return null;
+  const counts: Record<string, number> = {};
+  for (const ch of stripped) {
+    const cp = ch.codePointAt(0)!;
+    let script: string | null = null;
+    if (cp >= 0xAC00 && cp <= 0xD7AF) script = "ko";
+    else if (cp >= 0x3040 && cp <= 0x309F) script = "ja";
+    else if (cp >= 0x30A0 && cp <= 0x30FF) script = "ja";
+    else if (cp >= 0x4E00 && cp <= 0x9FFF) script = "cjk";
+    else if (cp >= 0x0600 && cp <= 0x06FF) script = "ar";
+    else if (cp >= 0x0900 && cp <= 0x097F) script = "hi";
+    else if (cp >= 0x0E00 && cp <= 0x0E7F) script = "th";
+    else if (cp >= 0x0400 && cp <= 0x04FF) script = "ru";
+    else if (cp >= 0x0041 && cp <= 0x024F) script = "latin";
+    if (script) counts[script] = (counts[script] ?? 0) + 1;
+  }
+  const top = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
+  if (!top) return null;
+  const [script, count] = top;
+  if (count / stripped.length < 0.5) return null;
+  if (script === "cjk") return "zh";
+  if (script === "latin") return null; // can't distinguish latin-script languages
+  return script as Language;
 }
 
 function TextInput({
