@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { invoke, listen, isTauri } from "../lib/backend";
-import type { AppSettings, Language, LlmProvider, NativeLanguage, TtsEngine } from "../lib/types";
+import type { AppSettings, CefrLevel, Language, LlmProvider, NativeLanguage, TtsEngine } from "../lib/types";
 import { LANGUAGE_CONFIG } from "../lib/types";
 import { t } from "../lib/i18n";
 
@@ -215,6 +215,26 @@ export function Sidebar({
                 <option key={code} value={code}>
                   {cfg.nativeName} ({cfg.name})
                 </option>
+              ))}
+            </select>
+          </SettingGroup>
+
+          <SettingGroup label={`${t("cefrLevel", settings.nativeLanguage)} (${settings.language.toUpperCase()})`}>
+            <select
+              value={settings.cefrLevels?.[settings.language] ?? "B1"}
+              onChange={(e) =>
+                onSettingsChange({
+                  ...settings,
+                  cefrLevels: {
+                    ...settings.cefrLevels,
+                    [settings.language]: e.target.value as CefrLevel,
+                  },
+                })
+              }
+              className="w-full bg-[var(--bg-elevated)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm"
+            >
+              {(["A1", "A2", "B1", "B2", "C1", "C2"] as CefrLevel[]).map((level) => (
+                <option key={level} value={level}>{level}</option>
               ))}
             </select>
           </SettingGroup>
