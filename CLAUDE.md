@@ -7,6 +7,7 @@ Offline language practice desktop app built with Tauri 2 + React 19 + TypeScript
 - `npm run dev` — Start Vite dev server (frontend only, port 1420)
 - `npm run tauri dev` — Start full Tauri app in dev mode
 - `npm run build` — Build frontend (runs `tsc && vite build`)
+- `npm run serve` — Build frontend + start Tauri dev (full rebuild)
 - `npx tsc --noEmit` — Type-check TypeScript
 - `cd src-tauri && cargo check` — Check Rust compilation
 
@@ -22,6 +23,7 @@ src/                              # React frontend (TypeScript, Tailwind CSS v4)
 │   ├── SetupWizard.tsx           # Model download/installation flow with progress
 │   ├── Sidebar.tsx               # Settings: language, LLM/STT/TTS config, voice preview
 │   ├── CourageScore.tsx          # Gamification dashboard: courage metrics and trends
+│   ├── DictionaryPanel.tsx       # Personal dictionary/vocabulary browsing panel
 │   ├── SessionHistoryPanel.tsx   # Session browsing and selection
 │   ├── ReviewPanel.tsx           # Post-session review with corrections
 │   ├── ServerStatus.tsx          # Bottom status bar (LLM/STT/TTS readiness)
@@ -35,7 +37,9 @@ src/                              # React frontend (TypeScript, Tailwind CSS v4)
 └── lib/
     ├── types.ts                  # Complete type system (Language, Message, AppSettings, etc.)
     ├── prompts.ts                # Per-language system prompts and 20+ scenario starters
-    └── i18n.ts                   # i18n strings for all 16 languages
+    ├── i18n.ts                   # i18n strings for all 16 languages
+    ├── backend.ts                # Tauri/web backend abstraction (invoke, listen, isTauri detection)
+    └── cefrHeuristic.ts          # CEFR level heuristic based on connectives and sentence complexity
 
 src-tauri/                        # Rust backend (Tauri 2)
 ├── Cargo.toml                    # whisper-rs, ort, rusqlite, ureq, msedge-tts, etc.
@@ -53,7 +57,9 @@ src-tauri/                        # Rust backend (Tauri 2)
     ├── downloads.rs              # Model manifest, download with progress events
     ├── edge_tts.rs               # msedge-tts streaming wrapper
     ├── dictionary.rs             # SQLite schema initialization
-    └── settings.rs               # Settings persistence (~/.speakeasy/settings.json)
+    ├── settings.rs               # Settings persistence (~/.speakeasy/settings.json)
+    ├── event_bus.rs              # Broadcast event bus for WebSocket streaming (web mode)
+    └── web.rs                    # Axum HTTP/WebSocket server (web mode alternative to Tauri IPC)
 ```
 
 ## Architecture
@@ -68,6 +74,11 @@ src-tauri/                        # Rust backend (Tauri 2)
 
 - **local**: llama-server sidecar with GGUF models
 - **gemini**: Google Gemini API (requires API key)
+
+### Dual Runtime
+
+- **Tauri mode** (default): Desktop app with native IPC via Tauri commands
+- **Web mode**: Axum HTTP/WebSocket server (`web.rs`) exposes the same backend over REST + WS, with `event_bus.rs` broadcasting streaming events. Frontend uses `backend.ts` to abstract the difference — `invoke()` and `listen()` work in both modes.
 
 ### Data Flow
 
@@ -110,14 +121,14 @@ Weighted algorithm: word count (35%), turn count (25%), complex sentence ratio (
 
 ## Languages
 
-16 supported languages — English, Spanish, Chinese, German, Japanese, French, Italian, Portuguese, Korean, Arabic, Hindi, Turkish, Vietnamese, Thai, Indonesian, Russian — each with per-language system prompts, grammar focus areas, whisper language codes, and TTS voice mappings.
+16 supported languages — English, Spanish, Chinese, German, Japanese, French, Italian, Portuguese, Korean, Arabic, Hindi, Turkish, Vietnamese, Polish, Indonesian, Russian — each with per-language system prompts, grammar focus areas, whisper language codes, and TTS voice mappings.
 
 ## Dependencies
 
 ### Frontend (npm)
 - @tauri-apps/api 2.x, @tauri-apps/plugin-shell 2.x
 - React 19, react-markdown
-- Tailwind CSS 4, Vite 6, TypeScript 5.9
+- Tailwind CSS 4 + @tailwindcss/typography, Vite 6, TypeScript 5.9
 
 ### Backend (Rust/Cargo)
 - tauri 2, tauri-plugin-shell 2
@@ -126,5 +137,7 @@ Weighted algorithm: word count (35%), turn count (25%), complex sentence ratio (
 - rusqlite 0.31 (bundled SQLite for sessions/courage)
 - ureq 3 (HTTP client)
 - msedge-tts 0.2 (Edge TTS fallback)
+- axum 0.8 + tower-http 0.6 (web mode HTTP/WebSocket server)
+- tokio 1 (async runtime)
 - zip 2 (model archive extraction)
 - minimp3 0.5 (audio decoding)

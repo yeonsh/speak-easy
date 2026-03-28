@@ -15,7 +15,7 @@ Supports **16 languages** — English, Spanish, French, Chinese, Japanese, Germa
 - **Word Lookup** — click any target-language word for instant dictionary lookup; select multiple words for contextual explanation with grammar and examples
 - **Personal Dictionary** — save looked-up words to your dictionary; browse by language, replay pronunciation, and delete entries
 - **Sample Responses** — get 2 suggested replies with native language translations
-- **AI Tutor** — speak in your native language to get translations into the target language
+- **AI Tutor** — speak or type in your native language to get translations into the target language (auto-detected)
 - **CEFR Difficulty** — set your proficiency level (A1–C2) per language; AI adapts vocabulary and grammar complexity accordingly
 - **Speaking Courage** — gamified scoring that tracks word count, turn count, complexity, and response speed across sessions
 - **External LLM** — use Gemini API or any OpenAI-compatible endpoint as an alternative to local LLM
@@ -25,7 +25,8 @@ Supports **16 languages** — English, Spanish, French, Chinese, Japanese, Germa
 - **Voice Preview** — hear a sample phrase when selecting a voice in settings
 - **Language Reset** — switching practice language resets conversation and returns to the initial screen
 - **UI Localization** — interface language follows your native language setting (all 16 languages)
-- **Japanese/Chinese support** — MeCab-based kanji-to-kana conversion, CJK punctuation handling
+- **Japanese support** — MeCab-based kanji-to-kana conversion for accurate TTS pronunciation
+- **CJK support** — CJK-aware punctuation handling and word counting
 
 ## Architecture
 
@@ -47,6 +48,9 @@ Built with [Tauri 2](https://v2.tauri.app/) (Rust backend + React frontend) and 
   - macOS: `brew install espeak-ng`
   - Windows: downloaded automatically from the [official release](https://github.com/espeak-ng/espeak-ng/releases)
   - Linux: `sudo apt install espeak-ng` or equivalent
+- **MeCab** (optional) — improves Japanese TTS pronunciation by converting kanji to kana:
+  - macOS: `brew install mecab mecab-ipadic`
+  - Linux: `sudo apt install mecab libmecab-dev mecab-ipadic-utf8`
 - **Tauri 2 system dependencies**:
   - macOS: Xcode Command Line Tools (`xcode-select --install`)
   - Linux: See [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/#linux)
